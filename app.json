@@ -4,7 +4,7 @@
     "slug": "bubble",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icons/bubble-ios-icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,14 +13,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/icons/bubble-ios-icon.png",
         "backgroundColor": "#ffffff"
       }
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/icons/bubble-ios-icon.png"
     },
     "plugins": [
       "expo-router",
@@ -32,10 +32,17 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "splash": {
+      // 여기에 스플래시 화면 설정을 추가하거나 수정합니다.
+      "image": "./assets/images/bg.jpg", // <<< 원하는 이미지 파일 경로로 변경
+      "resizeMode": "cover", // <<< 'cover'(비율 유지하며 꽉 채우기), 'contain'(잘림 없이 다 보여주기) 등 선택
+      "backgroundColor": "#000000" // <<< 이미지가 로드되기 전이나 오류 시 보여줄 배경색 (이미지와 유사한 색 추천)
     }
   }
 }

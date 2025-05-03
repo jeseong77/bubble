@@ -1,39 +1,49 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import React, { useEffect } from "react";
+import { Slot } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useFonts } from "expo-font";
+import {
+  Literata_600SemiBold,
+  Literata_300Light,
+  Literata_400Regular,
+} from "@expo-google-fonts/literata";
+import { useInitialRouteRedirect } from "../hooks/useInitialRouteRedirect"; // Adjust path if needed
 
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  const { isReady: isRoutingReady } = useInitialRouteRedirect();
+
+  const [fontsLoaded, fontError] = useFonts({
+    Literata: Literata_400Regular,
+    "LeagueSpartan-Thin": require("../assets/fonts/LeagueSpartan-Thin.ttf"),
+    "LeagueSpartan-ExtraLight": require("../assets/fonts/LeagueSpartan-ExtraLight.ttf"),
+    "LeagueSpartan-Light": require("../assets/fonts/LeagueSpartan-Light.ttf"),
+    "LeagueSpartan-Regular": require("../assets/fonts/LeagueSpartan-Regular.ttf"),
+    "LeagueSpartan-Medium": require("../assets/fonts/LeagueSpartan-Medium.ttf"),
+    "LeagueSpartan-SemiBold": require("../assets/fonts/LeagueSpartan-SemiBold.ttf"),
+    "LeagueSpartan-Bold": require("../assets/fonts/LeagueSpartan-Bold.ttf"),
+    "LeagueSpartan-ExtraBold": require("../assets/fonts/LeagueSpartan-ExtraBold.ttf"),
+    "LeagueSpartan-Black": require("../assets/fonts/LeagueSpartan-Black.ttf"),
+    "SpaceMono-Regular": require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
+  // Determine overall app readiness
+  const isAppReady = isRoutingReady && (fontsLoaded || fontError);
+
   useEffect(() => {
-    if (loaded) {
+    if (isAppReady) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [isAppReady]);
 
-  if (!loaded) {
-    return null;
-  }
+  useEffect(() => {
+    if (fontError) {
+      console.error("Font loading error:", fontError);
+      // Handle font error appropriately, maybe show a fallback UI
+    }
+  }, [fontError]);
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+  // Render the children routes once the app is ready
+  return <Slot />;
 }
