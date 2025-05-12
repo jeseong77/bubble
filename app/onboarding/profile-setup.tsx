@@ -235,7 +235,7 @@ export default function ProfileSetupScreen() {
     );
     completeProfileSetup();
     setIsSubmitting(false);
-    router.replace("/(app)");
+    router.replace("/(tabs)");
   };
 
   const renderCurrentStepComponent = () => {

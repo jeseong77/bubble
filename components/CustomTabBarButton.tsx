@@ -89,7 +89,7 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
       <Animated.Text
         style={[
           styles.labelText, // Base styles for the label
-          { color: isFocused ? colors.primary : colors.text }, // Dynamic color
+          { color: isFocused ? "#6363D3" : "#333" }, // Dynamic color
           animatedTextStyle, // Animated opacity
         ]}
       >

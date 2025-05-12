@@ -1,42 +1,61 @@
 // app/_layout.tsx
 import React, { useEffect } from "react";
-import { Slot } from "expo-router"; // useRootNavigationState is NOT imported/used
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { Literata_400Regular } from "@expo-google-fonts/literata";
-import { useInitialRouteRedirect } from "../hooks/useInitialRouteRedirect"; // Step 1: Restore import
+import { useInitialRouteRedirect } from "../hooks/useInitialRouteRedirect";
 
 SplashScreen.preventAutoHideAsync();
 
-// AppInitializer Component (can be defined here or imported)
 function AppInitializer() {
   console.log("AppInitializer: Component rendering.");
-  // Call your redirection hook.
   const { isReady: isRoutingLogicProcessed } = useInitialRouteRedirect();
 
   useEffect(() => {
     if (isRoutingLogicProcessed) {
-      console.log("AppInitializer: Routing logic processed. Hiding splash screen.");
-      SplashScreen.hideAsync(); // Hide splash screen once routing is done
+      console.log(
+        "AppInitializer: Routing logic processed. Hiding splash screen."
+      );
+      SplashScreen.hideAsync();
     } else {
       console.log("AppInitializer: Routing logic not yet processed.");
     }
   }, [isRoutingLogicProcessed]);
 
   if (!isRoutingLogicProcessed) {
-    console.log("AppInitializer: Waiting for routing logic processing. Returning null.");
-    // It's important to return null or a loader here,
-    // otherwise <Slot /> might render prematurely before redirection logic takes effect.
-    // The splash screen should still be visible.
+    console.log(
+      "AppInitializer: Waiting for routing logic processing. Returning null."
+    );
     return null;
   }
 
-  console.log("AppInitializer: Routing logic processed. Rendering <Slot />.");
-  return <Slot />;
+  console.log(
+    "AppInitializer: Routing logic processed. Rendering Stack Navigator."
+  );
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen
+        name="(tabs)"
+        options={{
+          headerShown: false,
+          animation: "fade",
+          animationDuration: 400, 
+        }}
+      />
+      <Stack.Screen
+        name="settings"
+        options={{
+          headerShown: false,
+          animation: "flip",
+        }}
+      />
+    </Stack>
+  );
 }
 
-
 export default function RootLayout() {
+  // ... (기존 RootLayout 코드의 나머지 부분은 동일하게 유지) ...
   console.log("RootLayout: Component rendering/re-rendering.");
 
   const [fontsLoaded, fontError] = useFonts({
@@ -56,19 +75,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontError) {
       console.error("RootLayout: Font loading error:", fontError);
-      // If fonts are critical and fail, you might hide splash and show error.
-      // For now, AppInitializer won't render if fonts don't load (see below).
-      // SplashScreen.hideAsync(); // Or handle this error state more gracefully
     }
   }, [fontError]);
 
-  // Wait for fonts before attempting any navigation logic or rendering the app
   if (!fontsLoaded && !fontError) {
     console.log("RootLayout: Fonts not loaded yet. Returning null.");
     return null;
   }
 
-  // If fonts loaded (or errored but we proceed), render AppInitializer
-  console.log("RootLayout: Fonts are ready (loaded or error). Rendering AppInitializer.");
-  return <AppInitializer />; // Render the new component that handles routing
+  console.log("RootLayout: Fonts are ready. Rendering AppInitializer.");
+  return <AppInitializer />;
 }

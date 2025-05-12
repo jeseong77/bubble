@@ -1,9 +1,9 @@
 // hooks/useInitialRouteRedirect.tsx
 import { useEffect, useState } from "react";
 import { useRouter, useSegments } from "expo-router";
-import useAuthStore from "@/stores/authStore";
+import useAuthStore from "@/stores/authStore"; // authStore의 실제 경로를 확인해주세요.
 
-// Helper function (remains the same as before)
+// Helper function (기존과 동일)
 const isCurrentPath = (
   currentSegments: string[],
   targetPath: string
@@ -14,6 +14,7 @@ const isCurrentPath = (
         .split("/")
         .filter((s) => s.length > 0)
     : targetPath.split("/").filter((s) => s.length > 0);
+
   if (targetPathSegments.length === 0) {
     return currentSegments.length === 0;
   }
@@ -24,6 +25,14 @@ const isCurrentPath = (
     (seg, index) => seg === targetPathSegments[index]
   );
 };
+
+// 사용자가 모든 설정을 완료했을 때 리디렉션에서 제외할 경로들의 첫 번째 세그먼트 목록
+const ALLOWED_FIRST_SEGMENTS_WHEN_FULLY_SETUP = [
+  "(tabs)", // 메인 탭 화면 그룹
+  "settings", // 설정 페이지
+  // 여기에 추가적인 허용 경로의 첫 번째 세그먼트를 필요에 따라 추가할 수 있습니다.
+  // 예: 'user-profile', 'notifications' 등
+];
 
 export function useInitialRouteRedirect() {
   const router = useRouter();
@@ -39,11 +48,11 @@ export function useInitialRouteRedirect() {
   const hasCompletedProfileSetup = useAuthStore(
     (state) => state.hasCompletedProfileSetup
   );
-  // const isAuthLoading = useAuthStore((state) => state.isLoading); // Example
+  // const isAuthLoading = useAuthStore((state) => state.isLoading);
 
   useEffect(() => {
     // if (isAuthLoading) {
-    //   console.log("useInitialRouteRedirect: Waiting for auth state to load...");
+    //   console.log("useInitialRouteRedirect: Auth state is loading...");
     //   if (isRedirectLogicCompleted) setIsRedirectLogicCompleted(false);
     //   return;
     // }
@@ -55,68 +64,64 @@ export function useInitialRouteRedirect() {
       try {
         if (!isActive) return;
 
-        const currentPathForLogging = segments.join("/") || "/";
+        const currentPathForLogging = "/" + segments.join("/");
         const currentFirstSegment = segments.length > 0 ? segments[0] : null;
 
         console.log(
           `useInitialRouteRedirect Status: isLoggedIn=${isLoggedIn}, onboarding=${hasCompletedOnboarding}, profileSetup=${hasCompletedProfileSetup}, currentPath='${currentPathForLogging}'`
         );
 
-        // --- MODIFIED LOGIC BELOW ---
         if (!isLoggedIn && currentFirstSegment !== "login") {
-          // Check if NOT in any /login/... path
-          console.log(
-            "Redirecting to /login (User is not logged in and not in login flow)"
-          );
+          console.log("Redirecting to /login");
           if (isActive) router.replace("/login");
         } else if (
           isLoggedIn &&
           !hasCompletedOnboarding &&
-          currentFirstSegment !== "onboarding" // Check if NOT in any /onboarding/... path
+          currentFirstSegment !== "onboarding"
         ) {
-          console.log(
-            "Redirecting to /onboarding (User is logged in, needs onboarding, and not in onboarding flow)"
-          );
+          console.log("Redirecting to /onboarding");
           if (isActive) router.replace("/onboarding");
         } else if (
           isLoggedIn &&
           hasCompletedOnboarding &&
           !hasCompletedProfileSetup &&
-          !isCurrentPath(segments, "/onboarding/profile-setup") // Assuming profile-setup is a specific endpoint or base
+          !isCurrentPath(segments, "/onboarding/profile-setup")
         ) {
-          // If /onboarding/profile-setup itself has sub-routes, this might need segments[0] === 'onboarding' && segments[1] === 'profile-setup' type check
           console.log("Redirecting to /onboarding/profile-setup");
           if (isActive) router.replace("/onboarding/profile-setup");
         } else if (
           isLoggedIn &&
           hasCompletedOnboarding &&
           hasCompletedProfileSetup &&
-          currentFirstSegment !== "(app)" // Assuming main app routes are under an (app) group
-          // and you want to redirect if not already in that group.
-          // If your main app isn't in a group, adjust this check.
+          currentFirstSegment && // 현재 경로의 첫 번째 세그먼트가 존재하고
+          !ALLOWED_FIRST_SEGMENTS_WHEN_FULLY_SETUP.includes(currentFirstSegment) // 허용된 경로 목록에 없다면
         ) {
           console.log(
-            "Redirecting to /(app) (User is fully set up, redirecting to main app area)"
+            `Redirecting to /(tabs) (User is fully set up, currentPath='${currentPathForLogging}' is not in allowed list [${ALLOWED_FIRST_SEGMENTS_WHEN_FULLY_SETUP.join(
+              ", "
+            )}])`
           );
-          if (isActive) router.replace("/(app)"); // Or specific home like "/(app)/home"
+          if (isActive) router.replace("/(tabs)");
         } else {
-          console.log(
-            "No redirect needed or already on an appropriate screen for the current state."
-          );
+          console.log("No redirect needed or on an allowed screen.");
         }
       } catch (e) {
         console.error("Error during redirection logic:", e);
       } finally {
         if (isActive) {
           setIsRedirectLogicCompleted(true);
+          console.log("useInitialRouteRedirect: Redirection logic completed.");
         }
       }
     };
 
-    checkStatusAndRedirect();
+    if (segments) {
+      checkStatusAndRedirect();
+    }
 
     return () => {
       isActive = false;
+      console.log("useInitialRouteRedirect: useEffect cleanup.");
     };
   }, [
     router,
