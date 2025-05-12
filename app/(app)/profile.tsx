@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 
-function explore() {
+function profile() {
   return (
     <View>
       
@@ -9,4 +9,4 @@ function explore() {
   );
 }
 
-export default explore;
+export default profile;
