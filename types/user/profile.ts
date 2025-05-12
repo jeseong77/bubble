@@ -14,6 +14,7 @@ export interface ProfileFormData {
   height: number | null;
   mbti: string | null;
   gender: string;
+  genderVisibleOnProfile: boolean;
   aboutMe: string;
-  images: ProfileImage[];
+  images: (ProfileImage | null)[];
 }

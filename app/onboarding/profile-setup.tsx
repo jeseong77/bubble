@@ -9,17 +9,18 @@ import {
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import CustomAppBar from "@/components/CustomAppBar";
-import { ProfileFormData } from "@/types/user/profile";
+import { ProfileFormData, ProfileImage } from "@/types/user/profile";
 import useAuthStore from "@/stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import NameInputStep from "./profile-setup-steps/NameInputStep";
 import AgeInputStep from "./profile-setup-steps/AgeInputStep";
 import HeightInputStep from "./profile-setup-steps/HeightInputStep";
 import MbtiInputStep from "./profile-setup-steps/MbtiInputStep";
-// import GenderInputStep from './profile-setup-steps/GenderInputStep';
-// import AboutMeInputStep from './profile-setup-steps/AboutMeInputStep';
-// import ImageUploadStep from './profile-setup-steps/ImageUploadStep';
+import GenderInputStep from "./profile-setup-steps/GenderInputStep";
+import AboutMeInputStep from "./profile-setup-steps/AboutMeInputStep";
+import ImageUploadStep from "./profile-setup-steps/ImageUploadStep";
 
+const MAX_IMAGES = 6;
 const TOTAL_STEPS = 7;
 
 const isStepValid = (step: number, data: ProfileFormData): boolean => {
@@ -58,7 +59,7 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
     case 5:
       return !!data.aboutMe;
     case 6:
-      return data.images.length > 0;
+      return data.images && data.images.length >= 2 && data.images[0] !== null && data.images[1] !== null;
     default:
       return false;
   }
@@ -80,6 +81,7 @@ const calculateAge = (birthDate: Date): number => {
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
+
   const [currentStep, setCurrentStep] = useState(0);
   const [profileData, setProfileData] = useState<ProfileFormData>({
     firstName: "",
@@ -91,8 +93,9 @@ export default function ProfileSetupScreen() {
     height: null,
     mbti: "",
     gender: "",
+    genderVisibleOnProfile: true,
     aboutMe: "",
-    images: [],
+    images: Array(MAX_IMAGES).fill(null) as (ProfileImage | null)[],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const completeProfileSetup = useAuthStore(
@@ -156,8 +159,34 @@ export default function ProfileSetupScreen() {
     [updateProfileField]
   );
 
-  // const handleGenderChange = useCallback(...)
-  // const handleAboutMeChange = useCallback(...)
+  const handleGenderChange = useCallback(
+    (genderValue: string) => {
+      updateProfileField("gender", genderValue);
+    },
+    [updateProfileField]
+  );
+
+  const handleGenderVisibilityChange = useCallback(
+    (isVisible: boolean) => {
+      updateProfileField("genderVisibleOnProfile", isVisible);
+    },
+    [updateProfileField]
+  );
+
+  const handleAboutMeChange = useCallback(
+    (text: string) => {
+      updateProfileField("aboutMe", text);
+    },
+    [updateProfileField]
+  );
+
+  const handleImagesChange = useCallback(
+    (newImages: (ProfileImage | null)[]) => {
+      // Use ProfileImage type
+      updateProfileField("images", newImages);
+    },
+    [updateProfileField]
+  );
   // const handleImagesChange = useCallback(...)
 
   const handleNextStep = () => {
@@ -238,8 +267,6 @@ export default function ProfileSetupScreen() {
             onHeightChange={handleHeightChange}
           />
         );
-      // The line below was dead code and is removed as per your request to only touch relevant parts.
-      // return <Text>Step 4: MBTI Input Placeholder</Text>;
       case 3: // Assuming MBTI is step 3
         return (
           <MbtiInputStep
@@ -247,12 +274,30 @@ export default function ProfileSetupScreen() {
             onMbtiChange={handleMbtiChange}
           />
         );
-      case 4:
-        return <Text>Step 5: Gender Input Placeholder</Text>;
-      case 5:
-        return <Text>Step 6: About Me Input Placeholder</Text>;
-      case 6:
-        return <Text>Step 7: Image Upload Placeholder</Text>;
+      case 4: // GENDER STEP
+        return (
+          <GenderInputStep
+            currentGender={profileData.gender}
+            currentVisibility={profileData.genderVisibleOnProfile} // Ensure this field exists in your profileData state
+            onGenderChange={handleGenderChange}
+            onVisibilityChange={handleGenderVisibilityChange}
+          />
+        );
+      case 5: // ABOUT ME STEP
+        return (
+          <AboutMeInputStep
+            currentAboutMe={profileData.aboutMe}
+            onAboutMeChange={handleAboutMeChange}
+          />
+        );
+      case 6: // IMAGE UPLOAD STEP
+        return (
+          <ImageUploadStep
+            currentImages={profileData.images}
+            onImagesChange={handleImagesChange}
+            maxImages={MAX_IMAGES} // Pass maxImages if you made it configurable
+          />
+        );
       default:
         return null;
     }
