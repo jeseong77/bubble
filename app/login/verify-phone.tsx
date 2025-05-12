@@ -5,12 +5,9 @@ import CustomAppBar from "../../components/CustomAppBar";
 import CustomButton from "@/components/CustomButton";
 import { generateVerificationCode } from "@/utils/auth/verification";
 // --- 분리된 컴포넌트 import ---
-import {
-  MobileNumberInputPhase,
-  VerificationCodeInputPhase,
-} from "./verify-phases"; // index.ts 또는 각 파일에서 import
-// --------------------------
-import useAuthStore from "../../stores/authStore"; // Zustand 스토어 import
+import MobileNumberInputPhase from "./verify-phases/MobileNumberInputPhase";
+import VerificationCodeInputPhase from "./verify-phases/VerificationCodeInputPhase";
+import useAuthStore from "../../stores/authStore";
 
 // --- 외부 컴포넌트 정의는 여기에 없어야 합니다 ---
 // interface MobileNumberInputProps { ... }

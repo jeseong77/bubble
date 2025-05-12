@@ -14,8 +14,8 @@ import useAuthStore from "@/stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import NameInputStep from "./profile-setup-steps/NameInputStep";
 import AgeInputStep from "./profile-setup-steps/AgeInputStep";
-// import HeightInputStep from './profile-setup-steps/HeightInputStep';
-// import MbtiInputStep from './profile-setup-steps/MbtiInputStep';
+import HeightInputStep from "./profile-setup-steps/HeightInputStep";
+import MbtiInputStep from "./profile-setup-steps/MbtiInputStep";
 // import GenderInputStep from './profile-setup-steps/GenderInputStep';
 // import AboutMeInputStep from './profile-setup-steps/AboutMeInputStep';
 // import ImageUploadStep from './profile-setup-steps/ImageUploadStep';
@@ -49,7 +49,10 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
     case 2:
       return data.height !== null && data.height > 0;
     case 3:
-      return !!data.mbti;
+      return (
+        data.mbti === null ||
+        (typeof data.mbti === "string" && data.mbti.length === 4)
+      );
     case 4:
       return !!data.gender;
     case 5:
@@ -139,9 +142,20 @@ export default function ProfileSetupScreen() {
     [updateProfileField]
   );
 
-  // Define other handlers using useCallback as needed for other steps...
-  // const handleHeightChange = useCallback(...)
-  // const handleMbtiChange = useCallback(...)
+  const handleHeightChange = useCallback(
+    (newHeight: number) => {
+      updateProfileField("height", newHeight);
+    },
+    [updateProfileField]
+  );
+
+  const handleMbtiChange = useCallback(
+    (value: string | null) => {
+      updateProfileField("mbti", value);
+    },
+    [updateProfileField]
+  );
+
   // const handleGenderChange = useCallback(...)
   // const handleAboutMeChange = useCallback(...)
   // const handleImagesChange = useCallback(...)
@@ -217,10 +231,22 @@ export default function ProfileSetupScreen() {
             onYearChange={handleBirthYearChange} // <<< year 변경 핸들러 전달
           />
         );
-      case 2:
-        return <Text>Step 3: Height Input Placeholder</Text>;
-      case 3:
-        return <Text>Step 4: MBTI Input Placeholder</Text>;
+      case 2: // This is the Height Input Step
+        return (
+          <HeightInputStep
+            initialHeightCm={profileData.height ?? undefined} // Use initialHeightCm and handle null case
+            onHeightChange={handleHeightChange}
+          />
+        );
+      // The line below was dead code and is removed as per your request to only touch relevant parts.
+      // return <Text>Step 4: MBTI Input Placeholder</Text>;
+      case 3: // Assuming MBTI is step 3
+        return (
+          <MbtiInputStep
+            currentMbti={profileData.mbti}
+            onMbtiChange={handleMbtiChange}
+          />
+        );
       case 4:
         return <Text>Step 5: Gender Input Placeholder</Text>;
       case 5:
@@ -271,12 +297,13 @@ export default function ProfileSetupScreen() {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: "#f0f0f0f0",
+    backgroundColor: "#f0f0f0",
   },
   contentContainer: {
     flex: 1,
   },
   bottomButtonContainer: {
+    position: "absolute",
     bottom: 0,
     right: 0,
     paddingBottom: 16,

@@ -12,7 +12,7 @@ export interface ProfileFormData {
   birthMonth: string;
   birthYear: string;
   height: number | null;
-  mbti: string;
+  mbti: string | null;
   gender: string;
   aboutMe: string;
   images: ProfileImage[];

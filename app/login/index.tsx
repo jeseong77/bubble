@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import CustomButton from "@/components/CustomButton";
 
-const loginBgImage = require("../../assets/images/bg.jpg");
+const loginBgImage = require("../../assets/images/bg.png");
 
 export default function LoginScreen() {
   const router = useRouter();

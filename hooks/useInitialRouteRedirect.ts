@@ -1,87 +1,114 @@
+// hooks/useInitialRouteRedirect.tsx
 import { useEffect, useState } from "react";
 import { useRouter, useSegments } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import useAuthStore from "@/stores/authStore"; // 경로 확인
+import useAuthStore from "@/stores/authStore";
+
+// Helper function (remains the same as before)
+const isCurrentPath = (
+  currentSegments: string[],
+  targetPath: string
+): boolean => {
+  const targetPathSegments = targetPath.startsWith("/")
+    ? targetPath
+        .substring(1)
+        .split("/")
+        .filter((s) => s.length > 0)
+    : targetPath.split("/").filter((s) => s.length > 0);
+  if (targetPathSegments.length === 0) {
+    return currentSegments.length === 0;
+  }
+  if (currentSegments.length !== targetPathSegments.length) {
+    return false;
+  }
+  return currentSegments.every(
+    (seg, index) => seg === targetPathSegments[index]
+  );
+};
 
 export function useInitialRouteRedirect() {
   const router = useRouter();
-  const segments = useSegments();
-  const [isReady, setIsReady] = useState(false);
+  const segments: string[] = useSegments();
+
+  const [isRedirectLogicCompleted, setIsRedirectLogicCompleted] =
+    useState(false);
+
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const hasCompletedOnboarding = useAuthStore(
     (state) => state.hasCompletedOnboarding
   );
-  // --- 프로필 설정 완료 상태 가져오기 ---
   const hasCompletedProfileSetup = useAuthStore(
     (state) => state.hasCompletedProfileSetup
   );
-  // ------------------------------------
+  // const isAuthLoading = useAuthStore((state) => state.isLoading); // Example
 
   useEffect(() => {
+    // if (isAuthLoading) {
+    //   console.log("useInitialRouteRedirect: Waiting for auth state to load...");
+    //   if (isRedirectLogicCompleted) setIsRedirectLogicCompleted(false);
+    //   return;
+    // }
+
+    console.log("useInitialRouteRedirect: Evaluating redirection logic.");
     let isActive = true;
 
-    const checkStatusAndRedirect = async () => {
+    const checkStatusAndRedirect = () => {
       try {
         if (!isActive) return;
 
+        const currentPathForLogging = segments.join("/") || "/";
         const currentFirstSegment = segments.length > 0 ? segments[0] : null;
-        const isOnboardingScreen = currentFirstSegment === "onboarding";
-        const isLoginScreen = currentFirstSegment === "login";
-        const isInAppGroup = currentFirstSegment === "(app)";
-        // --- 프로필 설정 화면 경로 확인 추가 ---
-        const isProfileSetupScreen =
-          segments.join("/") === "onboarding/profile-setup"; // 경로 확인!
-        // ----------------------------------
 
         console.log(
-          `Status Check: isLoggedIn=${isLoggedIn}, hasCompletedOnboarding=${hasCompletedOnboarding}, hasCompletedProfileSetup=${hasCompletedProfileSetup}, currentSegment=${currentFirstSegment}`
+          `useInitialRouteRedirect Status: isLoggedIn=${isLoggedIn}, onboarding=${hasCompletedOnboarding}, profileSetup=${hasCompletedProfileSetup}, currentPath='${currentPathForLogging}'`
         );
 
-        // --- 리디렉션 로직 업데이트 ---
-        if (!isLoggedIn && !isLoginScreen) {
-          console.log("Redirecting to /login (Not logged in)");
-          router.replace("/login");
+        // --- MODIFIED LOGIC BELOW ---
+        if (!isLoggedIn && currentFirstSegment !== "login") {
+          // Check if NOT in any /login/... path
+          console.log(
+            "Redirecting to /login (User is not logged in and not in login flow)"
+          );
+          if (isActive) router.replace("/login");
         } else if (
           isLoggedIn &&
           !hasCompletedOnboarding &&
-          !isOnboardingScreen
+          currentFirstSegment !== "onboarding" // Check if NOT in any /onboarding/... path
         ) {
           console.log(
-            "Redirecting to /onboarding (Logged in, onboarding needed)"
+            "Redirecting to /onboarding (User is logged in, needs onboarding, and not in onboarding flow)"
           );
-          router.replace("/onboarding");
+          if (isActive) router.replace("/onboarding");
         } else if (
           isLoggedIn &&
           hasCompletedOnboarding &&
-          !hasCompletedProfileSetup && // <<< 프로필 설정 안됨 조건 추가
-          !isProfileSetupScreen // <<< 현재 프로필 설정 화면이 아닐 때만 이동
+          !hasCompletedProfileSetup &&
+          !isCurrentPath(segments, "/onboarding/profile-setup") // Assuming profile-setup is a specific endpoint or base
         ) {
-          console.log(
-            "Redirecting to /onboarding/profile-setup (Logged in, onboarded, profile setup needed)"
-          );
-          router.replace("/onboarding/profile-setup"); // <<< 프로필 설정 화면 경로
+          // If /onboarding/profile-setup itself has sub-routes, this might need segments[0] === 'onboarding' && segments[1] === 'profile-setup' type check
+          console.log("Redirecting to /onboarding/profile-setup");
+          if (isActive) router.replace("/onboarding/profile-setup");
         } else if (
           isLoggedIn &&
           hasCompletedOnboarding &&
-          hasCompletedProfileSetup && // <<< 프로필 설정 완료 조건 추가
-          !isInAppGroup
+          hasCompletedProfileSetup &&
+          currentFirstSegment !== "(app)" // Assuming main app routes are under an (app) group
+          // and you want to redirect if not already in that group.
+          // If your main app isn't in a group, adjust this check.
         ) {
           console.log(
-            "Redirecting to /(app) (Logged in, onboarded, profile setup done)"
+            "Redirecting to /(app) (User is fully set up, redirecting to main app area)"
           );
-          router.replace("/(app)");
+          if (isActive) router.replace("/(app)"); // Or specific home like "/(app)/home"
         } else {
-          console.log("No redirect needed.");
+          console.log(
+            "No redirect needed or already on an appropriate screen for the current state."
+          );
         }
-        // --------------------------
       } catch (e) {
-        console.error("Initialization error:", e);
-        if (isActive && segments.length > 0 && segments[0] !== "login") {
-          router.replace("/login");
-        }
+        console.error("Error during redirection logic:", e);
       } finally {
         if (isActive) {
-          setIsReady(true);
+          setIsRedirectLogicCompleted(true);
         }
       }
     };
@@ -91,15 +118,14 @@ export function useInitialRouteRedirect() {
     return () => {
       isActive = false;
     };
-    // --- 의존성 배열에 hasCompletedProfileSetup 추가 ---
   }, [
     router,
     segments,
     isLoggedIn,
     hasCompletedOnboarding,
     hasCompletedProfileSetup,
+    // isAuthLoading,
   ]);
-  // ----------------------------------------------
 
-  return { isReady };
+  return { isReady: isRedirectLogicCompleted };
 }
