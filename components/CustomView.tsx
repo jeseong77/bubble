@@ -22,7 +22,6 @@ const CustomView: React.FC<CustomViewProps> = ({
   let bottomTabBarHeight = 0;
 
   try {
-    // 하단 탭 바의 높이를 가져옵니다. 오류 발생 시 0으로 처리합니다.
     bottomTabBarHeight = useBottomTabBarHeight();
   } catch (e) {
     console.warn(

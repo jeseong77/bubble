@@ -12,6 +12,7 @@ import Animated, {
   SharedValue,
 } from "react-native-reanimated";
 import { useAppTheme } from "@/hooks/useAppTheme"; // 테마 훅 경로 확인
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 프로필 이미지 및 정보 (목업 데이터)
 const MOCK_PROFILE_IMAGE_URI = require('../assets/images/guy.png')
@@ -168,13 +169,13 @@ const ProfileHero: React.FC = () => {
   const DURATION_RANGE_MS: [number, number] = [3000, 7000]; // 애니메이션 지속 시간 범위
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: 60 }]}>
       {/* 떠다니는 공들 - 배경 */}
       {/* 다양한 크기와 초기 위치, 딜레이를 가진 공들을 배치합니다. */}
       <FloatingBubble
         size={80}
         initialX={-100}
-        initialY={-30}
+        initialY={-40}
         delay={0}
         xRange={BUBBLE_X_RANGE}
         yRange={BUBBLE_Y_RANGE}
@@ -222,7 +223,7 @@ const ProfileHero: React.FC = () => {
         style={[styles.profileImageContainer, { borderColor: colors.primary }]}
       >
         <Image
-          source={require('../assets/images/guy.png')}
+          source={require("../assets/images/guy.png")}
           style={styles.profileImage}
         />
       </View>
@@ -243,7 +244,6 @@ const ProfileHero: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    paddingTop: 60, // 앱바 등을 고려한 상단 패딩 (조정 필요)
     paddingBottom: 30,
     position: "relative", // 공들을 위한 기준점
     width: "100%",

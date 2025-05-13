@@ -24,6 +24,7 @@ import ProfileHero from "@/components/ProfileHero";
 import ProfileTab, { TabInfo } from "@/components/ProfileTab";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker"; // ImagePicker 임포트
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 목업 프로필 데이터 (images 필드는 currentImages 상태로 관리)
 const mockProfileData: ProfileFormData = {
@@ -57,6 +58,7 @@ function ProfileScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const bottomHeight = useBottomTabBarHeight();
+  const topPadding = useSafeAreaInsets().top + 56;
   // girl2Image, logoSource는 현재 JSX에서 직접 사용되지 않지만 유지
   const girl2Image = require("../../assets/images/girl4.png");
   const logoSource = require("../../assets/images/logo.png");
@@ -65,8 +67,6 @@ function ProfileScreen() {
 
   // [추가] 이미지 상태 관리
   const [currentImages, setCurrentImages] = useState<(ProfileImage | null)[]>(
-    // mockProfileData의 images를 사용하거나, MAX_IMAGES_DEFAULT 만큼 null로 초기화
-    // 여기서는 mockProfileData.images가 ProfileFormData 타입에 맞게 (ProfileImage | null)[] 라고 가정
     mockProfileData.images.slice(0, MAX_IMAGES_DEFAULT)
   );
 
@@ -84,7 +84,8 @@ function ProfileScreen() {
   // [추가] 이미지 그리드 레이아웃 계산
   const screenWidth = Dimensions.get("window").width;
   // "Edit Profile" 탭 콘텐츠 전체의 좌우 패딩 (styles.editProfileTabContent.paddingHorizontal과 일치)
-  const contentPaddingHorizontal = 20;
+  const contentPaddingHorizontal =
+    styles.editProfileTabContent.paddingHorizontal; // StyleSheet 참조
   const itemGap = 10; // 슬롯 간 간격
   const totalGapSpace = itemGap * (NUM_COLUMNS - 1);
   const itemSize =
@@ -113,8 +114,6 @@ function ProfileScreen() {
         const updatedImages = [...currentImages];
         updatedImages[index] = newProfileImage;
         setCurrentImages(updatedImages);
-        // TODO: 변경된 updatedImages를 mockProfileData (또는 실제 데이터 소스)에 반영하는 로직 필요
-        // 예: mockProfileData.images = updatedImages; (직접 수정은 권장되지 않음)
       }
     } catch (error) {
       console.error("ImagePicker Error: ", error);
@@ -122,7 +121,6 @@ function ProfileScreen() {
     }
   };
 
-  // [추가] 이미지 제거 로직
   const handleRemoveImage = (index: number) => {
     Alert.alert("Remove Image", "Are you sure you want to remove this image?", [
       { text: "Cancel", style: "cancel" },
@@ -133,7 +131,6 @@ function ProfileScreen() {
           const updatedImages = [...currentImages];
           updatedImages[index] = null;
           setCurrentImages(updatedImages);
-          // TODO: 변경된 updatedImages를 mockProfileData에 반영
         },
       },
     ]);
@@ -142,22 +139,21 @@ function ProfileScreen() {
   // [추가] 각 이미지 슬롯 렌더링 함수
   const renderImageSlot = (index: number) => {
     const imageAsset = currentImages[index];
-    // const isRequired = index < 2; // 프로필 사진에 'Required' 표시는 일단 제외
 
     return (
       <View
         key={index}
         style={[
-          styles.imageSlotContainer,
+          styles.imageSlotContainer, // StyleSheet 참조
           { width: itemSize, height: itemSize },
         ]}
       >
         <TouchableOpacity
           style={[
-            styles.imageSlotButton,
+            styles.imageSlotButton, // StyleSheet 참조
             {
               borderColor: colors.outlineVariant,
-              backgroundColor: colors.surface, // 테마에 맞는 배경색
+              backgroundColor: colors.surface, // 이전 답변에서 surfaceContainerHighest 대신 surface로 변경
             },
           ]}
           onPress={() =>
@@ -168,13 +164,13 @@ function ProfileScreen() {
           {imageAsset ? (
             <Image
               source={{ uri: imageAsset.uri }}
-              style={styles.imagePreview}
+              style={styles.imagePreview} // StyleSheet 참조
             />
           ) : (
             <>
               <Text
                 style={[
-                  styles.imageSlotNumber,
+                  styles.imageSlotNumber, // StyleSheet 참조
                   { color: colors.onSurfaceVariant },
                 ]}
               >
@@ -183,7 +179,7 @@ function ProfileScreen() {
               <View style={styles.imagePlusIconContainer}>
                 <Ionicons
                   name="add-circle-outline"
-                  size={Math.min(itemSize * 0.3, 32)} // 아이콘 크기를 슬롯 크기에 비례하게 조절
+                  size={Math.min(itemSize * 0.3, 32)}
                   color={colors.onSurfaceVariant}
                 />
               </View>
@@ -194,8 +190,8 @@ function ProfileScreen() {
           <TouchableOpacity
             onPress={() => handleRemoveImage(index)}
             style={[
-              styles.removeImageIconContainer,
-              { backgroundColor: colors.background }, // 배경과 동일하게 하여 아이콘만 보이도록
+              styles.removeImageIconContainer, // StyleSheet 참조
+              { backgroundColor: colors.background },
             ]}
           >
             <Ionicons
@@ -213,7 +209,7 @@ function ProfileScreen() {
     <View style={styles.profileDetailsContainer}>
       <View
         style={[
-          styles.detailItem,
+          styles.detailItem, // StyleSheet 참조
           { borderBottomColor: colors.outlineVariant },
         ]}
       >
@@ -226,7 +222,7 @@ function ProfileScreen() {
       </View>
       <View
         style={[
-          styles.detailItem,
+          styles.detailItem, // StyleSheet 참조
           { borderBottomColor: colors.outlineVariant },
         ]}
       >
@@ -239,7 +235,7 @@ function ProfileScreen() {
       </View>
       <View
         style={[
-          styles.detailItem,
+          styles.detailItem, // StyleSheet 참조
           { borderBottomColor: colors.outlineVariant },
         ]}
       >
@@ -252,7 +248,7 @@ function ProfileScreen() {
       </View>
       <View
         style={[
-          styles.detailItem,
+          styles.detailItem, // StyleSheet 참조
           { borderBottomColor: colors.outlineVariant },
         ]}
       >
@@ -265,7 +261,7 @@ function ProfileScreen() {
       </View>
       <View
         style={[
-          styles.detailItem,
+          styles.detailItem, // StyleSheet 참조
           { borderBottomColor: colors.outlineVariant },
         ]}
       >
@@ -278,7 +274,7 @@ function ProfileScreen() {
       </View>
       <View
         style={[
-          styles.detailItem,
+          styles.detailItem, // StyleSheet 참조
           { borderBottomColor: colors.outlineVariant },
         ]}
       >
@@ -291,10 +287,10 @@ function ProfileScreen() {
       </View>
       <View
         style={[
-          styles.detailItem,
+          styles.detailItem, // StyleSheet 참조
           {
-            borderBottomColor: colors.outlineVariant,
-            borderBottomWidth: 1,
+            borderBottomColor: colors.outlineVariant, // 마지막 아이템에도 선이 보이도록 borderBottomWidth:1 유지
+            borderBottomWidth: 1, // 명시적으로 1로 설정 (이전 코드에서 마지막은 0이었음)
           },
         ]}
       >
@@ -312,12 +308,14 @@ function ProfileScreen() {
     if (activeTab === "bubblePro") {
       return (
         <View style={styles.tabContentPlaceholder}>
+          {/* StyleSheet 참조 */}
           <Text style={{ color: colors.onBackground }}>Bubble Pro Content</Text>
         </View>
       );
     } else if (activeTab === "myBubble") {
       return (
         <View style={styles.tabContentPlaceholder}>
+          {/* StyleSheet 참조 */}
           <Text style={{ color: colors.onBackground }}>My Bubble Content</Text>
         </View>
       );
@@ -325,8 +323,10 @@ function ProfileScreen() {
       // "Edit Profile" 탭
       return (
         <View style={styles.editProfileTabContent}>
+          {/* StyleSheet 참조 */}
           {/* 이미지 입력 그리드 */}
           <View style={styles.imageGridContainer}>
+            {/* StyleSheet 참조 */}
             {Array.from({ length: MAX_IMAGES_DEFAULT }).map((_, index) =>
               renderImageSlot(index)
             )}
@@ -356,7 +356,7 @@ function ProfileScreen() {
         rightComponent={
           <TouchableOpacity
             onPress={navigateToSettings}
-            style={styles.appBarIconButton}
+            style={styles.appBarIconButton} // StyleSheet 참조
           >
             <Ionicons
               name="settings-outline"
@@ -366,11 +366,14 @@ function ProfileScreen() {
           </TouchableOpacity>
         }
         background={true}
-        blurIntensity={10}
+        blurIntensity={70} // 사용자가 제공한 값 (이전엔 10)
         extendStatusBar
       />
       <ScrollView
-        style={[styles.container, { marginBottom: bottomHeight }]}
+        style={[
+          styles.container,
+          { marginBottom: bottomHeight, paddingTop: topPadding },
+        ]} // StyleSheet 참조
         showsVerticalScrollIndicator={false}
       >
         <ProfileHero />
@@ -379,11 +382,16 @@ function ProfileScreen() {
           activeTabId={activeTab}
           onTabPress={(tabId) => handleTabChange(tabId)}
         />
-        <View>{renderTabContent()}</View>
+        {/* SafeAreaView를 제거하고, Tab Content의 루트 View에서 패딩을 관리하도록 변경 */}
+        {/* 이전에는 renderTabContent() 결과를 View로 한번 더 감쌌었음 */}
+        {renderTabContent()}
       </ScrollView>
     </CustomView>
   );
 }
+
+// StyleSheet.create(...)는 이 아래에 위치합니다.
+// ... (기존 StyleSheet 코드는 여기에 그대로 유지됩니다) ...
 
 const styles = StyleSheet.create({
   container: {

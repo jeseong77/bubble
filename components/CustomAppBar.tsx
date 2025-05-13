@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-const APPBAR_CONTENT_HEIGHT = 56; // AppBar 콘텐츠 영역의 실제 높이
+const APPBAR_CONTENT_HEIGHT = 56;
 
 interface CustomAppBarProps {
   showBackButton?: boolean;
@@ -30,9 +30,9 @@ interface CustomAppBarProps {
   leftComponent?: React.ReactNode;
   rightComponent?: React.ReactNode;
   style?: ViewStyle;
-  background?: boolean;
+  background?: boolean; // true일 때 BlurView 배경 및 'absolute' 포지셔닝 활성화
   blurIntensity?: number;
-  extendStatusBar?: boolean; // <-- [추가] 상태 표시줄 영역까지 배경 확장 여부 prop
+  extendStatusBar?: boolean; // 상태 표시줄 영역까지 배경 확장 여부 prop
 }
 
 const CustomAppBar: React.FC<CustomAppBarProps> = ({
@@ -46,26 +46,23 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
   leftComponent,
   rightComponent,
   style,
-  background = false,
+  background = false, // 기본값 false
   blurIntensity = Platform.OS === "ios" ? 70 : 100,
-  extendStatusBar = false, // <-- [추가] 기본값은 false
+  extendStatusBar = false, // 기본값 false
 }) => {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
 
-  const defaultContentColor = background
+  const defaultContentColor = background // 'background' prop이 true (블러 배경)일 때 콘텐츠 색상 결정
     ? colors.onPrimary
     : colors.onBackground;
 
   const finalBackIconColor = backIconColorProp || defaultContentColor;
 
-  // extendStatusBar prop 값에 따라 실제 상단 inset과 패딩 결정
   const topInsetForBackground = extendStatusBar ? insets.top : 0;
   const appBarTotalHeight = APPBAR_CONTENT_HEIGHT + topInsetForBackground;
-  const appBarContentPaddingTop = extendStatusBar
-    ? insets.top
-    : 0;
+  const appBarContentPaddingTop = extendStatusBar ? insets.top : 0;
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -102,30 +99,35 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
     <View style={styles.sideItemContainer}>{rightComponent}</View>
   );
 
+  // 'background' prop이 true일 때만 절대 위치 스타일(appBarAbsoluteBase) 적용
+  const baseStyle = background ? styles.appBarAbsoluteBase : {};
+
   return (
     <View // 메인 AppBar 컨테이너
       style={[
-        // 기본 스타일: 높이, 내부 콘텐츠 정렬 등
+        baseStyle, // background prop에 따라 절대 위치 스타일 또는 빈 객체 적용
         {
-          height: appBarTotalHeight, // 전체 높이 계산 값 적용
-          paddingTop: appBarContentPaddingTop, // 콘텐츠 영역 상단 패딩 계산 값 적용
+          height: appBarTotalHeight,
+          paddingTop: appBarContentPaddingTop,
           flexDirection: "row",
-          alignItems: "center", // AppBar 콘텐츠 영역 내에서 아이템들을 수직 중앙 정렬
+          alignItems: "center",
           justifyContent: "space-between",
-          paddingHorizontal: 10, // 좌우 패딩
+          paddingHorizontal: 10,
         },
-        style, // 사용자가 전달한 스타일
-        background ? { backgroundColor: "transparent" } : {}, // BlurView 사용 시 배경 투명 처리
+        style, // 사용자가 전달한 스타일 (position, zIndex 등 덮어쓰기 가능)
+        // background가 true일 때만 backgroundColor를 transparent로 설정 (BlurView 위함)
+        // background가 false이면, 이 객체는 아무것도 하지 않으므로,
+        // 사용자의 style prop이나 다른 스타일에서 배경색을 설정할 수 있음.
+        background ? { backgroundColor: "transparent" } : {},
       ]}
     >
-      {background && (
+      {background && ( // background가 true일 때만 BlurView 렌더링
         <BlurView
           intensity={blurIntensity}
           tint={isDark ? "dark" : "light"}
-          style={StyleSheet.absoluteFill} // 전체 AppBar 컨테이너(상태 표시줄 영역 포함 또는 미포함)를 채움
+          style={StyleSheet.absoluteFill}
         />
       )}
-      {/* 콘텐츠는 paddingTop 이후의 공간에 렌더링됨 */}
       {renderLeft()}
       {title && (
         <Text
@@ -141,11 +143,19 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
 };
 
 const styles = StyleSheet.create({
+  appBarAbsoluteBase: {
+    // 'background={true}'일 때 적용될 절대 위치 스타일
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
   sideItemContainer: {
     justifyContent: "center",
     alignItems: "center",
     minWidth: 44,
-    height: APPBAR_CONTENT_HEIGHT, // 컨테이너 높이를 콘텐츠 높이와 일치시켜 아이템 정렬 용이
+    height: APPBAR_CONTENT_HEIGHT,
   },
   backButton: {
     padding: 10,
@@ -156,8 +166,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginHorizontal: 5,
-    height: APPBAR_CONTENT_HEIGHT, // 제목 영역의 높이
-    lineHeight: APPBAR_CONTENT_HEIGHT, // 텍스트 수직 중앙 정렬을 위함 (근사치)
+    height: APPBAR_CONTENT_HEIGHT,
+    lineHeight: APPBAR_CONTENT_HEIGHT,
   },
 });
 

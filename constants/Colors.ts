@@ -97,7 +97,7 @@ export const Colors = {
 
     // --- Utility Colors (유틸리티 색상) ---
     scrim: "#000000",
-    shadow: "#000000",
+    shadow: "#f0f0f0",
 
     // --- Inverse Colors (반전 색상) ---
     inversePrimary: "#904A43", // 밝은 배경(inverseSurface) 위에 사용될 Primary (라이트 모드의 Primary와 동일).
