@@ -1,4 +1,3 @@
-// GenderInputStep.tsx
 import React from "react";
 import {
   View,
@@ -8,7 +7,8 @@ import {
   SafeAreaView,
   Platform,
 } from "react-native";
-import * as Haptics from "expo-haptics"; // 1. expo-haptics 임포트
+import * as Haptics from "expo-haptics";
+import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
 
 interface GenderInputStepProps {
   currentGender: string | null;
@@ -25,20 +25,28 @@ const GenderInputStep: React.FC<GenderInputStepProps> = ({
   onGenderChange,
   onVisibilityChange,
 }) => {
+  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+
   const handleGenderSelect = (gender: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 2. 햅틱 피드백 추가
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onGenderChange(gender);
   };
 
   const toggleVisibility = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 2. 햅틱 피드백 추가
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onVisibilityChange(!currentVisibility);
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    // safeArea에 동적 배경색 적용
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+    >
       <View style={styles.container}>
-        <Text style={styles.title}>Which gender best describes you?</Text>
+        {/* title에 동적 텍스트 색상 적용 */}
+        <Text style={[styles.title, { color: colors.onBackground }]}>
+          Which gender best describes you?
+        </Text>
 
         <View style={styles.optionsContainer}>
           {GENDERS.map((gender) => {
@@ -46,14 +54,24 @@ const GenderInputStep: React.FC<GenderInputStepProps> = ({
             return (
               <TouchableOpacity
                 key={gender}
-                style={styles.optionButton}
-                onPress={() => handleGenderSelect(gender)} // onPress에서 handleGenderSelect 호출
+                // optionButton에 동적 테두리 하단 색상 적용
+                style={[
+                  styles.optionButton,
+                  { borderBottomColor: colors.outlineVariant },
+                ]}
+                onPress={() => handleGenderSelect(gender)}
                 activeOpacity={0.7}
               >
                 <Text
                   style={[
                     styles.optionText,
-                    isSelected && styles.selectedOptionText,
+                    // optionText (비활성 시) 동적 색상 적용
+                    { color: colors.onSurface },
+                    // selectedOptionText (활성 시) 동적 색상 적용
+                    isSelected && [
+                      styles.selectedOptionText,
+                      { color: colors.primary },
+                    ],
                   ]}
                 >
                   {gender}
@@ -61,10 +79,24 @@ const GenderInputStep: React.FC<GenderInputStepProps> = ({
                 <View
                   style={[
                     styles.radioOuter,
-                    isSelected && styles.selectedRadioOuter,
+                    // radioOuter (비활성 시) 동적 테두리 색상 적용
+                    { borderColor: colors.outline },
+                    // selectedRadioOuter (활성 시) 동적 테두리 색상 적용
+                    isSelected && [
+                      styles.selectedRadioOuter,
+                      { borderColor: colors.primary },
+                    ],
                   ]}
                 >
-                  {isSelected && <View style={styles.radioInner} />}
+                  {/* radioInner (활성 시) 동적 배경색 적용 */}
+                  {isSelected && (
+                    <View
+                      style={[
+                        styles.radioInner,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -73,110 +105,131 @@ const GenderInputStep: React.FC<GenderInputStepProps> = ({
 
         <TouchableOpacity
           style={styles.visibilityToggle}
-          onPress={toggleVisibility} // onPress에서 toggleVisibility 호출
+          onPress={toggleVisibility}
           activeOpacity={0.7}
         >
           <View
             style={[
               styles.checkbox,
-              currentVisibility && styles.selectedCheckboxBorder,
+              // checkbox (비활성 시) 동적 테두리 색상 적용
+              { borderColor: colors.outline },
+              // selectedCheckboxBorder (활성 시) 동적 테두리 색상 적용
+              currentVisibility && [
+                styles.selectedCheckboxBorder,
+                { borderColor: colors.primary },
+              ],
             ]}
           >
-            {currentVisibility && <View style={styles.checkboxInner} />}
+            {/* checkboxInner (활성 시) 동적 배경색 적용 */}
+            {currentVisibility && (
+              <View
+                style={[
+                  styles.checkboxInner,
+                  { backgroundColor: colors.primary },
+                ]}
+              />
+            )}
           </View>
-          <Text style={styles.visibilityText}>Visible on profile</Text>
+          {/* visibilityText에 동적 텍스트 색상 적용 */}
+          <Text style={[styles.visibilityText, { color: colors.onBackground }]}>
+            Visible on profile
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 };
 
+// StyleSheet.create는 정적인 스타일만 포함 (레이아웃, 폰트 등)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f0f0f0", // 이미 요청하신 대로 설정되어 있습니다.
+    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
   },
   container: {
     flex: 1,
-    paddingHorizontal: 30,
-    paddingTop: Platform.OS === "android" ? 40 : 60,
-    paddingBottom: 20,
+    paddingHorizontal: 30, // 기존 값 유지
+    paddingTop: Platform.OS === "android" ? 40 : 60, // 기존 값 유지
+    paddingBottom: 20, // 기존 값 유지
   },
   title: {
-    fontFamily: "Literata",
-    fontSize: 32,
-    color: "#000000",
-    fontWeight: "bold",
-    marginBottom: 40,
-    lineHeight: 40,
+    fontFamily: "Literata", // 폰트 로드 확인
+    fontSize: 32, // 기존 값 유지
+    // color: "#000000", // 제거됨 (동적 적용)
+    fontWeight: "bold", // 기존 값 유지
+    marginBottom: 40, // 기존 값 유지
+    lineHeight: 40, // 기존 값 유지
   },
   optionsContainer: {
-    marginBottom: 30,
+    marginBottom: 30, // 기존 값 유지
   },
   optionButton: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e9ecef",
+    paddingVertical: 18, // 기존 값 유지
+    borderBottomWidth: 1, // 기존 값 유지
+    // borderBottomColor: "#e9ecef", // 제거됨 (동적 적용)
   },
   optionText: {
-    fontFamily: "Literata",
-    fontSize: 20,
-    color: "#495057",
+    fontFamily: "Literata", // 폰트 로드 확인
+    fontSize: 20, // 기존 값 유지
+    // color: "#495057", // 제거됨 (동적 적용)
   },
   selectedOptionText: {
-    fontWeight: "bold",
-    color: "#000000",
+    // 선택 시 fontWeight만 여기서 관리, color는 동적으로
+    fontWeight: "bold", // 기존 값 유지
+    // color: "#000000", // 제거됨 (동적 적용)
   },
   radioOuter: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#B0B0B0",
+    width: 24, // 기존 값 유지
+    height: 24, // 기존 값 유지
+    borderRadius: 12, // 기존 값 유지
+    borderWidth: 2, // 기존 값 유지
+    // borderColor: "#B0B0B0", // 제거됨 (동적 적용)
     alignItems: "center",
     justifyContent: "center",
   },
   selectedRadioOuter: {
-    borderColor: "#000000",
+    // 선택 시 borderColor만 동적으로 적용되므로, 이 스타일은 비워두거나 다른 정적 스타일 추가 가능
+    // borderColor: "#000000", // 제거됨 (동적 적용)
   },
   radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#000000",
+    width: 12, // 기존 값 유지
+    height: 12, // 기존 값 유지
+    borderRadius: 6, // 기존 값 유지
+    // backgroundColor: "#000000", // 제거됨 (동적 적용)
   },
   visibilityToggle: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
-    marginBottom: 20,
-    alignSelf: "flex-start",
+    marginTop: 20, // 기존 값 유지
+    marginBottom: 20, // 기존 값 유지
+    alignSelf: "flex-start", // 기존 값 유지
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderWidth: 1.5,
-    borderColor: "#B0B0B0",
-    borderRadius: 4,
-    marginRight: 12,
+    width: 22, // 기존 값 유지
+    height: 22, // 기존 값 유지
+    borderWidth: 1.5, // 기존 값 유지
+    // borderColor: "#B0B0B0", // 제거됨 (동적 적용)
+    borderRadius: 4, // 기존 값 유지
+    marginRight: 12, // 기존 값 유지
     alignItems: "center",
     justifyContent: "center",
   },
   selectedCheckboxBorder: {
-    borderColor: "#000000",
+    // 선택 시 borderColor만 동적으로 적용되므로, 이 스타일은 비워두거나 다른 정적 스타일 추가 가능
+    // borderColor: "#000000", // 제거됨 (동적 적용)
   },
   checkboxInner: {
-    width: 12,
-    height: 12,
-    backgroundColor: "#000000",
+    width: 12, // 기존 값 유지
+    height: 12, // 기존 값 유지
+    // backgroundColor: "#000000", // 제거됨 (동적 적용)
   },
   visibilityText: {
-    fontFamily: "Literata",
-    fontSize: 16,
-    color: "#333333",
+    fontFamily: "Literata", // 폰트 로드 확인
+    fontSize: 16, // 기존 값 유지
+    // color: "#333333", // 제거됨 (동적 적용)
   },
 });
 

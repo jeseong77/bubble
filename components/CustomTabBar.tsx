@@ -18,7 +18,8 @@ import Animated, {
   withTiming, // 탭 바 표시/숨김 애니메이션용
   interpolate, // 탭 바 표시/숨김 애니메이션용
 } from "react-native-reanimated";
-import { useUIStore } from "@/stores/uiStore"; // Zustand 스토어 import (경로 확인)
+import { useUIStore } from "@/stores/uiStore";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 // 아이콘 이름 타입 (기존 코드 유지)
 type KnownIconRouteNames = keyof typeof icons;
@@ -28,6 +29,7 @@ export function CustomTabBar({
   descriptors,
   navigation,
 }: BottomTabBarProps) {
+  const { colors } = useAppTheme();
   // 탭 바의 실제 크기를 저장하기 위한 상태 (onLayout으로 측정)
   // 초기 높이값을 좀 더 현실적인 값으로 변경하거나, onLayout 전까지 렌더링을 다르게 처리할 수 있습니다.
   const [tabBarDimensions, setTabBarDimensions] = useState({
@@ -104,7 +106,14 @@ export function CustomTabBar({
     // 최상위 View를 Animated.View로 변경하고, 표시/숨김 애니메이션 스타일 적용
     <Animated.View
       onLayout={onTabBarLayout}
-      style={[styles.tabBar, tabBarVisibilityAnimatedStyle]}
+      style={[
+        styles.tabBar,
+        tabBarVisibilityAnimatedStyle,
+        {
+          backgroundColor: colors.surface, // 테마의 surface 색상 사용
+          shadowColor: colors.shadow, // 테마의 shadow 색상 사용 (Colors.ts에 정의되어 있다면)
+        },
+      ]}
       pointerEvents={isTabBarVisibleFromStore ? "auto" : "none"} // 숨겨졌을 때 터치 이벤트 무시
     >
       {/* 선택된 탭 표시자 (슬라이더) */}
@@ -116,6 +125,7 @@ export function CustomTabBar({
             // 동적 스타일
             height: tabBarDimensions.height - 15, // 측정된 높이 기반으로 설정
             width: buttonWidth > 25 ? buttonWidth - 25 : buttonWidth, // 너비가 너무 작아지지 않도록
+            backgroundColor: colors.primary,
           },
         ]}
       />
@@ -188,11 +198,9 @@ const styles = StyleSheet.create({
     bottom: Platform.OS === "ios" ? 30 : 20,
     left: 20,
     right: 20,
-    backgroundColor: "#fff", // 탭 바 배경색
     paddingVertical: 10, // 탭 바 내부 상하 패딩
     borderRadius: 35, // 탭 바 모서리 둥글게
     // 그림자 효과
-    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 5,
@@ -204,7 +212,6 @@ const styles = StyleSheet.create({
   tabSelector: {
     // 선택된 탭 표시자(슬라이더)의 공통 스타일
     position: "absolute",
-    backgroundColor: "#6363D3", // 슬라이더 색상
     borderRadius: 30, // 슬라이더 모서리 둥글게
     marginHorizontal: 12, // 슬라이더 좌우 마진
     // height와 width는 동적으로 설정됨

@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef, JSX } from "react";
+import React, { useRef, JSX } from "react";
 import {
   View,
   StyleSheet,
   Text,
   TextInput,
-  Keyboard, // Keyboard import
-  TouchableWithoutFeedback, // TouchableWithoutFeedback import
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
+import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
 
 interface AgeInputStepProps {
   day: string;
@@ -25,6 +26,8 @@ const AgeInputStep = ({
   onMonthChange,
   onYearChange,
 }: AgeInputStepProps): JSX.Element => {
+  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+
   const monthInputRef = useRef<TextInput>(null);
   const yearInputRef = useRef<TextInput>(null);
 
@@ -48,22 +51,28 @@ const AgeInputStep = ({
     const numericText = text.replace(/[^0-9]/g, "");
     onYearChange(numericText);
     if (numericText.length === 4) {
-      Keyboard.dismiss(); // 마지막 입력 완료 시 키보드 내리기 (선택 사항)
+      Keyboard.dismiss();
     }
   };
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.container}>
+      {/* container에 동적 배경색 적용 */}
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.questionTextBox}>
-          <Text style={styles.questionText}>How old are you?</Text>
+          {/* questionText에 동적 텍스트 색상 적용 */}
+          <Text style={[styles.questionText, { color: colors.onBackground }]}>
+            How old are you?
+          </Text>
         </View>
 
-        <View style={styles.inputBox}>
+        {/* inputBox에 동적 테두리 하단 색상 적용 */}
+        <View style={[styles.inputBox, { borderBottomColor: colors.outline }]}>
           <TextInput
-            style={styles.inputText}
+            // inputText에 동적 텍스트 색상 적용
+            style={[styles.inputText, { color: colors.onSurface }]}
             placeholder="DD"
-            placeholderTextColor="#7A7A7A"
+            placeholderTextColor={colors.onSurfaceVariant} // 동적 플레이스홀더 색상
             keyboardType="numeric"
             value={day}
             onChangeText={handleDayChange}
@@ -71,12 +80,14 @@ const AgeInputStep = ({
             onSubmitEditing={() => monthInputRef.current?.focus()}
             blurOnSubmit={false}
             returnKeyType="next"
+            selectionColor={colors.primary} // 동적 커서/선택 색상
           />
           <TextInput
             ref={monthInputRef}
-            style={styles.inputText}
+            // inputText에 동적 텍스트 색상 적용
+            style={[styles.inputText, { color: colors.onSurface }]}
             placeholder="MM"
-            placeholderTextColor="#7A7A7A"
+            placeholderTextColor={colors.onSurfaceVariant} // 동적 플레이스홀더 색상
             keyboardType="numeric"
             value={month}
             onChangeText={handleMonthChange}
@@ -84,17 +95,24 @@ const AgeInputStep = ({
             onSubmitEditing={() => yearInputRef.current?.focus()}
             blurOnSubmit={false}
             returnKeyType="next"
+            selectionColor={colors.primary} // 동적 커서/선택 색상
           />
           <TextInput
             ref={yearInputRef}
-            style={[styles.inputText, styles.yearInput]} // 년도 입력칸은 너비가 다를 수 있음
+            // inputText 및 yearInput 스타일에 동적 텍스트 색상 적용
+            style={[
+              styles.inputText,
+              styles.yearInput,
+              { color: colors.onSurface },
+            ]}
             placeholder="YYYY"
-            placeholderTextColor="#7A7A7A"
+            placeholderTextColor={colors.onSurfaceVariant} // 동적 플레이스홀더 색상
             keyboardType="numeric"
             value={year}
             onChangeText={handleYearChange}
             maxLength={4}
-            returnKeyType="done" // 마지막 입력이므로 '완료' 표시
+            returnKeyType="done"
+            selectionColor={colors.primary} // 동적 커서/선택 색상
           />
         </View>
       </View>
@@ -102,37 +120,39 @@ const AgeInputStep = ({
   );
 };
 
+// StyleSheet.create는 레이아웃 등 정적 스타일을 유지하고, 색상 관련 속성만 제거/수정
 const styles = StyleSheet.create({
   container: {
-    flex: 1, // 부모에게서 flex: 1을 받으므로 유지하거나 필요에 맞게 조절
-    backgroundColor: "#f0f0f0",
+    flex: 1,
+    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
   },
   questionTextBox: {
     marginTop: 171,
     marginBottom: 68,
-    marginLeft: 16,
+    marginLeft: 16, // 기존 값 유지
   },
   questionText: {
-    fontFamily: "Literata",
-    fontSize: 32,
+    fontFamily: "Literata", // 기존 값 유지
+    fontSize: 32, // 기존 값 유지
+    // color는 동적으로 적용 (기본값 사용 또는 명시적으로 설정)
   },
   inputBox: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    borderBottomColor: "#A0A0A0", // 밑줄 색상 변경
-    borderBottomWidth: 1,
-    marginHorizontal: 16,
+    justifyContent: "space-between", // 기존 값 유지
+    // borderBottomColor: "#A0A0A0", // 제거됨 (동적 적용)
+    borderBottomWidth: 1, // 기존 값 유지
+    marginHorizontal: 16, // 기존 값 유지
   },
   inputText: {
-    fontSize: 32,
-    fontFamily: "Literata",
-    color: "#000000",
-    textAlign: "center",
-    width: 60, // DD, MM 너비 (예시)
-    marginHorizontal: 10, // 입력 필드 간 간격
+    fontSize: 32, // 기존 값 유지
+    fontFamily: "Literata", // 기존 값 유지
+    // color: "#000000",          // 제거됨 (동적 적용)
+    textAlign: "center", // 기존 값 유지
+    width: 60, // 기존 값 유지
+    marginHorizontal: 10, // <--- 기존 값 "유지" (중요)
   },
   yearInput: {
-    width: 90, // YYYY 너비 (예시)
+    width: 90, // 기존 값 유지
   },
 });
 

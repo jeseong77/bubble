@@ -1,23 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react"; // useEffect는 현재 직접 사용되지 않지만, 향후를 위해 유지 가능
 import { View, StyleSheet, SafeAreaView, Text, Alert } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import CustomAppBar from "../../components/CustomAppBar";
 import CustomButton from "@/components/CustomButton";
 import { generateVerificationCode } from "@/utils/auth/verification";
-// --- 분리된 컴포넌트 import ---
 import MobileNumberInputPhase from "./verify-phases/MobileNumberInputPhase";
 import VerificationCodeInputPhase from "./verify-phases/VerificationCodeInputPhase";
 import useAuthStore from "../../stores/authStore";
-
-// --- 외부 컴포넌트 정의는 여기에 없어야 합니다 ---
-// interface MobileNumberInputProps { ... }
-// const MobileNumberInputPhase: React.FC<...> = (...) => { ... };
-// interface VerificationCodeInputProps { ... }
-// const VerificationCodeInputPhase: React.FC<...> = (...) => { ... };
-// --- ---
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export default function VerifyPhoneScreenNested() {
   const router = useRouter();
+  const { colors } = useAppTheme();
+
   const [sentVerification, setSentVerification] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [countryCode, setCountryCode] = useState("+1");
@@ -30,14 +25,18 @@ export default function VerifyPhoneScreenNested() {
   };
 
   const handleSendCodePress = () => {
-    console.log("Continue Pressed");
-    console.log("Country Code:", countryCode);
-    console.log("Phone Number:", phoneNumber);
-
+    console.log("Continue Pressed: Sending code");
+    if (!phoneNumber.trim()) {
+      Alert.alert("Error", "Please enter your phone number.");
+      return;
+    }
     const code = generateVerificationCode();
     setGeneratedCode(code);
-    console.log("Generated Verification Code:", code);
-
+    console.log("Generated Verification Code (for testing):", code);
+    Alert.alert(
+      "Verification Code Sent",
+      `Code: ${code} (For testing purposes)`
+    );
     setSentVerification(true);
   };
 
@@ -48,45 +47,87 @@ export default function VerifyPhoneScreenNested() {
         "Verification successful! Updating auth state and navigating..."
       );
       const fakeToken = `verified-token-${Date.now()}`;
-      const fakeUser = { id: phoneNumber, name: "Verified User" };
+      const fakeUser = { id: countryCode + phoneNumber, name: "Verified User" };
       login(fakeToken, fakeUser);
       router.replace("/onboarding");
     } else {
       console.log("Verification failed: Codes do not match.");
-      Alert.alert("Error", "Verification code does not match.");
+      Alert.alert(
+        "Verification Error",
+        "The verification code does not match. Please try again."
+      );
     }
   };
 
   const isButtonDisabled = sentVerification
     ? verificationCodeInput.length !== 5
-    : !phoneNumber;
+    : !phoneNumber.trim();
 
   return (
-    <SafeAreaView style={styles.screenContainer}>
+    // SafeAreaView에 동적 배경색 적용
+    <SafeAreaView
+      style={[styles.screenContainer, { backgroundColor: colors.background }]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
       <CustomAppBar />
-      <View style={styles.contentContainer}>
+      {/* contentContainer에 동적 배경색 적용 */}
+      <View
+        style={[
+          styles.contentContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <View style={styles.headerTextArea}>
           {sentVerification ? (
             <>
-              <Text style={styles.headerTitle}>Verify your</Text>
-              <Text style={styles.headerTitle}>phone number</Text>
-              <Text style={[styles.headerSubtitle, { marginTop: 10 }]}>
-                We sent you a 5 digit code ({generatedCode}) to your SMS
+              {/* headerTitle에 동적 텍스트 색상 적용 */}
+              <Text
+                style={[styles.headerTitle, { color: colors.onBackground }]}
+              >
+                Verify your
+              </Text>
+              <Text
+                style={[styles.headerTitle, { color: colors.onBackground }]}
+              >
+                phone number
+              </Text>
+              {/* headerSubtitle에 동적 텍스트 색상 적용 */}
+              <Text
+                style={[
+                  styles.headerSubtitle,
+                  { marginTop: 10, color: colors.onSurfaceVariant },
+                ]}
+              >
+                We sent you a 5 digit code (
+                {generatedCode ? `Test: ${generatedCode}` : ""}) to your SMS
                 messages
               </Text>
             </>
           ) : (
             <>
-              <Text style={styles.headerTitle}>What's your</Text>
-              <Text style={styles.headerTitle}>phone number?</Text>
-              <Text style={[styles.headerSubtitle, { marginTop: 10 }]}>
+              <Text
+                style={[styles.headerTitle, { color: colors.onBackground }]}
+              >
+                What's your
+              </Text>
+              <Text
+                style={[styles.headerTitle, { color: colors.onBackground }]}
+              >
+                phone number?
+              </Text>
+              <Text
+                style={[
+                  styles.headerSubtitle,
+                  { marginTop: 10, color: colors.onSurfaceVariant },
+                ]}
+              >
                 Please confirm your country code and enter your phone number.
               </Text>
             </>
           )}
         </View>
 
+        {/* 자식 컴포넌트들은 내부적으로 useAppTheme를 사용하거나 props로 colors를 전달받아 테마 적용 필요 */}
         {sentVerification ? (
           <VerificationCodeInputPhase
             verificationCodeInput={verificationCodeInput}
@@ -107,8 +148,10 @@ export default function VerifyPhoneScreenNested() {
             sentVerification ? handleVerifyCodePress : handleSendCodePress
           }
           width={"100%"}
-          buttonColor="#6363D3"
-          buttonColorDisabled="#A6A6FF"
+          buttonColor={colors.primary}
+          textColor={colors.onPrimary}
+          buttonColorDisabled={colors.surfaceVariant}
+          textColorDisabled={colors.onSurfaceVariant}
           style={styles.continueButton}
           disabled={isButtonDisabled}
         />
@@ -117,32 +160,32 @@ export default function VerifyPhoneScreenNested() {
   );
 }
 
+// StyleSheet.create는 이제 정적인 스타일만 포함합니다.
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: "#F0F0F0",
+    // backgroundColor는 동적으로 적용되므로 여기서 제거
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 16,
-    backgroundColor: "#f0f0f0",
+    // backgroundColor는 동적으로 적용되므로 여기서 제거
   },
   headerTextArea: {
     marginTop: 115,
     marginBottom: 55,
   },
   headerTitle: {
-    fontFamily: "Literata",
+    fontFamily: "Literata", // 해당 폰트가 로드되었는지 확인 필요
     fontSize: 32,
-    color: "#000000",
+    // color는 동적으로 적용되므로 여기서 제거
   },
   headerSubtitle: {
-    fontFamily: "LeagueSpartan-Medium",
+    fontFamily: "LeagueSpartan-Medium", // 해당 폰트가 로드되었는지 확인 필요
     fontSize: 12,
-    color: "#7A7A7A",
+    // color는 동적으로 적용되므로 여기서 제거
   },
   continueButton: {
     marginBottom: 20,
   },
-  // 분리된 컴포넌트들의 스타일은 각자의 파일에 있어야 합니다.
 });

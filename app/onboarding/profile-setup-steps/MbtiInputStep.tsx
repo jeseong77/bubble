@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+// app/onboarding/profile-setup-steps/MbtiInputStep.tsx
+import React, { useState, useEffect, useRef, JSX } from "react";
 import {
   View,
   Text,
@@ -6,8 +7,9 @@ import {
   TouchableOpacity,
   Animated,
 } from "react-native";
-import * as Haptics from 'expo-haptics';
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface MbtiInputStepProps {
   currentMbti: string | null;
@@ -19,14 +21,13 @@ type LetterSorN = "S" | "N";
 type LetterTorF = "T" | "F";
 type LetterJorP = "J" | "P";
 
-const activeSelectedColor = "#000000";
-const activeUnselectedColor = "#B0B0B0";
-const disabledColor = "#DCDCDC";
-
 const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
   currentMbti,
   onMbtiChange,
 }) => {
+  const { colors } = useAppTheme();
+
+  // ... (useState, useEffect, 핸들러 함수 등 기존 로직은 동일하게 유지) ...
   const [val1, setVal1] = useState<LetterEorI | null>(null);
   const [val2, setVal2] = useState<LetterSorN | null>(null);
   const [val3, setVal3] = useState<LetterTorF | null>(null);
@@ -34,13 +35,14 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
 
   const [isUnknown, setIsUnknown] = useState(() => currentMbti === null);
 
-  const animatedIsUnknownValue = useRef(new Animated.Value(isUnknown ? 1 : 0))
-    .current;
+  const animatedIsUnknownValue = useRef(
+    new Animated.Value(isUnknown ? 1 : 0)
+  ).current;
 
   useEffect(() => {
     const newIsUnknownBasedOnProp = currentMbti === null;
     if (isUnknown !== newIsUnknownBasedOnProp) {
-        setIsUnknown(newIsUnknownBasedOnProp);
+      setIsUnknown(newIsUnknownBasedOnProp);
     }
 
     if (newIsUnknownBasedOnProp) {
@@ -80,6 +82,8 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
     } else {
       if (val1 && val2 && val3 && val4) {
         onMbtiChange(`${val1}${val2}${val3}${val4}`);
+      } else {
+        onMbtiChange(null);
       }
     }
   }, [val1, val2, val3, val4, isUnknown, onMbtiChange]);
@@ -88,12 +92,10 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
     dichotomyIndex: 0 | 1 | 2 | 3,
     selectedValue: string
   ) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 2. Use expo-haptics
-
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (isUnknown) {
       setIsUnknown(false);
     }
-
     switch (dichotomyIndex) {
       case 0:
         setVal1(selectedValue as LetterEorI);
@@ -111,8 +113,7 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
   };
 
   const toggleUnknown = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 2. Use expo-haptics
-
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newIsUnknown = !isUnknown;
     setIsUnknown(newIsUnknown);
     if (newIsUnknown) {
@@ -132,13 +133,18 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
   }> = ({ val, option1, option2, onSelect, animatedValue }) => {
     const createAnimatedLetter = (optionValue: string) => {
       const isSelected = val === optionValue && !isUnknown;
+
+      const letterColorSelected = colors.primary;
+      const letterColorUnselected = colors.outline; // 이전 답변에서 수정된 색상
+      const letterColorDisabled = colors.outlineVariant; // 이전 답변에서 수정된 색상
+
       const activeColor = isSelected
-        ? activeSelectedColor
-        : activeUnselectedColor;
+        ? letterColorSelected
+        : letterColorUnselected;
 
       const textColor = animatedValue.interpolate({
         inputRange: [0, 1],
-        outputRange: [activeColor, disabledColor],
+        outputRange: [activeColor, letterColorDisabled],
       });
 
       return (
@@ -148,9 +154,10 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
         >
           <Animated.Text
             style={[
-              styles.optionLetterText,
+              styles.optionLetterText, // 기본 'Literata' 폰트 패밀리 적용
               { color: textColor },
-              isSelected && styles.selectedOptionFontWeight,
+              // [변경] isSelected 시 fontFamily를 'Literata-Bold'로 변경
+              isSelected && styles.selectedOptionFont,
             ]}
           >
             {optionValue}
@@ -162,16 +169,24 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
     return (
       <View style={styles.dichotomyRow}>
         {createAnimatedLetter(option1)}
-        <View style={styles.lineConnector} />
+        <View
+          style={[
+            styles.lineConnector,
+            { backgroundColor: colors.outlineVariant },
+          ]}
+        />
         {createAnimatedLetter(option2)}
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.questionTextBox}>
-        <Text style={styles.questionText}>What's your MBTI?</Text>
+        {/* [변경] questionText에 'Literata-Bold' 폰트 적용 */}
+        <Text style={[styles.questionText, { color: colors.onBackground }]}>
+          What's your MBTI?
+        </Text>
       </View>
 
       <View style={styles.mbtiSelectorContainer}>
@@ -209,9 +224,28 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
         style={styles.unknownOptionContainer}
         onPress={toggleUnknown}
       >
-        <Text style={styles.checkboxText}>I don't know.</Text>
-        <View style={styles.checkbox}>
-          {isUnknown && <Ionicons name="checkmark" size={18} color="#000000" />}
+        {/* checkboxText는 일반 Literata 폰트 유지 */}
+        <Text style={[styles.checkboxText, { color: colors.onBackground }]}>
+          I don't know.
+        </Text>
+        <View
+          style={[
+            styles.checkbox,
+            {
+              borderColor: colors.outline,
+              backgroundColor: isUnknown
+                ? colors.primaryContainer
+                : colors.surface,
+            },
+          ]}
+        >
+          {isUnknown && (
+            <Ionicons
+              name="checkmark"
+              size={18}
+              color={colors.onPrimaryContainer}
+            />
+          )}
         </View>
       </TouchableOpacity>
     </View>
@@ -230,9 +264,8 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   questionText: {
-    fontFamily: "Literata",
+    fontFamily: "Literata-Bold", // <--- [변경] 질문 텍스트에 볼드 폰트 적용
     fontSize: 32,
-    color: "#000000",
     textAlign: "center",
   },
   mbtiSelectorContainer: {
@@ -253,17 +286,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   optionLetterText: {
-    fontFamily: "Literata",
+    fontFamily: "Literata", // <--- 기본 폰트는 레귤러 ('Literata')
     fontSize: 30,
     textAlign: "center",
   },
-  selectedOptionFontWeight: {
-    fontWeight: "bold",
+  selectedOptionFont: {
+    // <--- [변경] fontWeight: 'bold' 대신 fontFamily: 'Literata-Bold'
+    fontFamily: "Literata-Bold",
   },
   lineConnector: {
     flex: 1,
     height: 1.5,
-    backgroundColor: "#D0D0D0",
     marginHorizontal: 10,
   },
   unknownOptionContainer: {
@@ -272,20 +305,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   checkboxText: {
-    fontFamily: "Literata",
+    fontFamily: "Literata", // <--- 체크박스 텍스트는 레귤러 유지
     fontSize: 16,
-    color: "#333333",
     marginRight: 12,
   },
   checkbox: {
     width: 24,
     height: 24,
     borderWidth: 1.5,
-    borderColor: "#B0B0B0",
     borderRadius: 4,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
   },
 });
 

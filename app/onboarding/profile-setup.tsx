@@ -19,6 +19,7 @@ import MbtiInputStep from "./profile-setup-steps/MbtiInputStep";
 import GenderInputStep from "./profile-setup-steps/GenderInputStep";
 import AboutMeInputStep from "./profile-setup-steps/AboutMeInputStep";
 import ImageUploadStep from "./profile-setup-steps/ImageUploadStep";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const MAX_IMAGES = 6;
 const TOTAL_STEPS = 7;
@@ -59,7 +60,12 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
     case 5:
       return !!data.aboutMe;
     case 6:
-      return data.images && data.images.length >= 2 && data.images[0] !== null && data.images[1] !== null;
+      return (
+        data.images &&
+        data.images.length >= 2 &&
+        data.images[0] !== null &&
+        data.images[1] !== null
+      );
     default:
       return false;
   }
@@ -81,6 +87,7 @@ const calculateAge = (birthDate: Date): number => {
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
+  const { colors } = useAppTheme();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [profileData, setProfileData] = useState<ProfileFormData>({
@@ -305,21 +312,33 @@ export default function ProfileSetupScreen() {
 
   const isCurrentInputValid = isStepValid(currentStep, profileData);
   const isButtonDisabled = !isCurrentInputValid || isSubmitting;
-  const buttonBgColor = isButtonDisabled ? "#A6A6FF" : "#6363D3";
+
+  // 버튼 배경색과 아이콘 색상을 테마에 맞게 동적으로 설정
+  const buttonBackgroundColor = isButtonDisabled
+    ? colors.surfaceVariant
+    : colors.primary;
+  const buttonIconColor = isButtonDisabled
+    ? colors.onSurfaceVariant
+    : colors.onPrimary;
 
   return (
-    <SafeAreaView style={styles.screenContainer}>
+    // SafeAreaView에 동적 배경색 적용
+    <SafeAreaView
+      style={[styles.screenContainer, { backgroundColor: colors.background }]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
+      {/* CustomAppBar는 내부적으로 테마 색상을 사용 (이전 단계에서 수정 완료) */}
       <CustomAppBar
         onBackPress={handlePreviousStep}
         showBackButton={currentStep > 0}
       />
+      {/* contentContainer의 배경색은 screenContainer와 동일하게 colors.background를 따름 (스타일 시트에서 제거) */}
       <View style={styles.contentContainer}>
         {renderCurrentStepComponent()}
 
         <View style={styles.bottomButtonContainer}>
           <TouchableOpacity
-            style={styles.circularButtonWrapper}
+            style={styles.circularButtonWrapper} // 이 스타일은 현재 비어있지만, 필요시 사용
             onPress={handleNextStep}
             disabled={isButtonDisabled}
             activeOpacity={0.7}
@@ -327,10 +346,14 @@ export default function ProfileSetupScreen() {
             <View
               style={[
                 styles.circularButton,
-                { backgroundColor: buttonBgColor },
+                { backgroundColor: buttonBackgroundColor }, // <--- [변경] 테마 기반 동적 배경색
               ]}
             >
-              <Ionicons name="chevron-forward" size={30} color="#FFFFFF" />
+              <Ionicons
+                name="chevron-forward"
+                size={30}
+                color={buttonIconColor} // <--- [변경] 테마 기반 동적 아이콘 색상
+              />
             </View>
           </TouchableOpacity>
         </View>
@@ -339,27 +362,32 @@ export default function ProfileSetupScreen() {
   );
 }
 
+// StyleSheet.create는 정적인 스타일만 포함
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
+    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
   },
   contentContainer: {
-    flex: 1,
+    flex: 1, // 스텝 컴포넌트와 하단 버튼 영역을 포함하도록
+    // backgroundColor는 screenContainer와 동일하게 동적으로 적용되므로 여기선 명시 안 함
   },
   bottomButtonContainer: {
-    position: "absolute",
+    position: "absolute", // 화면 하단에 고정
     bottom: 0,
     right: 0,
-    paddingBottom: 16,
-    paddingRight: 16,
+    paddingBottom: 16, // 하단 여백 (SafeAreaView 고려하여 조정 가능)
+    paddingRight: 16, // 오른쪽 여백
   },
-  circularButtonWrapper: {},
+  circularButtonWrapper: {
+    // 필요에 따라 래퍼 스타일 추가 (예: 그림자 효과)
+  },
   circularButton: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 30, // 원형 버튼
     justifyContent: "center",
     alignItems: "center",
+    // backgroundColor는 동적으로 적용되므로 여기서 제거
   },
 });

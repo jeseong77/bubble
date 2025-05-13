@@ -7,16 +7,19 @@ import {
   Platform,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
 
 interface HeightInputStepProps {
   onHeightChange: (heightInCm: number) => void;
   initialHeightCm?: number;
 }
 
-const CM_MIN = 120; // Approx 3'11"
-const CM_MAX = 220; // Approx 7'2.5"
-const DEFAULT_HEIGHT_CM = 170; // Approx 5'7"
+const CM_MIN = 120;
+const CM_MAX = 220;
+const DEFAULT_HEIGHT_CM = 170;
 
+// generateFtItems, generateCmItems, ftPickerItems, cmPickerItems는 이전과 동일하게 유지
+// (색상과 직접적인 관련이 없으므로 코드는 생략, 실제 파일에는 있어야 합니다)
 const generateFtItems = () => {
   const items = [];
   const minFeet = 3;
@@ -34,7 +37,6 @@ const generateFtItems = () => {
       }
     }
   }
-  // Ensure unique values and sort by value for consistency
   const uniqueItems = Array.from(
     new Map(items.map((item) => [item.value, item])).values()
   );
@@ -57,13 +59,15 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
   onHeightChange,
   initialHeightCm,
 }) => {
+  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+
   const [unit, setUnit] = useState<"FT" | "CM">("FT");
 
   const getInitialSnappedHeight = useCallback(() => {
+    // ... (이전 로직과 동일)
     const targetHeight = initialHeightCm ?? DEFAULT_HEIGHT_CM;
     const items = unit === "FT" ? ftPickerItems : cmPickerItems;
     if (!items.length) return targetHeight;
-
     let closestItem = items[0];
     for (const item of items) {
       if (
@@ -73,8 +77,6 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
         closestItem = item;
       }
     }
-    // If targetHeight is exactly between two items, prefer the one closer to targetHeight or lower.
-    // This logic can be refined if specific snapping behavior is needed for ties.
     if (items.some((item) => item.value === targetHeight)) {
       return targetHeight;
     }
@@ -86,7 +88,6 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
   );
 
   useEffect(() => {
-    // Snap initial height when component mounts or initialHeightCm changes
     setInternalHeightCm(getInitialSnappedHeight());
   }, [initialHeightCm, getInitialSnappedHeight]);
 
@@ -95,13 +96,11 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
   }, [internalHeightCm, onHeightChange]);
 
   const handleUnitChange = (newUnit: "FT" | "CM") => {
+    // ... (이전 로직과 동일)
     if (unit === newUnit) return;
-
     setUnit(newUnit);
-    // When unit changes, snap current internalHeightCm to the closest value in the new unit's scale
     const newItems = newUnit === "FT" ? ftPickerItems : cmPickerItems;
     if (!newItems.length) return;
-
     let closestItem = newItems[0];
     for (const item of newItems) {
       if (
@@ -111,7 +110,6 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
         closestItem = item;
       }
     }
-    // If internalHeightCm is already a valid value in newItems, no need to change it
     if (
       !newItems.some((item) => item.value === internalHeightCm) ||
       newItems.find((item) => item.value === internalHeightCm)?.value !==
@@ -128,9 +126,13 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
   }, [unit]);
 
   return (
-    <View style={styles.container}>
+    // container에 동적 배경색 적용
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.questionTextBox}>
-        <Text style={styles.questionText}>How tall are you?</Text>
+        {/* questionText에 동적 텍스트 색상 적용 */}
+        <Text style={[styles.questionText, { color: colors.onBackground }]}>
+          How tall are you?
+        </Text>
       </View>
 
       <View style={styles.pickerContainer}>
@@ -138,35 +140,60 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
           selectedValue={internalHeightCm}
           onValueChange={(itemValue) => {
             if (itemValue !== null) {
-              // Picker can return null if no item is selected
               setInternalHeightCm(Number(itemValue));
             }
           }}
           style={styles.picker}
-          itemStyle={styles.pickerItem} // Note: itemStyle is iOS only
+          // pickerItem 스타일에 동적 텍스트 색상 적용 (itemStyle은 iOS 전용)
+          itemStyle={[
+            styles.pickerItem,
+            Platform.OS === "ios" ? { color: colors.onSurface } : {},
+          ]}
+          // Android의 경우 Picker 내부 아이템 색상은 dropdownIconColor나 부모 Text의 color를 따를 수 있으며,
+          // 완벽한 제어가 어려울 수 있습니다. 필요시 커스텀 Picker 구현 고려.
+          // Android에서 Picker 아이템 색상을 명시적으로 지정하려면, Picker.Item의 color prop을 사용해야 할 수 있습니다.
+          // (단, @react-native-picker/picker의 Picker.Item은 style prop만 받음)
         >
           {pickerItems.map((item) => (
             <Picker.Item
               key={item.value}
               label={item.label}
               value={item.value}
+              // Android에서 각 아이템의 색상을 지정하려면 여기에 color prop을 시도해볼 수 있으나,
+              // @react-native-picker/picker의 Item은 style prop을 주로 사용합니다.
+              // style={Platform.OS === 'android' ? { color: colors.onSurface } : undefined} // 이 방식은 잘 안될 수 있음
             />
           ))}
         </Picker>
       </View>
 
-      <View style={styles.unitSelectorContainer}>
+      {/* unitSelectorContainer에 동적 배경색 적용 */}
+      <View
+        style={[
+          styles.unitSelectorContainer,
+          { backgroundColor: colors.surfaceVariant },
+        ]}
+      >
         <TouchableOpacity
           style={[
             styles.unitButton,
-            unit === "FT" && styles.unitButtonSelected,
+            unit === "FT" && [
+              styles.unitButtonSelected,
+              { backgroundColor: colors.surface, shadowColor: colors.shadow },
+            ],
           ]}
           onPress={() => handleUnitChange("FT")}
         >
           <Text
             style={[
               styles.unitButtonText,
-              unit === "FT" && styles.unitButtonTextSelected,
+              // unitButtonText (비활성 시) 동적 색상 적용
+              { color: colors.onSurfaceVariant },
+              // unitButtonTextSelected (활성 시) 동적 색상 적용
+              unit === "FT" && [
+                styles.unitButtonTextSelected,
+                { color: colors.primary },
+              ],
             ]}
           >
             FT
@@ -175,14 +202,23 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
         <TouchableOpacity
           style={[
             styles.unitButton,
-            unit === "CM" && styles.unitButtonSelected,
+            unit === "CM" && [
+              styles.unitButtonSelected,
+              { backgroundColor: colors.surface, shadowColor: colors.shadow },
+            ],
           ]}
           onPress={() => handleUnitChange("CM")}
         >
           <Text
             style={[
               styles.unitButtonText,
-              unit === "CM" && styles.unitButtonTextSelected,
+              // unitButtonText (비활성 시) 동적 색상 적용
+              { color: colors.onSurfaceVariant },
+              // unitButtonTextSelected (활성 시) 동적 색상 적용
+              unit === "CM" && [
+                styles.unitButtonTextSelected,
+                { color: colors.primary },
+              ],
             ]}
           >
             CM
@@ -193,63 +229,64 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
   );
 };
 
+// StyleSheet.create는 정적인 스타일만 포함
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
-    alignItems: "center", // Center content horizontally
-    paddingHorizontal: 16,
+    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
+    alignItems: "center",
+    paddingHorizontal: 16, // 기존 값 유지
   },
   questionTextBox: {
-    // Similar to AgeInputStep, adjust as needed
-    marginTop: 60, // Adjusted margin
-    marginBottom: 40, // Adjusted margin
-    alignSelf: "stretch", // Make it stretch
-    marginLeft: 0, // Reset from original if centering
+    marginTop: 60, // 기존 값 유지
+    marginBottom: 40, // 기존 값 유지
+    alignSelf: "stretch",
+    // marginLeft은 제거되거나 0으로 설정됨 (부모의 alignItems: 'center' 및 alignSelf: 'stretch'와 연관)
   },
   questionText: {
-    fontFamily: "Literata", // Make sure this font is linked in your project
+    fontFamily: "Literata", // 폰트 로드 확인
     fontSize: 32,
-    color: "#000000",
-    textAlign: "center", // Center question text
+    // color: "#000000", // 제거됨 (동적 적용)
+    textAlign: "center", // 기존 값 유지
   },
   pickerContainer: {
-    height: 200, // Fixed height for the picker area
-    width: "100%", // Make picker take full width
+    height: 200,
+    width: "100%",
     justifyContent: "center",
-    marginBottom: 30,
+    marginBottom: 30, // 기존 값 유지
   },
   picker: {
     width: "100%",
-    height: Platform.OS === "ios" ? 200 : 50, // iOS picker is taller by nature
+    height: Platform.OS === "ios" ? 200 : 50, // Android는 드롭다운 스타일이므로 높이가 다름
   },
   pickerItem: {
-    // This style is for iOS only.
-    // To match the image (large centered text), a custom FlatList picker might be needed.
-    fontSize: Platform.OS === "ios" ? 24 : 18,
+    // iOS 전용 스타일
+    fontSize: Platform.OS === "ios" ? 24 : 18, // Android는 이 스타일이 직접 적용 안 될 수 있음
     textAlign: "center",
-    fontFamily: "Literata",
-    color: "#000000", // Text color for picker items
-    height: Platform.OS === "ios" ? 150 : undefined, // Height for each item on iOS
+    fontFamily: "Literata", // 폰트 로드 확인
+    // color: "#000000", // 제거됨 (동적 적용)
+    height: Platform.OS === "ios" ? 150 : undefined,
   },
   unitSelectorContainer: {
     flexDirection: "row",
-    justifyContent: "center", // Center buttons
+    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f0f0f0", // Background for the selector bar
+    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
     borderRadius: 8,
-    padding: 4, // Padding inside the selector bar
-    marginBottom: 20,
+    padding: 4, // 기존 값 유지
+    marginBottom: 20, // 기존 값 유지
   },
   unitButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 25, // Increased padding for wider buttons
-    borderRadius: 6, // Slightly rounded corners for inner buttons
-    marginHorizontal: 4, // Space between buttons
+    paddingVertical: 8, // 기존 값 유지
+    paddingHorizontal: 25, // 기존 값 유지
+    borderRadius: 6, // 기존 값 유지
+    marginHorizontal: 4, // 기존 값 유지
   },
   unitButtonSelected: {
-    backgroundColor: "#ffffff", // White background for selected button
-    shadowColor: "#000",
+    // 선택된 버튼의 배경색 외 스타일
+    // backgroundColor: "#ffffff", // 제거됨 (동적 적용)
+    // shadowColor: "#000", // 제거됨 (동적 적용)
+    // 나머지 그림자 속성은 유지 (색상만 동적으로)
     shadowOffset: {
       width: 0,
       height: 1,
@@ -259,12 +296,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   unitButtonText: {
-    fontFamily: "Literata",
+    fontFamily: "Literata", // 폰트 로드 확인
     fontSize: 16,
-    color: "#555555", // Default text color for unit
+    // color: "#555555", // 제거됨 (동적 적용)
   },
   unitButtonTextSelected: {
-    color: "#000000", // Black text for selected unit
+    // 선택된 버튼 텍스트의 색상 외 스타일
+    // color: "#000000", // 제거됨 (동적 적용)
     fontWeight: "bold",
   },
 });

@@ -1,4 +1,3 @@
-// ./profile-setup-steps/ImageUploadStep.tsx
 import React from "react";
 import {
   View,
@@ -13,17 +12,15 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
 
-// Your defined ProfileImage type (ensure this is imported or defined if not in this file)
 export interface ProfileImage {
-  // Using your definition
   uri: string;
-  // You could add width, height, fileName etc. here if needed later
 }
 
 interface ImageUploadStepProps {
-  currentImages: (ProfileImage | null)[]; // Updated to use ProfileImage
-  onImagesChange: (images: (ProfileImage | null)[]) => void; // Updated
+  currentImages: (ProfileImage | null)[];
+  onImagesChange: (images: (ProfileImage | null)[]) => void;
   maxImages?: number;
 }
 
@@ -35,14 +32,17 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   onImagesChange,
   maxImages = MAX_IMAGES_DEFAULT,
 }) => {
+  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+
   const screenWidth = Dimensions.get("window").width;
-  const contentPaddingHorizontal = 30;
-  const itemGap = 10;
+  const contentPaddingHorizontal = 30; // styles.container.paddingHorizontal와 일치
+  const itemGap = 10; // 슬롯 간 간격 (필요시 styles에서 정의하고 가져오기)
   const totalGapSpace = itemGap * (NUM_COLUMNS - 1);
   const itemSize =
     (screenWidth - contentPaddingHorizontal * 2 - totalGapSpace) / NUM_COLUMNS;
 
   const handlePickImage = async (index: number) => {
+    // ... (기존 이미지 선택 로직은 동일)
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
@@ -52,7 +52,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
       );
       return;
     }
-
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -60,13 +59,10 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         aspect: [1, 1],
         quality: 0.7,
       });
-
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Transform ImagePickerAsset to your ProfileImage type
         const newProfileImage: ProfileImage = { uri: result.assets[0].uri };
-
         const updatedImages = [...currentImages];
-        updatedImages[index] = newProfileImage; // Store the ProfileImage object
+        updatedImages[index] = newProfileImage;
         onImagesChange(updatedImages);
       }
     } catch (error) {
@@ -76,11 +72,12 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   };
 
   const handleRemoveImage = (index: number) => {
+    // ... (기존 이미지 제거 로직은 동일)
     Alert.alert("Remove Image", "Are you sure you want to remove this image?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
-        style: "destructive",
+        style: "destructive", // iOS에서 destructive 스타일은 텍스트를 빨갛게 표시
         onPress: () => {
           const updatedImages = [...currentImages];
           updatedImages[index] = null;
@@ -91,7 +88,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   };
 
   const renderSlot = (index: number) => {
-    const imageAsset = currentImages[index]; // This will be ProfileImage | null
+    const imageAsset = currentImages[index];
     const isRequired = index < 2;
 
     return (
@@ -99,25 +96,46 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         key={index}
         style={[styles.slotContainer, { width: itemSize, height: itemSize }]}
       >
-        {isRequired && <Text style={styles.requiredText}>Required</Text>}
+        {isRequired && (
+          // requiredText에 동적 텍스트 색상 적용
+          <Text style={[styles.requiredText, { color: colors.tertiary }]}>
+            Required
+          </Text>
+        )}
         <TouchableOpacity
-          style={styles.slotButton}
+          // slotButton에 동적 스타일 (테두리 색상, 배경색) 적용
+          style={[
+            styles.slotButton,
+            {
+              borderColor: colors.outlineVariant, // 부드러운 테두리
+              backgroundColor: colors.surface, // 슬롯 배경
+            },
+          ]}
           onPress={() =>
             imageAsset ? handleRemoveImage(index) : handlePickImage(index)
           }
           activeOpacity={0.7}
         >
           {imageAsset ? (
-            // Image source URI comes directly from imageAsset.uri
             <Image
               source={{ uri: imageAsset.uri }}
               style={styles.imagePreview}
             />
           ) : (
             <>
-              <Text style={styles.slotNumber}>{index + 1}.</Text>
+              {/* slotNumber에 동적 텍스트 색상 적용 */}
+              <Text
+                style={[styles.slotNumber, { color: colors.onSurfaceVariant }]}
+              >
+                {index + 1}.
+              </Text>
               <View style={styles.plusIconContainer}>
-                <Ionicons name="add-circle-outline" size={32} color="#B0B0B0" />
+                {/* add-circle-outline 아이콘에 동적 색상 적용 */}
+                <Ionicons
+                  name="add-circle-outline"
+                  size={32}
+                  color={colors.onSurfaceVariant}
+                />
               </View>
             </>
           )}
@@ -125,9 +143,14 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         {imageAsset && (
           <TouchableOpacity
             onPress={() => handleRemoveImage(index)}
-            style={styles.removeIconContainer}
+            // removeIconContainer에 동적 배경색 적용 (화면 배경과 동일하게 하여 아이콘만 보이도록)
+            style={[
+              styles.removeIconContainer,
+              { backgroundColor: colors.background },
+            ]}
           >
-            <Ionicons name="close-circle" size={28} color="#FF6347" />
+            {/* close-circle 아이콘에 동적 색상 적용 (오류/제거 의미) */}
+            <Ionicons name="close-circle" size={28} color={colors.error} />
           </TouchableOpacity>
         )}
       </View>
@@ -135,9 +158,15 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    // safeArea에 동적 배경색 적용
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+    >
       <View style={styles.container}>
-        <Text style={styles.title}>Upload pictures</Text>
+        {/* title에 동적 텍스트 색상 적용 */}
+        <Text style={[styles.title, { color: colors.onBackground }]}>
+          Upload pictures
+        </Text>
         <View style={styles.gridContainer}>
           {Array.from({ length: maxImages }).map((_, index) =>
             renderSlot(index)
@@ -148,81 +177,81 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   );
 };
 
-// Styles remain the same as before
+// StyleSheet.create는 정적인 스타일만 포함
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
+    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
   },
   container: {
     flex: 1,
-    paddingHorizontal: 30,
-    paddingTop: Platform.OS === "android" ? 40 : 60,
-    paddingBottom: 20,
+    paddingHorizontal: 30, // 기존 값 유지
+    paddingTop: Platform.OS === "android" ? 40 : 60, // 기존 값 유지
+    paddingBottom: 20, // 기존 값 유지
   },
   title: {
-    fontFamily: "Literata",
-    fontSize: 32,
-    color: "#000000",
-    fontWeight: "bold",
-    marginBottom: 40,
-    lineHeight: 40,
+    fontFamily: "Literata", // 폰트 로드 확인
+    fontSize: 32, // 기존 값 유지
+    // color: "#000000", // 제거됨 (동적 적용)
+    fontWeight: "bold", // 기존 값 유지
+    marginBottom: 40, // 기존 값 유지
+    lineHeight: 40, // 기존 값 유지
   },
   gridContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    flexDirection: "row", // 기존 값 유지
+    flexWrap: "wrap", // 기존 값 유지
+    justifyContent: "space-between", // 기존 값 유지
   },
   slotContainer: {
-    marginBottom: 10,
-    position: "relative",
+    marginBottom: 10, // 기존 값 유지
+    position: "relative", // 기존 값 유지
   },
   requiredText: {
-    position: "absolute",
-    top: -18,
-    left: 0,
-    color: "orange",
-    fontSize: 12,
-    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif-medium",
-    fontWeight: "500",
+    position: "absolute", // 기존 값 유지
+    top: -18, // 기존 값 유지
+    left: 0, // 기존 값 유지
+    // color: "orange",   // 제거됨 (동적 적용)
+    fontSize: 12, // 기존 값 유지
+    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif-medium", // 기존 값 유지
+    fontWeight: "500", // 기존 값 유지
   },
   slotButton: {
     flex: 1,
-    justifyContent: "space-between",
-    alignItems: "stretch",
-    borderWidth: 2,
-    borderColor: "#D0D0D0",
-    borderStyle: "dashed",
-    borderRadius: 12,
-    padding: 8,
-    backgroundColor: "#FFFFFF",
+    justifyContent: "space-between", // 기존 값 유지
+    alignItems: "stretch", // 기존 값 유지
+    borderWidth: 2, // 기존 값 유지
+    // borderColor: "#D0D0D0",       // 제거됨 (동적 적용)
+    borderStyle: "dashed", // 기존 값 유지
+    borderRadius: 12, // 기존 값 유지
+    padding: 8, // 기존 값 유지
+    // backgroundColor: "#FFFFFF",    // 제거됨 (동적 적용)
   },
   imagePreview: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 10,
+    width: "100%", // 기존 값 유지
+    height: "100%", // 기존 값 유지
+    borderRadius: 10, // 기존 값 유지
   },
   slotNumber: {
-    position: "absolute",
-    top: 5,
-    left: 8,
-    fontSize: 14,
-    color: "#A0A0A0",
-    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif-medium",
-    fontWeight: "500",
+    position: "absolute", // 기존 값 유지
+    top: 5, // 기존 값 유지
+    left: 8, // 기존 값 유지
+    fontSize: 14, // 기존 값 유지
+    // color: "#A0A0A0",   // 제거됨 (동적 적용)
+    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif-medium", // 기존 값 유지
+    fontWeight: "500", // 기존 값 유지
   },
   plusIconContainer: {
-    position: "absolute",
-    bottom: 5,
-    right: 5,
+    position: "absolute", // 기존 값 유지
+    bottom: 5, // 기존 값 유지
+    right: 5, // 기존 값 유지
   },
   removeIconContainer: {
-    position: "absolute",
-    top: -8,
-    right: -8,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 15,
-    padding: 1,
+    position: "absolute", // 기존 값 유지
+    top: -8, // 기존 값 유지
+    right: -8, // 기존 값 유지
+    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
+    borderRadius: 15, // 기존 값 유지
+    padding: 1, // 기존 값 유지 (아이콘과 배경 사이 약간의 여백 효과)
   },
 });
 

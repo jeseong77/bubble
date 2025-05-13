@@ -1,4 +1,3 @@
-// components/CustomTabBarButton.tsx
 import {
   Pressable,
   StyleSheet,
@@ -7,16 +6,13 @@ import {
   GestureResponderEvent,
 } from "react-native";
 import React, { useEffect } from "react";
-import { icons } from "@/constants/Icons";
-import { useTheme } from "@react-navigation/native";
+import { icons } from "@/constants/Icons"; // 아이콘 경로 확인
+import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 커스텀 테마 훅 (경로 확인)
 import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  // For more control over spring, you can import:
-  // WithSpringConfig,
-  // Easing,
 } from "react-native-reanimated";
 
 type IconName = "index" | "explore" | "profile" | string; // Or keyof typeof icons
@@ -36,9 +32,9 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
   label,
   routeName,
 }) => {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme(); // <--- [변경] 커스텀 훅으로 테마 색상 가져오기
   const scale = useSharedValue(isFocused ? 1 : 0);
-  const IconComponent = icons[routeName] || icons["default"];
+  const IconComponent = icons[routeName] || icons["default"]; // 아이콘 가져오기
 
   useEffect(() => {
     scale.value = withSpring(isFocused ? 1 : 0, {
@@ -49,9 +45,8 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
   }, [scale, isFocused]);
 
   const animatedIconStyle = useAnimatedStyle(() => {
-    const scaleValue = interpolate(scale.value, [0, 1], [1, 1.2]); // Icon is smaller when not focused, larger when focused
-    // 2. Calculate 'top' value directly inside useAnimatedStyle
-    const topValue = interpolate(scale.value, [0, 1], [0, 9]); // Moves down by 9 when not focused, 0 when focused
+    const scaleValue = interpolate(scale.value, [0, 1], [1, 1.2]);
+    const topValue = interpolate(scale.value, [0, 1], [0, 9]); // focused 시 아이콘이 위로 올라가는 효과 유지
     return {
       transform: [{ scale: scaleValue }],
       top: topValue,
@@ -59,8 +54,7 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
   });
 
   const animatedTextStyle = useAnimatedStyle(() => {
-    // Text becomes transparent when focused, opaque when not focused
-    const opacity = interpolate(scale.value, [0, 1], [1, 0]);
+    const opacity = interpolate(scale.value, [0, 1], [1, 0]); // focused 시 텍스트 사라짐
     return {
       opacity: opacity,
     };
@@ -79,18 +73,20 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
         {IconComponent ? (
           <IconComponent
             size={24}
-            color={isFocused ? '#fff' : '#222'}
+            // [변경] 아이콘 색상을 테마에 맞게 동적으로 설정
+            color={isFocused ? colors.onPrimary : colors.onSurfaceVariant}
           />
         ) : (
-          <View style={{ width: 24, height: 24 }} /> // Placeholder
+          <View style={{ width: 24, height: 24 }} /> // 아이콘 없을 시 Placeholder
         )}
       </Animated.View>
 
       <Animated.Text
         style={[
-          styles.labelText, // Base styles for the label
-          { color: isFocused ? "#6363D3" : "#333" }, // Dynamic color
-          animatedTextStyle, // Animated opacity
+          styles.labelText,
+          // [변경] 텍스트 색상을 테마에 맞게 동적으로 설정
+          { color: isFocused ? colors.primary : colors.onSurfaceVariant },
+          animatedTextStyle, // focused 시 투명도 애니메이션
         ]}
       >
         {label}
@@ -105,16 +101,12 @@ const styles = StyleSheet.create({
   tabItem: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center", // To better center content vertically if needed
+    justifyContent: "center",
     paddingVertical: 8,
-    // The height of the tab item might need to be fixed or have minHeight
-    // to accommodate the icon moving up and down, preventing layout shifts.
-    // For example: minHeight: 60,
+    // minHeight: 60, // 아이콘 애니메이션으로 인한 레이아웃 변경 방지 (필요시)
   },
   labelText: {
-    // fontSize and marginTop were previously in the inline style, moved here for clarity
     fontSize: 12,
-    marginTop: 4, // Spacing between icon and text
-    // Consider adding a fixed height or line height if text visibility changes cause jumps
+    marginTop: 4, // 아이콘과 텍스트 사이 간격
   },
 });

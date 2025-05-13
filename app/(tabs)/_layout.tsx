@@ -1,6 +1,5 @@
 import React from "react"; // useCallback 사용을 위해 React import
 import { Tabs, useFocusEffect } from "expo-router";
-import { Platform } from "react-native"; // Platform 사용 예시 (기존 CustomTabBar 스타일에 있음)
 import { useUIStore } from "@/stores/uiStore"; // Zustand 스토어 import (경로 확인)
 import { CustomTabBar } from "@/components/CustomTabBar"; // CustomTabBar import (경로 확인)
 
@@ -52,6 +51,7 @@ export default function TabLayout() {
         name="index" // 예: app/(tabs)/index.tsx
         options={{
           title: "Home",
+          animation: "fade",
           // 탭 아이콘 등은 CustomTabBar 또는 여기서 options.tabBarIcon 등으로 설정
         }}
       />
@@ -59,18 +59,21 @@ export default function TabLayout() {
         name="explore" // 예: app/(tabs)/explore.tsx
         options={{
           title: "Find",
+          animation: "fade",
         }}
       />
       <Tabs.Screen
         name="message" // 예: app/(tabs)/message.tsx
         options={{
           title: "Message", // "Messaege" 오타 수정 가정
+          animation: "fade",
         }}
       />
       <Tabs.Screen
         name="profile" // 예: app/(tabs)/profile.tsx
         options={{
           title: "Profile",
+          animation: "fade",
         }}
       />
       {/* 필요한 다른 Tabs.Screen들을 여기에 추가합니다. */}
