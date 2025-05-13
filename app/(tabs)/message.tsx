@@ -1,12 +1,24 @@
-import React from 'react';
-import { View } from 'react-native';
+import React, { use } from 'react';
+import { View, Text, SafeAreaView, StyleSheet } from "react-native";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 function message() {
+  const { colors } = useAppTheme();
+
   return (
-    <View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[,{color: colors.onBackground}]}>
+        This is messanger
+      </Text>
       
-    </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
 
 export default message;

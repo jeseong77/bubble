@@ -4,10 +4,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router"; // 화면 포커스/블러 효과를 위해 import
 import CustomAppBar from "@/components/CustomAppBar"; // CustomAppBar 컴포넌트의 실제 경로로 수정해주세요.
 import { useUIStore } from "@/stores/uiStore"; // 수정한 Zustand 스토어 import
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export default function SettingsScreen() {
   // Zustand 스토어에서 탭 바 제어 함수들을 가져옵니다.
   const { hideTabBar, showTabBar } = useUIStore();
+  const { colors } = useAppTheme()
 
   useFocusEffect(
     React.useCallback(() => {
@@ -25,10 +27,10 @@ export default function SettingsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
       <CustomAppBar title="설정" />
       <View style={styles.content}>
-        <Text style={styles.text}>Settings Page</Text>
+        <Text style={[styles.text, {color: colors.onBackground}]}>Settings Page</Text>
       </View>
     </SafeAreaView>
   );

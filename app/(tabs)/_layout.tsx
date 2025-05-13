@@ -51,7 +51,7 @@ export default function TabLayout() {
         name="index" // 예: app/(tabs)/index.tsx
         options={{
           title: "Home",
-          animation: "fade",
+          animation: "none",
           // 탭 아이콘 등은 CustomTabBar 또는 여기서 options.tabBarIcon 등으로 설정
         }}
       />
@@ -59,21 +59,21 @@ export default function TabLayout() {
         name="explore" // 예: app/(tabs)/explore.tsx
         options={{
           title: "Find",
-          animation: "fade",
+          animation: "none",
         }}
       />
       <Tabs.Screen
         name="message" // 예: app/(tabs)/message.tsx
         options={{
           title: "Message", // "Messaege" 오타 수정 가정
-          animation: "fade",
+          animation: "none",
         }}
       />
       <Tabs.Screen
         name="profile" // 예: app/(tabs)/profile.tsx
         options={{
           title: "Profile",
-          animation: "fade",
+          animation: "none",
         }}
       />
       {/* 필요한 다른 Tabs.Screen들을 여기에 추가합니다. */}
