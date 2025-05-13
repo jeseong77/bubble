@@ -6,10 +6,12 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
+  Platform, // Platform 추가
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] useAppTheme 훅 임포트 (경로 확인!)
+import { useAppTheme } from "@/hooks/useAppTheme";
+import { BlurView } from "expo-blur"; // BlurView 임포트
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -18,11 +20,13 @@ interface CustomAppBarProps {
   onBackPress?: () => void;
   backIconName?: IconName;
   backIconSize?: number;
-  backIconColor?: string; // 사용자가 직접 색상을 지정할 수 있도록 prop은 유지
+  backIconColor?: string;
   title?: string;
   titleTextStyle?: TextStyle;
   rightComponent?: React.ReactNode;
-  style?: ViewStyle; // AppBar 전체에 대한 커스텀 스타일
+  style?: ViewStyle;
+  background?: boolean; // true일 경우 BlurView 배경, false일 경우 투명 배경
+  blurIntensity?: number; // BlurView의 강도 설정 옵션 추가
 }
 
 const CustomAppBar: React.FC<CustomAppBarProps> = ({
@@ -30,17 +34,27 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
   onBackPress,
   backIconName = "chevron-back",
   backIconSize = 24,
-  backIconColor: backIconColorProp, // prop으로 받은 색상을 backIconColorProp으로 받음
+  backIconColor: backIconColorProp,
   title,
   titleTextStyle,
   rightComponent,
   style,
+  background = false,
+  // 기본 블러 강도 설정 (iOS와 Android에서 유사한 시각적 효과를 위해 값 차등)
+  blurIntensity = Platform.OS === "ios" ? 70 : 100,
 }) => {
   const router = useRouter();
-  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+  const { colors, isDark } = useAppTheme(); // isDark는 BlurView의 tint에 사용
 
-  // backIconColorProp이 제공되지 않으면 테마의 onBackground 색상을 기본값으로 사용
-  const finalBackIconColor = backIconColorProp || colors.onBackground;
+  // 'background' prop에 따른 기본 콘텐츠 색상 결정
+  // true (BlurView 사용 시): onPrimary (BlurView가 주 배경 역할을 한다고 가정)
+  // false (투명 배경 시): onBackground
+  const defaultContentColor = background
+    ? colors.onPrimary
+    : colors.onBackground;
+
+  // 최종 뒤로가기 아이콘 색상
+  const finalBackIconColor = backIconColorProp || defaultContentColor;
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -60,7 +74,7 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
           <Ionicons
             name={backIconName}
             size={backIconSize}
-            color={finalBackIconColor} // <--- [변경] 테마 기반 아이콘 색상 적용
+            color={finalBackIconColor}
           />
         </TouchableOpacity>
       )}
@@ -72,17 +86,30 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
   );
 
   return (
-    // AppBar의 배경은 기본적으로 투명하게 유지 (styles.appBar.backgroundColor)
-    // 필요시 `style` prop을 통해 부모 컴포넌트에서 배경색을 지정하거나,
-    // styles.appBar.backgroundColor를 colors.surface 등으로 변경할 수 있습니다.
-    <View style={[styles.appBar, style]}>
+    <View
+      style={[
+        styles.appBar, // 기본 AppBar 스타일 (높이, flex 정렬, 패딩 등)
+        style, // 사용자가 전달한 커스텀 스타일
+        // 'background'가 true (BlurView 사용)일 경우, AppBar 컨테이너 자체의 배경색을 투명하게 강제합니다.
+        // 이는 사용자가 'style' prop으로 전달한 배경색을 덮어쓰고 BlurView가 보이도록 보장합니다.
+        background ? { backgroundColor: "transparent" } : {},
+      ]}
+    >
+      {background && (
+        <BlurView
+          intensity={blurIntensity}
+          tint={isDark ? "dark" : "light"}
+          style={StyleSheet.absoluteFill} // 부모 View (AppBar)를 완전히 채웁니다.
+        />
+      )}
+      {/* 콘텐츠는 BlurView 위에 렌더링됩니다. */}
       {renderLeft()}
       {title && (
         <Text
           style={[
-            styles.title, // StyleSheet의 기본 스타일 (색상 제외)
-            { color: colors.onBackground }, // <--- [변경] 테마 기반 제목 색상 적용
-            titleTextStyle, // 사용자가 전달한 titleTextStyle이 있다면 이를 덮어씀
+            styles.title, // 기본 제목 스타일
+            { color: defaultContentColor }, // 동적으로 결정된 제목 색상
+            titleTextStyle, // 사용자가 전달한 제목 스타일 (색상 덮어쓰기 가능)
           ]}
           numberOfLines={1}
         >
@@ -96,29 +123,30 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
 
 const styles = StyleSheet.create({
   appBar: {
-    height: 56, // 일반적인 앱바 높이
+    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 10,
-    backgroundColor: "transparent", // 기본 배경은 투명. 부모의 배경을 따르거나 style prop으로 지정.
-    // 예: colors.surface를 사용하려면 여기를 수정하거나 style prop 사용
+    // backgroundColor는 동적으로 처리되거나, background=false 시 사용자의 'style' prop에 의해 설정됩니다.
+    // background=true 시에는 { backgroundColor: "transparent" }가 강제로 적용됩니다.
   },
   backButton: {
     padding: 10, // 터치 영역 확보
   },
   buttonPlaceholder: {
-    minWidth: 44, // 좌우 버튼 영역의 최소 너비 (균형을 위해)
+    // 좌우 컴포넌트 영역의 최소 너비를 확보하여 정렬을 돕습니다.
+    minWidth: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
-    flex: 1, // 제목이 중앙 공간을 최대한 차지하도록
+    flex: 1, // 제목이 남은 공간을 차지하고 중앙 정렬되도록 합니다.
     textAlign: "center",
     fontSize: 18,
     fontWeight: "bold",
-    // color: '#000000', // <--- [제거] 이제 동적으로 적용됨
-    marginHorizontal: 5, // 좌우 아이콘/버튼과의 최소 간격
+    marginHorizontal: 5, // 제목이 좌우 컴포넌트에 너무 붙지 않도록 여백을 줍니다.
+    // color는 동적으로 적용됩니다.
   },
 });
 

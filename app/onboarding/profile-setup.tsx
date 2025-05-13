@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import CustomAppBar from "@/components/CustomAppBar";
-import { ProfileFormData, ProfileImage } from "@/types/user/profile";
+import { ProfileFormData, ProfileImage } from "@/types/profile";
 import useAuthStore from "@/stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import NameInputStep from "./profile-setup-steps/NameInputStep";
@@ -88,9 +88,11 @@ const calculateAge = (birthDate: Date): number => {
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
+  const authenticatedUserId = useAuthStore((state) => state.user?.id);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [profileData, setProfileData] = useState<ProfileFormData>({
+    userId: authenticatedUserId || "",
     firstName: "",
     lastName: "",
     age: null,
@@ -98,7 +100,7 @@ export default function ProfileSetupScreen() {
     birthMonth: "",
     birthYear: "",
     height: null,
-    mbti: "",
+    mbti: null, // <--- [변경] "" 대신 null로 초기화 (타입 및 유효성 검사 일관성)
     gender: "",
     genderVisibleOnProfile: true,
     aboutMe: "",

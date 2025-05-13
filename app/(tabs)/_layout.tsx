@@ -52,6 +52,7 @@ export default function TabLayout() {
         options={{
           title: "Home",
           animation: "none",
+
           // 탭 아이콘 등은 CustomTabBar 또는 여기서 options.tabBarIcon 등으로 설정
         }}
       />

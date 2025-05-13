@@ -2,7 +2,6 @@ import React from "react";
 import {
   View,
   Text,
-  // SafeAreaView, // CustomView가 SafeAreaView를 포함하므로 여기서는 제거합니다.
   StyleSheet,
   ImageBackground,
 } from "react-native";
@@ -15,7 +14,7 @@ function ExplorePage() {
   // 함수 이름은 가독성을 위해 변경 가능 (선택 사항)
   const { colors } = useAppTheme(); // 테마 색상 (텍스트 등 스타일에 사용 가능)
   const girl1Image = require("../../assets/images/girl1.png");
-  const girl2Image = require("../../assets/images/girl2.png");
+  const girl2Image = require("../../assets/images/girl1.png");
 
   return (
     <CustomView>
@@ -28,7 +27,7 @@ function ExplorePage() {
       >
         {/* ImageBackground 위에 표시될 내용 */}
         <View style={styles.contentOverlay}>
-          <Text style={styles.exploreText}>Explore Page Content</Text>
+          <Text style={styles.exploreText}>Explore</Text>
           {/* 여기에 탐색 페이지의 다른 UI 요소들을 추가할 수 있습니다. */}
         </View>
       </ImageBackground>
@@ -40,12 +39,10 @@ const styles = StyleSheet.create({
   // styles.container는 ImageBackground에 적용될 스타일로 이름을 변경하거나 내용을 수정합니다.
   imageBackgroundContainer: {
     flex: 1, // CustomView의 content 영역을 꽉 채우도록 설정
-    justifyContent: "center", // 예시: 내용을 이미지 중앙에 배치
-    alignItems: "center", // 예시: 내용을 이미지 중앙에 배치
+    justifyContent: 'center',
+    alignItems: "center",
   },
   contentOverlay: {
-    // 필요에 따라 이미지 위에 반투명 오버레이를 추가하여 텍스트 가독성을 높일 수 있습니다.
-    // 예: backgroundColor: 'rgba(0,0,0,0.3)',
     padding: 20,
   },
   exploreText: {
