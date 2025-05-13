@@ -1,3 +1,4 @@
+// components/CustomAppBar.tsx
 import React from "react";
 import {
   View,
@@ -6,14 +7,17 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  Platform, // Platform 추가
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { BlurView } from "expo-blur"; // BlurView 임포트
+import { BlurView } from "expo-blur";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type IconName = keyof typeof Ionicons.glyphMap;
+
+const APPBAR_CONTENT_HEIGHT = 56; // AppBar 콘텐츠 영역의 실제 높이
 
 interface CustomAppBarProps {
   showBackButton?: boolean;
@@ -23,10 +27,12 @@ interface CustomAppBarProps {
   backIconColor?: string;
   title?: string;
   titleTextStyle?: TextStyle;
+  leftComponent?: React.ReactNode;
   rightComponent?: React.ReactNode;
   style?: ViewStyle;
-  background?: boolean; // true일 경우 BlurView 배경, false일 경우 투명 배경
-  blurIntensity?: number; // BlurView의 강도 설정 옵션 추가
+  background?: boolean;
+  blurIntensity?: number;
+  extendStatusBar?: boolean; // <-- [추가] 상태 표시줄 영역까지 배경 확장 여부 prop
 }
 
 const CustomAppBar: React.FC<CustomAppBarProps> = ({
@@ -37,24 +43,29 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
   backIconColor: backIconColorProp,
   title,
   titleTextStyle,
+  leftComponent,
   rightComponent,
   style,
   background = false,
-  // 기본 블러 강도 설정 (iOS와 Android에서 유사한 시각적 효과를 위해 값 차등)
   blurIntensity = Platform.OS === "ios" ? 70 : 100,
+  extendStatusBar = false, // <-- [추가] 기본값은 false
 }) => {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme(); // isDark는 BlurView의 tint에 사용
+  const { colors, isDark } = useAppTheme();
+  const insets = useSafeAreaInsets();
 
-  // 'background' prop에 따른 기본 콘텐츠 색상 결정
-  // true (BlurView 사용 시): onPrimary (BlurView가 주 배경 역할을 한다고 가정)
-  // false (투명 배경 시): onBackground
   const defaultContentColor = background
     ? colors.onPrimary
     : colors.onBackground;
 
-  // 최종 뒤로가기 아이콘 색상
   const finalBackIconColor = backIconColorProp || defaultContentColor;
+
+  // extendStatusBar prop 값에 따라 실제 상단 inset과 패딩 결정
+  const topInsetForBackground = extendStatusBar ? insets.top : 0;
+  const appBarTotalHeight = APPBAR_CONTENT_HEIGHT + topInsetForBackground;
+  const appBarContentPaddingTop = extendStatusBar
+    ? insets.top
+    : 0;
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -64,53 +75,61 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
 
   const effectiveBackPress = onBackPress || handleGoBack;
 
-  const renderLeft = () => (
-    <View style={styles.buttonPlaceholder}>
-      {showBackButton && (
-        <TouchableOpacity
-          onPress={effectiveBackPress}
-          style={styles.backButton}
-        >
-          <Ionicons
-            name={backIconName}
-            size={backIconSize}
-            color={finalBackIconColor}
-          />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+  const renderLeft = () => {
+    if (leftComponent) {
+      return <View style={styles.sideItemContainer}>{leftComponent}</View>;
+    }
+    if (showBackButton) {
+      return (
+        <View style={styles.sideItemContainer}>
+          <TouchableOpacity
+            onPress={effectiveBackPress}
+            style={styles.backButton}
+          >
+            <Ionicons
+              name={backIconName}
+              size={backIconSize}
+              color={finalBackIconColor}
+            />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return <View style={styles.sideItemContainer} />;
+  };
 
   const renderRight = () => (
-    <View style={styles.buttonPlaceholder}>{rightComponent}</View>
+    <View style={styles.sideItemContainer}>{rightComponent}</View>
   );
 
   return (
-    <View
+    <View // 메인 AppBar 컨테이너
       style={[
-        styles.appBar, // 기본 AppBar 스타일 (높이, flex 정렬, 패딩 등)
-        style, // 사용자가 전달한 커스텀 스타일
-        // 'background'가 true (BlurView 사용)일 경우, AppBar 컨테이너 자체의 배경색을 투명하게 강제합니다.
-        // 이는 사용자가 'style' prop으로 전달한 배경색을 덮어쓰고 BlurView가 보이도록 보장합니다.
-        background ? { backgroundColor: "transparent" } : {},
+        // 기본 스타일: 높이, 내부 콘텐츠 정렬 등
+        {
+          height: appBarTotalHeight, // 전체 높이 계산 값 적용
+          paddingTop: appBarContentPaddingTop, // 콘텐츠 영역 상단 패딩 계산 값 적용
+          flexDirection: "row",
+          alignItems: "center", // AppBar 콘텐츠 영역 내에서 아이템들을 수직 중앙 정렬
+          justifyContent: "space-between",
+          paddingHorizontal: 10, // 좌우 패딩
+        },
+        style, // 사용자가 전달한 스타일
+        background ? { backgroundColor: "transparent" } : {}, // BlurView 사용 시 배경 투명 처리
       ]}
     >
       {background && (
         <BlurView
           intensity={blurIntensity}
           tint={isDark ? "dark" : "light"}
-          style={StyleSheet.absoluteFill} // 부모 View (AppBar)를 완전히 채웁니다.
+          style={StyleSheet.absoluteFill} // 전체 AppBar 컨테이너(상태 표시줄 영역 포함 또는 미포함)를 채움
         />
       )}
-      {/* 콘텐츠는 BlurView 위에 렌더링됩니다. */}
+      {/* 콘텐츠는 paddingTop 이후의 공간에 렌더링됨 */}
       {renderLeft()}
       {title && (
         <Text
-          style={[
-            styles.title, // 기본 제목 스타일
-            { color: defaultContentColor }, // 동적으로 결정된 제목 색상
-            titleTextStyle, // 사용자가 전달한 제목 스타일 (색상 덮어쓰기 가능)
-          ]}
+          style={[styles.title, { color: defaultContentColor }, titleTextStyle]}
           numberOfLines={1}
         >
           {title}
@@ -122,31 +141,23 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
 };
 
 const styles = StyleSheet.create({
-  appBar: {
-    height: 56,
-    flexDirection: "row",
+  sideItemContainer: {
+    justifyContent: "center",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 10,
-    // backgroundColor는 동적으로 처리되거나, background=false 시 사용자의 'style' prop에 의해 설정됩니다.
-    // background=true 시에는 { backgroundColor: "transparent" }가 강제로 적용됩니다.
+    minWidth: 44,
+    height: APPBAR_CONTENT_HEIGHT, // 컨테이너 높이를 콘텐츠 높이와 일치시켜 아이템 정렬 용이
   },
   backButton: {
-    padding: 10, // 터치 영역 확보
-  },
-  buttonPlaceholder: {
-    // 좌우 컴포넌트 영역의 최소 너비를 확보하여 정렬을 돕습니다.
-    minWidth: 44,
-    alignItems: "center",
-    justifyContent: "center",
+    padding: 10,
   },
   title: {
-    flex: 1, // 제목이 남은 공간을 차지하고 중앙 정렬되도록 합니다.
+    flex: 1,
     textAlign: "center",
     fontSize: 18,
     fontWeight: "bold",
-    marginHorizontal: 5, // 제목이 좌우 컴포넌트에 너무 붙지 않도록 여백을 줍니다.
-    // color는 동적으로 적용됩니다.
+    marginHorizontal: 5,
+    height: APPBAR_CONTENT_HEIGHT, // 제목 영역의 높이
+    lineHeight: APPBAR_CONTENT_HEIGHT, // 텍스트 수직 중앙 정렬을 위함 (근사치)
   },
 });
 
