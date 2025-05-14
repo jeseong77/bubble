@@ -4,7 +4,7 @@ import {
   StyleSheet,
   Text,
   ImageBackground,
-  Platform, // Platform 모듈 임포트
+  Platform,
 } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import CustomView from "@/components/CustomView";

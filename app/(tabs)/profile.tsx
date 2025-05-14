@@ -25,8 +25,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 // 목업 프로필 데이터 (images 필드는 currentImages 상태로 관리)
 const mockProfileData: ProfileFormData = {
   userId: "john_doe_123",
-  firstName: "John",
-  lastName: "Doe",
+  firstName: "Noah",
+  lastName: "Kim",
   age: 30,
   birthDay: "15",
   birthMonth: "07",
@@ -383,13 +383,12 @@ const styles = StyleSheet.create({
   appBarIconButton: {
     padding: 10,
   },
-  // "Edit Profile" 탭 전체 콘텐츠를 감싸는 View의 스타일
   editProfileTabContent: {
     paddingHorizontal: 20, // 이 값은 itemSize 계산 시 contentPaddingHorizontal로 사용됨
-    paddingBottom: 30, // 스크롤 하단 여유 공간
+    paddingBottom: Platform.OS === "ios" ? 30 : 100,
   },
   profileDetailsContainer: {
-    paddingTop: 30, // 이미지 그리드와의 간격
+    paddingTop: 30,
   },
   detailItem: {
     marginBottom: 20,

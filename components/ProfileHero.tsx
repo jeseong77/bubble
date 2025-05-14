@@ -16,8 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 프로필 이미지 및 정보 (목업 데이터)
 const MOCK_PROFILE_IMAGE_URI = require('../assets/images/guy.png')
-const MOCK_USER_NAME = "John Roian";
-const MOCK_INSTAGRAM_ID = "@JohnR123";
+const MOCK_USER_NAME = "Noah Kim";
+const MOCK_INSTAGRAM_ID = "@nkim";
 
 interface FloatingBubbleProps {
   size: number;

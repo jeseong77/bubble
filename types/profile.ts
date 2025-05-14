@@ -19,6 +19,5 @@ export interface ProfileFormData {
   gender: string; // 예: "Man", "Woman", "Nonbinary", "Other" 또는 사용자 정의 값
   genderVisibleOnProfile: boolean; // 프로필에 성별 표시 여부
   aboutMe: string; // 자기소개
-  images: (ProfileImage | null)[]; // 사용자의 프로필 사진 배열 (예: 최대 6개)
-  // null은 아직 이미지가 없는 슬롯을 의미할 수 있습니다.
+  images: (ProfileImage | null)[];
 }
