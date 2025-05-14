@@ -3,7 +3,7 @@ import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
-import { Literata_400Regular, Literata_500Medium } from "@expo-google-fonts/literata";
+import { Literata_400Regular, Literata_500Medium, Literata_600SemiBold } from "@expo-google-fonts/literata";
 
 import { useInitialRouteRedirect } from "../hooks/useInitialRouteRedirect"; // 이 훅의 실제 경로를 확인해주세요.
 import { ThemeProvider } from "@/theme/ThemeContext"; // ThemeProvider 임포트 (경로 확인!)
@@ -62,7 +62,7 @@ export default function RootLayout() {
 
   const [fontsLoaded, fontError] = useFonts({
     Literata: Literata_400Regular,
-    "Literata-Bold": Literata_500Medium,
+    "Literata-Bold": Literata_600SemiBold,
     "LeagueSpartan-Thin": require("../assets/fonts/LeagueSpartan-Thin.ttf"), // 폰트 경로 확인
     "LeagueSpartan-ExtraLight": require("../assets/fonts/LeagueSpartan-ExtraLight.ttf"),
     "LeagueSpartan-Light": require("../assets/fonts/LeagueSpartan-Light.ttf"),

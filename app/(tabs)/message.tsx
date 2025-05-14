@@ -6,7 +6,6 @@ import CustomView from "@/components/CustomView"; // <--- [추가] CustomView �
 // 컴포넌트 함수의 이름은 PascalCase가 일반적이나,
 // 파일 기반 라우팅에서는 파일 이름이 중요합니다. export default는 유지합니다.
 function Message() {
-  // 함수 이름은 가독성을 위해 변경 가능 (선택 사항)
   const { colors } = useAppTheme(); // 테마 색상 (텍스트 등 스타일에 사용 가능)
   const girl1Image = require("../../assets/images/girl1.png");
   const girl2Image = require("../../assets/images/talk.png");

@@ -1,57 +1,256 @@
-import React from "react"; // useCallback을 사용하기 위해 React import
-import { View, Text, StyleSheet, Button } from "react-native";
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router"; // 화면 포커스/블러 효과를 위해 import
-import CustomAppBar from "@/components/CustomAppBar"; // CustomAppBar 컴포넌트의 실제 경로로 수정해주세요.
-import { useUIStore } from "@/stores/uiStore"; // 수정한 Zustand 스토어 import
+import { useFocusEffect, useRouter } from "expo-router"; // useRouter 추가
+import CustomAppBar from "@/components/CustomAppBar";
+import { useUIStore } from "@/stores/uiStore";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import useAuthStore from "@/stores/authStore";
+import { Ionicons } from "@expo/vector-icons";
+
+// SettingsItem 컴포넌트는 변경 없음 (내부 텍스트는 label prop으로 받으므로)
+const SettingsItem: React.FC<{
+  label: string;
+  onPress: () => void;
+  iconColor: string;
+  textColor: string;
+  borderColor: string;
+  isLastItem?: boolean;
+}> = ({
+  label,
+  onPress,
+  iconColor,
+  textColor,
+  borderColor,
+  isLastItem = false,
+}) => (
+  <TouchableOpacity
+    style={[
+      styles.settingsItemBase,
+      { borderBottomColor: borderColor },
+      isLastItem && styles.settingsItemLast,
+    ]}
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <Text style={[styles.settingsItemText, { color: textColor }]}>{label}</Text>
+    <Ionicons name="chevron-forward" size={20} color={iconColor} />
+  </TouchableOpacity>
+);
 
 export default function SettingsScreen() {
-  // Zustand 스토어에서 탭 바 제어 함수들을 가져옵니다.
   const { hideTabBar, showTabBar } = useUIStore();
-  const { colors } = useAppTheme()
+  const { colors } = useAppTheme();
   const logout = useAuthStore((state) => state.logout);
+  const router = useRouter();
 
   useFocusEffect(
     React.useCallback(() => {
-      // 이 화면이 사용자에게 보여질 때 (포커스될 때) 실행됩니다.
-      hideTabBar(); // 탭 바를 숨깁니다.
-      console.log("SettingsScreen focused: TabBar hidden via uiStore");
-
+      hideTabBar();
       return () => {
-        // 이 화면이 사용자에게서 사라질 때 (포커스를 잃을 때) 실행됩니다.
-        // 예: 뒤로 가거나 다른 탭으로 이동 등
-        showTabBar(); // 탭 바를 다시 보이도록 합니다.
-        console.log("SettingsScreen blurred: TabBar shown via uiStore");
+        showTabBar();
       };
-    }, [hideTabBar, showTabBar]) // 의존성 배열: hideTabBar, showTabBar 함수가 변경되지 않는 한 콜백은 재생성되지 않음
+    }, [hideTabBar, showTabBar])
   );
 
+  const handleLogout = () => {
+    console.log("Logout pressed");
+    logout();
+    // Example: Navigate to a login or initial screen after logout
+    // router.replace("/login");
+  };
+
+  // 섹션 데이터 영어로 변경
+  const sections = [
+    {
+      title: "Account", // "계정" -> "Account"
+      items: [
+        {
+          label: "Edit Profile", // "프로필 수정" -> "Edit Profile"
+          onPress: () => {
+            console.log("Edit Profile pressed");
+            // router.push("/settings/edit-profile"); // 예시 경로
+          },
+        },
+        {
+          label: "Privacy and Security", // "알림 설정" -> 이미지 기반 "Privacy and Security"
+          onPress: () => {
+            console.log("Privacy and Security pressed");
+            // router.push("/settings/privacy-security");
+          },
+        },
+        {
+          label: "Share Profile", // 이미지에 있는 "Share Profile" 추가
+          onPress: () => console.log("Share Profile pressed"),
+          isLast: false, // 이 섹션의 마지막 항목이 아님
+        },
+        // 이미지에는 "Account" 항목이 하나 더 있었으나, 레이블이 명확하지 않아 생략 또는 추가 가능
+        // 예: { label: "Account Settings", onPress: () => console.log("Account Settings pressed"), isLast: true },
+      ],
+    },
+    {
+      title: "Content", // "지원" 섹션 대신 이미지의 "Content" 섹션으로 변경
+      items: [
+        {
+          label: "Preferences", // "이용약관" -> 이미지 기반 "Preferences"
+          onPress: () => {
+            console.log("Preferences pressed");
+            // router.push("/settings/preferences");
+          },
+        },
+        {
+          label: "Notifications and Sounds", // "개인정보 처리방침" -> 이미지 기반 "Notifications and Sounds"
+          onPress: () => {
+            console.log("Notifications and Sounds pressed");
+            // router.push("/settings/notifications");
+          },
+          isLast: true,
+        },
+      ],
+    },
+    {
+      title: "Help & Support", // 이미지에 있는 "Help & Support" 섹션 추가
+      items: [
+        {
+          label: "Help",
+          onPress: () => console.log("Help pressed"),
+          isLast: true,
+        },
+      ],
+    },
+  ];
+
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
-      <CustomAppBar title="설정" />
-      <View style={styles.content}>
-        <Text style={[styles.text, {color: colors.onBackground}]}>Settings Page</Text>
+    <SafeAreaView
+      style={[styles.safeAreaContainer, { backgroundColor: colors.background }]}
+      edges={["top", "left", "right"]}
+    >
+      <CustomAppBar
+        title="Settings" // "설정" -> "Settings" (이미 코드에 반영됨)
+        showBackButton={true}
+      />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {sections.map((section, sectionIndex) => (
+          <View key={sectionIndex} style={styles.sectionContainer}>
+            {section.title && (
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: colors.onSurfaceVariant },
+                ]}
+              >
+                {section.title}
+              </Text>
+            )}
+            {section.items.map((item, itemIndex) => (
+              <SettingsItem
+                key={itemIndex}
+                label={item.label}
+                onPress={item.onPress}
+                iconColor={colors.onSurface}
+                textColor={colors.onBackground}
+                borderColor={colors.outlineVariant}
+                isLastItem={item.isLast}
+              />
+            ))}
+          </View>
+        ))}
+
+        <TouchableOpacity
+          style={[
+            styles.logoutButtonBase,
+            {
+              backgroundColor: colors.surface, // 테마에 따라 surface 또는 투명 처리 가능
+              borderColor: colors.error,
+            },
+          ]}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.logoutButtonText, { color: colors.error }]}>
+            Log out {/* "로그아웃" -> "Log out" */}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+      <View style={[styles.footer, { borderTopColor: colors.outlineVariant }]}>
+        <Text style={[styles.versionText, { color: colors.onSurfaceVariant }]}>
+          Version 1.0.0 {/* "버전 정보" -> "Version" */}
+        </Text>
       </View>
-      <Button title="로그아웃 (상태 초기화)" onPress={logout} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeAreaContainer: {
     flex: 1,
-    backgroundColor: "#ffffff",
   },
-  content: {
+  scrollView: {
     flex: 1,
-    justifyContent: "center",
+  },
+  scrollViewContent: {
+    paddingBottom: 20,
+  },
+  sectionContainer: {
+    marginTop: Platform.OS === "ios" ? 24 : 28,
+    marginHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: "Literata-Bold",
+    paddingHorizontal: 16,
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  settingsItemBase: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: "transparent",
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  text: {
-    fontSize: 20,
-    color: "#333333",
+  settingsItemLast: {
+    borderBottomWidth: 0,
+  },
+  settingsItemText: {
+    fontSize: 17,
+    fontFamily: "Literata",
+  },
+  logoutButtonBase: {
+    marginTop: 32,
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    fontFamily: "Literata-Bold",
+    fontWeight: "600",
+  },
+  footer: {
+    paddingVertical: Platform.OS === "ios" ? 24 : 20,
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    // borderTopColor는 인라인으로 적용
+  },
+  versionText: {
+    fontSize: 12,
+    fontFamily: "Literata",
   },
 });
