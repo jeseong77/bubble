@@ -1,28 +1,26 @@
+// CustomTabBarButton.tsx
 import {
   Pressable,
   StyleSheet,
   Text,
-  View,
   GestureResponderEvent,
 } from "react-native";
 import React, { useEffect } from "react";
-import { icons } from "@/constants/Icons"; // 아이콘 경로 확인
-import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 커스텀 테마 훅 (경로 확인)
+import { useAppTheme } from "@/hooks/useAppTheme";
 import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-
-type IconName = "index" | "explore" | "profile" | string; // Or keyof typeof icons
+import TabBarIcon from "./TabBarIcon"; // 로직 분리를 위한 TabBarIcon 사용은 유지
 
 interface CustomTabBarButtonProps {
   onPress: (event: GestureResponderEvent) => void;
   onLongPress: (event: GestureResponderEvent) => void;
   isFocused: boolean;
   label: string;
-  routeName: IconName;
+  routeName: string;
 }
 
 const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
@@ -34,9 +32,9 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
 }) => {
   const { colors } = useAppTheme();
   const scale = useSharedValue(isFocused ? 1 : 0);
-  const IconComponent = icons[routeName] || icons["default"];
 
   useEffect(() => {
+    // 이 부분은 변경되지 않았습니다.
     scale.value = withSpring(isFocused ? 1 : 0, {
       damping: 15,
       stiffness: 120,
@@ -46,7 +44,8 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
 
   const animatedIconStyle = useAnimatedStyle(() => {
     const scaleValue = interpolate(scale.value, [0, 1], [1, 1.2]);
-    const topValue = interpolate(scale.value, [0, 1], [0, 9]); // focused 시 아이콘이 위로 올라가는 효과 유지
+    // [복원] 아이콘이 아래로 이동하는 원래 로직으로 복원합니다. (-9 -> 9)
+    const topValue = interpolate(scale.value, [0, 1], [0, 9]);
     return {
       transform: [{ scale: scaleValue }],
       top: topValue,
@@ -54,39 +53,39 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
   });
 
   const animatedTextStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(scale.value, [0, 1], [1, 0]); // focused 시 텍스트 사라짐
+    // 이 부분은 변경되지 않았습니다.
+    const opacity = interpolate(scale.value, [0, 1], [1, 0]);
     return {
       opacity: opacity,
     };
   });
 
+  const iconColor = isFocused ? colors.white : colors.black;
+
   return (
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
-      style={styles.tabItem}
+      style={styles.tabItem} // [복원] 원래 스타일로 복원
       accessibilityRole="button"
       accessibilityState={isFocused ? { selected: true } : {}}
       accessibilityLabel={label}
     >
       <Animated.View style={animatedIconStyle}>
-        {IconComponent ? (
-          <IconComponent
-            size={24}
-            // [변경] 아이콘 색상을 테마에 맞게 동적으로 설정
-            color={isFocused ? colors.white : colors.black}
-          />
-        ) : (
-          <View style={{ width: 24, height: 24 }} /> // 아이콘 없을 시 Placeholder
-        )}
+        <TabBarIcon
+          routeName={routeName}
+          isFocused={isFocused}
+          color={iconColor}
+          size={24}
+        />
       </Animated.View>
 
       <Animated.Text
         style={[
-          styles.labelText,
-          // [변경] 텍스트 색상을 테마에 맞게 동적으로 설정
+          styles.labelText, // [복원] 원래 스타일로 복원
+          // [복원] 포커스 시 텍스트 색상이 colors.primary가 되도록 원래 로직으로 복원
           { color: isFocused ? colors.primary : colors.black },
-          animatedTextStyle, // focused 시 투명도 애니메이션
+          animatedTextStyle,
         ]}
       >
         {label}
@@ -102,11 +101,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    // minHeight: 60, // 아이콘 애니메이션으로 인한 레이아웃 변경 방지 (필요시)
+    paddingVertical: 6,
   },
   labelText: {
     fontSize: 12,
-    marginTop: 4, // 아이콘과 텍스트 사이 간격
+    marginTop: 4,
   },
 });

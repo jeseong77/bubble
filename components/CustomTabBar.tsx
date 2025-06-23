@@ -2,24 +2,25 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
-  Text, // Text는 CustomTabBarButton에서 사용될 수 있으므로 유지합니다.
+  Text,
   Platform,
   LayoutChangeEvent,
 } from "react-native";
-// useTheme는 현재 코드에서 사용되지 않으므로 제거하거나 필요시 다시 추가합니다.
-// import { useTheme } from "@react-navigation/native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import CustomTabBarButton from "./CustomTabBarButton"; // 이 파일의 경로가 정확한지 확인해주세요.
 import { icons } from "@/constants/Icons"; // 이 파일의 경로가 정확한지 확인해주세요.
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring, // 탭 선택자 애니메이션용
-  withTiming, // 탭 바 표시/숨김 애니메이션용
-  interpolate, // 탭 바 표시/숨김 애니메이션용
+  withSpring,
+  withTiming,
+  interpolate,
 } from "react-native-reanimated";
 import { useUIStore } from "@/stores/uiStore";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { BlurView } from "expo-blur";
+
+const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
 type KnownIconRouteNames = keyof typeof icons;
 
@@ -75,18 +76,28 @@ export function CustomTabBar({
   });
 
   return (
-    <Animated.View
+    <AnimatedBlurView
       onLayout={onTabBarLayout}
-      style={[
-        styles.tabBar, // 그림자 관련 스타일이 제거된 tabBar 스타일 적용
-        tabBarVisibilityAnimatedStyle,
-        {
-          backgroundColor: colors.disableButton, // 기존 배경색 유지
-          // shadowColor: colors.shadow, // [제거] 인라인 shadowColor 제거
-        },
-      ]}
+      style={[styles.tabBar, tabBarVisibilityAnimatedStyle]}
+      // tint는 'dark'나 'light'로 설정하여 오버레이 색상과 조화를 이루게 할 수 있습니다.
+      tint="light"
+      intensity={90} // 강도를 조금 높여 색상과 잘 어우러지게 조절할 수 있습니다.
       pointerEvents={isTabBarVisibleFromStore ? "auto" : "none"}
     >
+      {/* --- ✨ 요청하신 colors.mediumGray 오버레이 View --- */}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            // colors.mediumGray를 배경으로 사용하되, 투명도를 추가합니다.
+            // 뒤의 '80'은 16진수 투명도 값으로, 약 50%의 투명도를 의미합니다.
+            // 이 값을 조절하여 투명도를 변경할 수 있습니다. (00: 투명, FF: 불투명)
+            backgroundColor: `${colors.mediumGray}80`,
+          },
+        ]}
+      />
+      {/* ---------------------------------------------------- */}
+
       {/* 선택된 탭 표시자 (슬라이더) */}
       <Animated.View
         style={[
@@ -150,7 +161,7 @@ export function CustomTabBar({
           />
         );
       })}
-    </Animated.View>
+    </AnimatedBlurView>
   );
 }
 
@@ -165,6 +176,7 @@ const styles = StyleSheet.create({
     right: 10,
     paddingVertical: 10,
     borderRadius: 35,
+    overflow: "hidden",
   },
   tabSelector: {
     position: "absolute",

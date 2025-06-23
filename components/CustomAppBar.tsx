@@ -54,7 +54,7 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
 
-  const defaultContentColor = background // 'background' prop이 true (블러 배경)일 때 콘텐츠 색상 결정
+  const defaultContentColor = background
     ? colors.black
     : colors.white;
 

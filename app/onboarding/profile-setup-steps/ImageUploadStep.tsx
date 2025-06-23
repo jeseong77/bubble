@@ -107,8 +107,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           style={[
             styles.slotButton,
             {
-              borderColor: colors.outlineVariant, // 부드러운 테두리
-              backgroundColor: colors.surface, // 슬롯 배경
+              backgroundColor: colors.lightGray, // 슬롯 배경
             },
           ]}
           onPress={() =>
@@ -134,7 +133,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                 <Ionicons
                   name="add-circle-outline"
                   size={32}
-                  color={colors.onSurfaceVariant}
+                  color={colors.darkGray}
                 />
               </View>
             </>
@@ -160,11 +159,11 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   return (
     // safeArea에 동적 배경색 적용
     <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: colors.background }]}
+      style={[styles.safeArea, { backgroundColor: colors.white }]}
     >
       <View style={styles.container}>
         {/* title에 동적 텍스트 색상 적용 */}
-        <Text style={[styles.title, { color: colors.onBackground }]}>
+        <Text style={[styles.title, { color: colors.black }]}>
           Upload pictures
         </Text>
         <View style={styles.gridContainer}>
@@ -218,13 +217,8 @@ const styles = StyleSheet.create({
   slotButton: {
     flex: 1,
     justifyContent: "space-between", // 기존 값 유지
-    alignItems: "stretch", // 기존 값 유지
-    borderWidth: 2, // 기존 값 유지
-    // borderColor: "#D0D0D0",       // 제거됨 (동적 적용)
-    borderStyle: "dashed", // 기존 값 유지
-    borderRadius: 12, // 기존 값 유지
-    padding: 8, // 기존 값 유지
-    // backgroundColor: "#FFFFFF",    // 제거됨 (동적 적용)
+    alignItems: "stretch",
+    borderRadius: 8,
   },
   imagePreview: {
     width: "100%", // 기존 값 유지

@@ -67,8 +67,8 @@ function ProfileScreen() {
     router.push("/settings");
   };
 
-  const iconColorForAppBar = colors.onBackground;
-  const logoTextColor = colors.onBackground;
+  const iconColorForAppBar = colors.black;
+  const logoTextColor = colors.black;
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
@@ -144,8 +144,7 @@ function ProfileScreen() {
           style={[
             styles.imageSlotButton,
             {
-              borderColor: colors.outlineVariant,
-              backgroundColor: colors.surface,
+              backgroundColor: colors.lightGray,
             },
           ]}
           onPress={() =>
@@ -163,7 +162,7 @@ function ProfileScreen() {
               <Text
                 style={[
                   styles.imageSlotNumber,
-                  { color: colors.onSurfaceVariant },
+                  { color: colors.black },
                 ]}
               >
                 {index + 1}.
@@ -172,7 +171,7 @@ function ProfileScreen() {
                 <Ionicons
                   name="add-circle-outline"
                   size={Math.min(itemSize * 0.3, 32)}
-                  color={colors.onSurfaceVariant}
+                  color={colors.darkGray}
                 />
               </View>
             </>
@@ -183,7 +182,7 @@ function ProfileScreen() {
             onPress={() => handleRemoveImage(index)}
             style={[
               styles.removeImageIconContainer,
-              { backgroundColor: colors.background },
+              { backgroundColor: colors.white },
             ]}
           >
             <Ionicons
@@ -202,78 +201,78 @@ function ProfileScreen() {
       <View
         style={[
           styles.detailItem,
-          { borderBottomColor: colors.outlineVariant },
+          { borderBottomColor: colors.darkGray },
         ]}
       >
-        <Text style={[styles.detailLabel, { color: colors.onSurfaceVariant }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           First name
         </Text>
-        <Text style={[styles.detailValue, { color: colors.onBackground }]}>
+        <Text style={[styles.detailValue, { color: colors.black }]}>
           {profile.firstName}
         </Text>
       </View>
       <View
         style={[
           styles.detailItem,
-          { borderBottomColor: colors.outlineVariant },
+          { borderBottomColor: colors.darkGray },
         ]}
       >
-        <Text style={[styles.detailLabel, { color: colors.onSurfaceVariant }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Last name
         </Text>
-        <Text style={[styles.detailValue, { color: colors.onBackground }]}>
+        <Text style={[styles.detailValue, { color: colors.black }]}>
           {profile.lastName}
         </Text>
       </View>
       <View
         style={[
           styles.detailItem,
-          { borderBottomColor: colors.outlineVariant },
+          { borderBottomColor: colors.darkGray },
         ]}
       >
-        <Text style={[styles.detailLabel, { color: colors.onSurfaceVariant }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Age
         </Text>
-        <Text style={[styles.detailValue, { color: colors.onBackground }]}>
+        <Text style={[styles.detailValue, { color: colors.black }]}>
           {profile.age ?? "N/A"}
         </Text>
       </View>
       <View
         style={[
           styles.detailItem,
-          { borderBottomColor: colors.outlineVariant },
+          { borderBottomColor: colors.darkGray },
         ]}
       >
-        <Text style={[styles.detailLabel, { color: colors.onSurfaceVariant }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Height
         </Text>
-        <Text style={[styles.detailValue, { color: colors.onBackground }]}>
+        <Text style={[styles.detailValue, { color: colors.black }]}>
           {profile.height ? `${profile.height} cm` : "N/A"}
         </Text>
       </View>
       <View
         style={[
           styles.detailItem,
-          { borderBottomColor: colors.outlineVariant },
+          { borderBottomColor: colors.darkGray },
         ]}
       >
-        <Text style={[styles.detailLabel, { color: colors.onSurfaceVariant }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           MBTI
         </Text>
-        <Text style={[styles.detailValue, { color: colors.onBackground }]}>
+        <Text style={[styles.detailValue, { color: colors.black }]}>
           {profile.mbti ?? "N/A"}
         </Text>
       </View>
       <View
         style={[
           styles.detailItem,
-          { borderBottomColor: colors.outlineVariant },
+          { borderBottomColor: colors.darkGray },
         ]}
       >
-        <Text style={[styles.detailLabel, { color: colors.onSurfaceVariant }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Description
         </Text>
-        <Text style={[styles.detailValue, { color: colors.onBackground }]}>
+        <Text style={[styles.detailValue, { color: colors.black }]}>
           {profile.aboutMe || "No information provided."}
         </Text>
       </View>
@@ -281,15 +280,15 @@ function ProfileScreen() {
         style={[
           styles.detailItem,
           {
-            borderBottomColor: colors.outlineVariant,
+            borderBottomColor: colors.darkGray,
             borderBottomWidth: 1,
           },
         ]}
       >
-        <Text style={[styles.detailLabel, { color: colors.onSurfaceVariant }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Gender
         </Text>
-        <Text style={[styles.detailValue, { color: colors.onBackground }]}>
+        <Text style={[styles.detailValue, { color: colors.black }]}>
           {profile.gender}
         </Text>
       </View>
@@ -300,13 +299,13 @@ function ProfileScreen() {
     if (activeTab === "bubblePro") {
       return (
         <View style={styles.tabContentPlaceholder}>
-          <Text style={{ color: colors.onBackground }}>Bubble Pro Content</Text>
+          <Text style={{ color: colors.black }}>Bubble Pro Content</Text>
         </View>
       );
     } else if (activeTab === "myBubble") {
       return (
         <View style={styles.tabContentPlaceholder}>
-          <Text style={{ color: colors.onBackground }}>My Bubble Content</Text>
+          <Text style={{ color: colors.black }}>My Bubble Content</Text>
         </View>
       );
     } else if (activeTab === "myInfo") {
@@ -328,7 +327,7 @@ function ProfileScreen() {
   };
 
   return (
-    <CustomView style={{ backgroundColor: colors.background }}>
+    <CustomView style={{ backgroundColor: colors.white }}>
       <CustomAppBar
         leftComponent={
           <Text
@@ -433,9 +432,7 @@ const styles = StyleSheet.create({
   imageSlotButton: {
     flex: 1,
     justifyContent: "space-between", // 내부 요소 (숫자, +아이콘) 배치
-    alignItems: "stretch", // 내부 요소가 stretch되도록 (필요시 center로)
-    borderWidth: 2,
-    borderStyle: "dashed",
+    alignItems: "stretch", 
     borderRadius: 12,
     padding: 8,
   },

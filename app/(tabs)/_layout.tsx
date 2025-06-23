@@ -64,6 +64,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="bubble"
+        options={{
+          title: "Bubble",
+          animation: "none",
+        }}
+      />
+      <Tabs.Screen
         name="message" // 예: app/(tabs)/message.tsx
         options={{
           title: "Message", // "Messaege" 오타 수정 가정

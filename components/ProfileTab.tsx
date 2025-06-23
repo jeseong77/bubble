@@ -76,8 +76,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
       style={[
         styles.tabsContainer,
         {
-          backgroundColor: colors.surface, // 또는 colors.surfaceContainerLowest 등 테마에 맞는 배경색
-          borderBottomColor: colors.outlineVariant,
+          backgroundColor: colors.white, // 또는 colors.surfaceContainerLowest 등 테마에 맞는 배경색
+          borderBottomColor: colors.mediumGray,
           paddingHorizontal: TAB_CONTAINER_HORIZONTAL_PADDING, // 컨테이너 좌우 패딩 적용
         },
       ]}
@@ -94,8 +94,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
               {
                 color:
                   activeTabId === tab.id
-                    ? colors.secondary
-                    : colors.onSurfaceVariant,
+                    ? colors.primary
+                    : colors.darkGray,
                 fontFamily:
                   activeTabId === tab.id ? "Literata-Bold" : "Literata",
               },

@@ -129,12 +129,14 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.safeAreaContainer, { backgroundColor: colors.background }]}
+      style={[styles.safeAreaContainer, { backgroundColor: colors.white }]}
       edges={["top", "left", "right"]}
     >
       <CustomAppBar
-        title="Settings" // "설정" -> "Settings" (이미 코드에 반영됨)
+        title="Settings"
         showBackButton={true}
+        backIconColor={colors.black}
+        titleTextStyle={{color: colors.black}}
       />
       <ScrollView
         style={styles.scrollView}
@@ -147,7 +149,7 @@ export default function SettingsScreen() {
               <Text
                 style={[
                   styles.sectionTitle,
-                  { color: colors.onSurfaceVariant },
+                  { color: colors.black },
                 ]}
               >
                 {section.title}
@@ -158,9 +160,9 @@ export default function SettingsScreen() {
                 key={itemIndex}
                 label={item.label}
                 onPress={item.onPress}
-                iconColor={colors.onSurface}
-                textColor={colors.onBackground}
-                borderColor={colors.outlineVariant}
+                iconColor={colors.black}
+                textColor={colors.black}
+                borderColor={colors.black}
                 isLastItem={item.isLast}
               />
             ))}
@@ -171,7 +173,7 @@ export default function SettingsScreen() {
           style={[
             styles.logoutButtonBase,
             {
-              backgroundColor: colors.surface, // 테마에 따라 surface 또는 투명 처리 가능
+              backgroundColor: colors.white, // 테마에 따라 surface 또는 투명 처리 가능
               borderColor: colors.error,
             },
           ]}
@@ -183,8 +185,8 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-      <View style={[styles.footer, { borderTopColor: colors.outlineVariant }]}>
-        <Text style={[styles.versionText, { color: colors.onSurfaceVariant }]}>
+      <View style={[styles.footer, { borderTopColor: colors.black }]}>
+        <Text style={[styles.versionText, { color: colors.black }]}>
           Version 1.0.0 {/* "버전 정보" -> "Version" */}
         </Text>
       </View>
