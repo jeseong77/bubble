@@ -62,14 +62,14 @@ export default function OnboardingScreen() {
         <View style={styles.phaseContentContainer1}>
           <View style={styles.phaseTitleBox}>
             {/* phaseTitle1에 동적 텍스트 색상 적용 */}
-            <Text style={[styles.phaseTitle1, { color: colors.onBackground }]}>
+            <Text style={[styles.phaseTitle1, { color: colors.black }]}>
               {currentPhaseData.topText1}
             </Text>
             {/* phaseTitle2에 동적 텍스트 색상 적용 */}
             <Text
               style={[
                 styles.phaseTitle2,
-                { paddingLeft: 12, color: colors.onBackground },
+                { paddingLeft: 12, color: colors.black },
               ]}
             >
               {currentPhaseData.topText2}
@@ -86,7 +86,7 @@ export default function OnboardingScreen() {
           <View style={styles.phase1BottomTextBox}>
             {/* phase1BottomText에 동적 텍스트 색상 적용 */}
             <Text
-              style={[styles.phase1BottomText, { color: colors.onBackground }]}
+              style={[styles.phase1BottomText, { color: colors.black }]}
             >
               {currentPhaseData.bottomText}
             </Text>
@@ -97,11 +97,11 @@ export default function OnboardingScreen() {
       return (
         <View style={styles.phaseContentContainerRest}>
           {/* phaseTitle1 (Phase 2,3,4)에 동적 텍스트 색상 적용 */}
-          <Text style={[styles.phaseTitle1, { color: colors.onBackground }]}>
+          <Text style={[styles.phaseTitle1, { color: colors.black }]}>
             {currentPhaseData.title}
           </Text>
           {/* phaseBody에 동적 텍스트 색상 적용 */}
-          <Text style={[styles.phaseBody, { color: colors.onSurfaceVariant }]}>
+          <Text style={[styles.phaseBody, { color: colors.black }]}>
             {currentPhaseData.body}
           </Text>
         </View>
@@ -112,7 +112,7 @@ export default function OnboardingScreen() {
   return (
     // screenContainer에 동적 배경색 적용
     <SafeAreaView
-      style={[styles.screenContainer, { backgroundColor: colors.background }]}
+      style={[styles.screenContainer, { backgroundColor: colors.white }]}
     >
       <Stack.Screen options={{ headerShown: false }} />
 
@@ -125,7 +125,7 @@ export default function OnboardingScreen() {
           // paddingTop={32}  // CustomButton 내부에서 패딩 관리 권장 또는 style prop으로 전달
           width={"90%"}
           buttonColor={colors.primary} // <--- [변경] 테마의 primary 색상
-          textColor={colors.onPrimary} // <--- [변경] 테마의 onPrimary 색상
+          textColor={colors.black} // <--- [변경] 테마의 onPrimary 색상
           style={styles.continueButton} // borderRadius 등은 여기에 유지
         />
       </View>

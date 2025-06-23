@@ -1,8 +1,17 @@
-import React, { useState, useEffect } from "react"; // useEffect는 현재 직접 사용되지 않지만, 향후를 위해 유지 가능
-import { View, StyleSheet, SafeAreaView, Text, Alert } from "react-native";
+import React, { useState } from "react";
+import {
+  View,
+  StyleSheet,
+  SafeAreaView,
+  Text,
+  Alert,
+  TouchableWithoutFeedback, // 1. 추가
+  Keyboard, // 1. 추가
+} from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CustomAppBar from "../../components/CustomAppBar";
-import CustomButton from "@/components/CustomButton";
+import CircleButton from "@/components/CircleButton";
 import { generateVerificationCode } from "@/utils/auth/verification";
 import MobileNumberInputPhase from "./verify-phases/MobileNumberInputPhase";
 import VerificationCodeInputPhase from "./verify-phases/VerificationCodeInputPhase";
@@ -12,6 +21,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 export default function VerifyPhoneScreenNested() {
   const router = useRouter();
   const { colors } = useAppTheme();
+  const { bottom } = useSafeAreaInsets();
 
   const [sentVerification, setSentVerification] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -64,128 +74,103 @@ export default function VerifyPhoneScreenNested() {
     : !phoneNumber.trim();
 
   return (
-    // SafeAreaView에 동적 배경색 적용
-    <SafeAreaView
-      style={[styles.screenContainer, { backgroundColor: colors.background }]}
-    >
-      <Stack.Screen options={{ headerShown: false }} />
-      <CustomAppBar />
-      {/* contentContainer에 동적 배경색 적용 */}
-      <View
-        style={[
-          styles.contentContainer,
-          { backgroundColor: colors.background },
-        ]}
+    // 2. TouchableWithoutFeedback으로 화면 전체를 감싸기
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <SafeAreaView
+        style={[styles.screenContainer, { backgroundColor: colors.white }]}
       >
-        <View style={styles.headerTextArea}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <CustomAppBar />
+        <View style={[styles.contentContainer]}>
+          <View style={styles.headerTextArea}>
+            {sentVerification ? (
+              <>
+                <Text style={[styles.headerTitle, { color: colors.black }]}>
+                  Verify your
+                </Text>
+                <Text style={[styles.headerTitle, { color: colors.black }]}>
+                  phone number
+                </Text>
+                <Text
+                  style={[
+                    styles.headerSubtitle,
+                    { marginTop: 10, color: colors.black },
+                  ]}
+                >
+                  We sent you a 5 digit code (
+                  {generatedCode ? `Test: ${generatedCode}` : ""}) to your SMS
+                  messages
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.headerTitle, { color: colors.black }]}>
+                  What's your
+                </Text>
+                <Text style={[styles.headerTitle, { color: colors.black }]}>
+                  phone number?
+                </Text>
+                <Text
+                  style={[
+                    styles.headerSubtitle,
+                    { marginTop: 10, color: colors.black },
+                  ]}
+                >
+                  Please confirm your country code and enter your phone number.
+                </Text>
+              </>
+            )}
+          </View>
+
           {sentVerification ? (
-            <>
-              {/* headerTitle에 동적 텍스트 색상 적용 */}
-              <Text
-                style={[styles.headerTitle, { color: colors.onBackground }]}
-              >
-                Verify your
-              </Text>
-              <Text
-                style={[styles.headerTitle, { color: colors.onBackground }]}
-              >
-                phone number
-              </Text>
-              {/* headerSubtitle에 동적 텍스트 색상 적용 */}
-              <Text
-                style={[
-                  styles.headerSubtitle,
-                  { marginTop: 10, color: colors.onSurfaceVariant },
-                ]}
-              >
-                We sent you a 5 digit code (
-                {generatedCode ? `Test: ${generatedCode}` : ""}) to your SMS
-                messages
-              </Text>
-            </>
+            <VerificationCodeInputPhase
+              verificationCodeInput={verificationCodeInput}
+              setVerificationCodeInput={setVerificationCodeInput}
+            />
           ) : (
-            <>
-              <Text
-                style={[styles.headerTitle, { color: colors.onBackground }]}
-              >
-                What's your
-              </Text>
-              <Text
-                style={[styles.headerTitle, { color: colors.onBackground }]}
-              >
-                phone number?
-              </Text>
-              <Text
-                style={[
-                  styles.headerSubtitle,
-                  { marginTop: 10, color: colors.onSurfaceVariant },
-                ]}
-              >
-                Please confirm your country code and enter your phone number.
-              </Text>
-            </>
+            <MobileNumberInputPhase
+              phoneNumber={phoneNumber}
+              setPhoneNumber={setPhoneNumber}
+              countryCode={countryCode}
+              onCountryCodePress={handleCountryCodePress}
+            />
           )}
         </View>
 
-        {/* 자식 컴포넌트들은 내부적으로 useAppTheme를 사용하거나 props로 colors를 전달받아 테마 적용 필요 */}
-        {sentVerification ? (
-          <VerificationCodeInputPhase
-            verificationCodeInput={verificationCodeInput}
-            setVerificationCodeInput={setVerificationCodeInput}
-          />
-        ) : (
-          <MobileNumberInputPhase
-            phoneNumber={phoneNumber}
-            setPhoneNumber={setPhoneNumber}
-            countryCode={countryCode}
-            onCountryCodePress={handleCountryCodePress}
-          />
-        )}
-
-        <CustomButton
-          title={"Continue"}
+        <CircleButton
           onPress={
             sentVerification ? handleVerifyCodePress : handleSendCodePress
           }
-          width={"100%"}
-          buttonColor={colors.primary}
-          textColor={colors.onPrimary}
-          buttonColorDisabled={colors.surfaceVariant}
-          textColorDisabled={colors.onSurfaceVariant}
-          style={styles.continueButton}
           disabled={isButtonDisabled}
+          style={[styles.circleButton, { bottom: bottom + 4 }]}
         />
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 
-// StyleSheet.create는 이제 정적인 스타일만 포함합니다.
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    // backgroundColor는 동적으로 적용되므로 여기서 제거
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 16,
-    // backgroundColor는 동적으로 적용되므로 여기서 제거
   },
   headerTextArea: {
     marginTop: 115,
     marginBottom: 55,
   },
   headerTitle: {
-    fontFamily: "Literata", // 해당 폰트가 로드되었는지 확인 필요
+    fontFamily: "Literata",
     fontSize: 32,
-    // color는 동적으로 적용되므로 여기서 제거
   },
   headerSubtitle: {
-    fontFamily: "LeagueSpartan-Medium", // 해당 폰트가 로드되었는지 확인 필요
+    fontFamily: "LeagueSpartan-Medium",
     fontSize: 12,
-    // color는 동적으로 적용되므로 여기서 제거
   },
-  continueButton: {
-    marginBottom: 20,
+  circleButton: {
+    position: "absolute",
+    right: 22,
   },
 });

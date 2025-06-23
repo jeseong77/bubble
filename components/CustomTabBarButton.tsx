@@ -32,9 +32,9 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
   label,
   routeName,
 }) => {
-  const { colors } = useAppTheme(); // <--- [변경] 커스텀 훅으로 테마 색상 가져오기
+  const { colors } = useAppTheme();
   const scale = useSharedValue(isFocused ? 1 : 0);
-  const IconComponent = icons[routeName] || icons["default"]; // 아이콘 가져오기
+  const IconComponent = icons[routeName] || icons["default"];
 
   useEffect(() => {
     scale.value = withSpring(isFocused ? 1 : 0, {
@@ -74,7 +74,7 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
           <IconComponent
             size={24}
             // [변경] 아이콘 색상을 테마에 맞게 동적으로 설정
-            color={isFocused ? colors.onPrimary : colors.onSurfaceVariant}
+            color={isFocused ? colors.white : colors.black}
           />
         ) : (
           <View style={{ width: 24, height: 24 }} /> // 아이콘 없을 시 Placeholder
@@ -85,7 +85,7 @@ const CustomTabBarButton: React.FC<CustomTabBarButtonProps> = ({
         style={[
           styles.labelText,
           // [변경] 텍스트 색상을 테마에 맞게 동적으로 설정
-          { color: isFocused ? colors.primary : colors.onSurfaceVariant },
+          { color: isFocused ? colors.primary : colors.black },
           animatedTextStyle, // focused 시 투명도 애니메이션
         ]}
       >

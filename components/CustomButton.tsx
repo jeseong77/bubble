@@ -23,9 +23,8 @@ interface CustomButtonProps {
   loading?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
-  paddingTop?: number;
-  paddingBottom?: number;
-  width?: DimensionValue; // 타입을 DimensionValue로 변경
+  paddingVertical?: number,
+  width?: DimensionValue;
 }
 
 // React.FC 제거하고 함수 파라미터에 직접 타입 지정
@@ -42,8 +41,7 @@ const CustomButton = ({
   loading = false,
   style,
   textStyle,
-  paddingTop = 22, // 이전 코드의 기본값 유지
-  paddingBottom = 18, // 이전 코드의 기본값 유지
+  paddingVertical = 16,
   width = "80%",
 }: CustomButtonProps): JSX.Element => {
   // 반환 타입 명시
@@ -65,8 +63,7 @@ const CustomButton = ({
           // 동적으로 계산되는 스타일
           backgroundColor: currentButtonColor,
           marginHorizontal: horizontalMargin,
-          paddingTop: paddingTop,
-          paddingBottom: paddingBottom,
+          paddingVertical: paddingVertical,
           width: width, // 타입 단언 제거
         },
         style, // 외부에서 전달된 커스텀 스타일

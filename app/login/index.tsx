@@ -18,7 +18,7 @@ const loginBgImage = require("../../assets/images/bg.png"); // 배경 이미지 
 const APPLE_BUTTON_BACKGROUND = "#FFFFFF"; // Apple 버튼 배경색 (일반적으로 흰색)
 const APPLE_BUTTON_TEXT = "#000000"; // Apple 버튼 텍스트색 (일반적으로 검은색)
 
-const FACEBOOK_BUTTON_BACKGROUND = "#1877F2"; // Facebook 공식 브랜드 파란색
+const FACEBOOK_BUTTON_BACKGROUND = "#5890FF"; // Facebook 공식 브랜드 파란색
 const FACEBOOK_BUTTON_TEXT = "#FFFFFF"; // Facebook 버튼 텍스트색 (흰색)
 
 export default function LoginScreen() {
@@ -45,13 +45,43 @@ export default function LoginScreen() {
             />
           </View>
           <View>
-            <Text style={styles.betterTogether}>Better Together.</Text>
+            <Text style={styles.betterTogether}>Be Popping Together</Text>
           </View>
         </View>
 
-        {/* 하단 버튼 및 약관 영역 */}
         <View style={[styles.container, { marginBottom: 40 }]}>
-          <View style={styles.termsandConditionsContainer}>
+          <CustomButton
+            title="Sign in with Apple"
+            onPress={() => {
+              /* Apple 로그인 로직 */
+            }}
+            buttonColor={colors.white}
+            textColor={colors.black}
+            width="80%"
+            style={{ marginTop: 28 }}
+          />
+
+          <CustomButton
+            title="Sign in with Facebook"
+            onPress={() => {
+              /* Facebook 로그인 로직 */
+            }}
+            buttonColor={colors.facebookBlue}
+            textColor={colors.white}
+            width="80%"
+            style={{ marginTop: 16 }}
+          />
+
+          <CustomButton
+            title="Sign in with Phone Number"
+            onPress={handlePhoneSignInPress}
+            buttonColor={colors.secondary}
+            textColor={colors.bubbleFont}
+            width="80%"
+            style={{ marginTop: 16 }}
+          />
+
+          <View style={[styles.termsandConditionsContainer, { marginTop: 21 }]}>
             <Text style={styles.termsAndConditions}>
               By signing up to The Bubble, you agree to our
             </Text>
@@ -62,36 +92,6 @@ export default function LoginScreen() {
               in our Privacy Policy and our Cookies Policy.
             </Text>
           </View>
-          <CustomButton
-            title="Sign in with Apple"
-            onPress={() => {
-              /* Apple 로그인 로직 */
-            }}
-            buttonColor={APPLE_BUTTON_BACKGROUND} // <--- [변경] Apple 고정 배경색
-            textColor={APPLE_BUTTON_TEXT} // <--- [변경] Apple 고정 텍스트색
-            width="80%"
-            style={{ marginTop: 28 }}
-          />
-
-          <CustomButton
-            title="Sign in with Facebook"
-            onPress={() => {
-              /* Facebook 로그인 로직 */
-            }}
-            buttonColor={FACEBOOK_BUTTON_BACKGROUND} // <--- [변경] Facebook 고정 배경색
-            textColor={FACEBOOK_BUTTON_TEXT} // <--- [변경] Facebook 고정 텍스트색
-            width="80%"
-            style={{ marginTop: 16 }}
-          />
-
-          <CustomButton
-            title="Sign in with Phone Number"
-            onPress={handlePhoneSignInPress}
-            buttonColor={colors.primary} // <--- [유지/확정] 앱 테마의 primary 색상
-            textColor={colors.onPrimary} // <--- [유지/확정] 앱 테마의 onPrimary 색상
-            width="80%"
-            style={{ marginTop: 16 }}
-          />
         </View>
       </SafeAreaView>
     </ImageBackground>
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logo: {
-    height: 62,
+    height: 169,
   },
   logoContainer: {
     marginTop: 60,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   betterTogether: {
     fontSize: 18,
     fontWeight: "400",
-    color: "#fff", // 배경 이미지 위에 표시되므로 흰색 유지
+    color: "#fff",
   },
   termsandConditionsContainer: {
     alignItems: "center",
@@ -124,7 +124,6 @@ const styles = StyleSheet.create({
   termsAndConditions: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#fff", // 배경 이미지 위에 표시되므로 흰색 유지
-    // fontFamily: "LeagueSpartan", // 해당 폰트가 로드되었는지 확인 필요
+    color: "#fff",
   },
 });

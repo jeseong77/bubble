@@ -21,7 +21,6 @@ import Animated, {
 import { useUIStore } from "@/stores/uiStore";
 import { useAppTheme } from "@/hooks/useAppTheme";
 
-// 아이콘 이름 타입 (기존 코드 유지)
 type KnownIconRouteNames = keyof typeof icons;
 
 export function CustomTabBar({
@@ -82,7 +81,7 @@ export function CustomTabBar({
         styles.tabBar, // 그림자 관련 스타일이 제거된 tabBar 스타일 적용
         tabBarVisibilityAnimatedStyle,
         {
-          backgroundColor: colors.surfaceVariant, // 기존 배경색 유지
+          backgroundColor: colors.disableButton, // 기존 배경색 유지
           // shadowColor: colors.shadow, // [제거] 인라인 shadowColor 제거
         },
       ]}
@@ -162,8 +161,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     bottom: Platform.OS === "ios" ? 30 : 20,
-    left: 20,
-    right: 20,
+    left: 10,
+    right: 10,
     paddingVertical: 10,
     borderRadius: 35,
   },

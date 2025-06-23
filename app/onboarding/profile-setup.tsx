@@ -317,16 +317,16 @@ export default function ProfileSetupScreen() {
 
   // 버튼 배경색과 아이콘 색상을 테마에 맞게 동적으로 설정
   const buttonBackgroundColor = isButtonDisabled
-    ? colors.surfaceVariant
+    ? colors.disableButton
     : colors.primary;
   const buttonIconColor = isButtonDisabled
-    ? colors.onSurfaceVariant
-    : colors.onPrimary;
+    ? colors.black
+    : colors.white;
 
   return (
     // SafeAreaView에 동적 배경색 적용
     <SafeAreaView
-      style={[styles.screenContainer, { backgroundColor: colors.background }]}
+      style={[styles.screenContainer, { backgroundColor: colors.white }]}
     >
       <Stack.Screen options={{ headerShown: false }} />
       {/* CustomAppBar는 내부적으로 테마 색상을 사용 (이전 단계에서 수정 완료) */}
