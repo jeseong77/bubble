@@ -12,14 +12,7 @@ import {
 import CustomButton from "@/components/CustomButton"; // CustomButton 경로 확인
 import { useAppTheme } from "@/hooks/useAppTheme"; // 테마 훅 임포트
 
-const loginBgImage = require("../../assets/images/bg.png"); // 배경 이미지 경로 확인
-
-// 소셜 로그인 버튼들의 고정 색상 정의
-const APPLE_BUTTON_BACKGROUND = "#FFFFFF"; // Apple 버튼 배경색 (일반적으로 흰색)
-const APPLE_BUTTON_TEXT = "#000000"; // Apple 버튼 텍스트색 (일반적으로 검은색)
-
-const FACEBOOK_BUTTON_BACKGROUND = "#5890FF"; // Facebook 공식 브랜드 파란색
-const FACEBOOK_BUTTON_TEXT = "#FFFFFF"; // Facebook 버튼 텍스트색 (흰색)
+const loginBgImage = require("../../assets/images/bg.png");
 
 export default function LoginScreen() {
   const router = useRouter();

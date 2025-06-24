@@ -19,6 +19,7 @@ import Animated, {
 import { useUIStore } from "@/stores/uiStore";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { BlurView } from "expo-blur";
+import { useShallow } from "zustand/react/shallow";
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
@@ -36,7 +37,14 @@ export function CustomTabBar({
   });
   const buttonWidth = tabBarDimensions.width / state.routes.length;
 
-  const isTabBarVisibleFromStore = useUIStore((s) => s.isTabBarVisible);
+  // [수정] isTabBarVisible와 setCustomTabBarHeight를 한 번에 가져올 수 있습니다.
+  const { isTabBarVisible: isTabBarVisibleFromStore, setCustomTabBarHeight } =
+    useUIStore(
+      useShallow((s) => ({
+      isTabBarVisible: s.isTabBarVisible,
+      setCustomTabBarHeight: s.setCustomTabBarHeight,
+    })));
+
   const tabBarAnimatedVisibility = useSharedValue(
     isTabBarVisibleFromStore ? 1 : 0
   );
@@ -52,7 +60,10 @@ export function CustomTabBar({
 
   const onTabBarLayout = (event: LayoutChangeEvent) => {
     const { height, width } = event.nativeEvent.layout;
+    // 1. 내부 상태를 업데이트하여 탭 바 자체의 UI를 조정합니다.
     setTabBarDimensions({ height, width });
+    // 2. [추가] 측정된 높이를 전역 스토어(Zustand)에 저장합니다.
+    setCustomTabBarHeight(height);
   };
 
   const tabBarVisibilityAnimatedStyle = useAnimatedStyle(() => {

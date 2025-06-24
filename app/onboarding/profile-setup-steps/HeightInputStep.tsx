@@ -127,10 +127,10 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
 
   return (
     // container에 동적 배경색 적용
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.white }]}>
       <View style={styles.questionTextBox}>
         {/* questionText에 동적 텍스트 색상 적용 */}
-        <Text style={[styles.questionText, { color: colors.onBackground }]}>
+        <Text style={[styles.questionText, { color: colors.black }]}>
           How tall are you?
         </Text>
       </View>
@@ -147,7 +147,7 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
           // pickerItem 스타일에 동적 텍스트 색상 적용 (itemStyle은 iOS 전용)
           itemStyle={[
             styles.pickerItem,
-            Platform.OS === "ios" ? { color: colors.onSurface } : {},
+            Platform.OS === "ios" ? { color: colors.black } : {},
           ]}
           // Android의 경우 Picker 내부 아이템 색상은 dropdownIconColor나 부모 Text의 color를 따를 수 있으며,
           // 완벽한 제어가 어려울 수 있습니다. 필요시 커스텀 Picker 구현 고려.
@@ -171,7 +171,7 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
       <View
         style={[
           styles.unitSelectorContainer,
-          { backgroundColor: colors.surfaceVariant },
+          { backgroundColor: colors.white },
         ]}
       >
         <TouchableOpacity
@@ -179,7 +179,7 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
             styles.unitButton,
             unit === "FT" && [
               styles.unitButtonSelected,
-              { backgroundColor: colors.surface, shadowColor: colors.shadow },
+              { backgroundColor: colors.lightGray, shadowColor: colors.white },
             ],
           ]}
           onPress={() => handleUnitChange("FT")}
@@ -188,7 +188,7 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
             style={[
               styles.unitButtonText,
               // unitButtonText (비활성 시) 동적 색상 적용
-              { color: colors.onSurfaceVariant },
+              { color: colors.mediumGray },
               // unitButtonTextSelected (활성 시) 동적 색상 적용
               unit === "FT" && [
                 styles.unitButtonTextSelected,
@@ -204,7 +204,7 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
             styles.unitButton,
             unit === "CM" && [
               styles.unitButtonSelected,
-              { backgroundColor: colors.surface, shadowColor: colors.shadow },
+              { backgroundColor: colors.lightGray, shadowColor: colors.white },
             ],
           ]}
           onPress={() => handleUnitChange("CM")}
@@ -213,7 +213,7 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
             style={[
               styles.unitButtonText,
               // unitButtonText (비활성 시) 동적 색상 적용
-              { color: colors.onSurfaceVariant },
+              { color: colors.mediumGray },
               // unitButtonTextSelected (활성 시) 동적 색상 적용
               unit === "CM" && [
                 styles.unitButtonTextSelected,

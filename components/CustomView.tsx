@@ -50,25 +50,19 @@ const CustomView: React.FC<CustomViewProps> = ({
   // 중간점: 투명 유지가 끝나고 배경색으로 전환 시작
   // 최하단: 완전 불투명 (배경색과 동일)
   const gradientColors = [
-    `${colors.background}00`, // 완전 투명
-    `${colors.background}00`, // 투명 유지 끝점
-    colors.background, // 완전 불투명 (배경색)
-  ] as const; // `as const`로 타입을 readonly tuple로 명확히 합니다.
+    `${colors.secondary}00`,
+    `${colors.secondary}00`,
+    colors.secondary,
+  ] as const;
 
-  // 그라데이션 색상 위치(locations) 정의:
-  // `gradientColors`와 동일한 길이(3)를 가져야 합니다.
-  let gradientLocations: readonly [number, number, number] = [0, 0.1, 1]; // 기본값
+  let gradientLocations: readonly [number, number, number] = [0, 0.1, 1];
 
   if (totalGradientHeight > 0) {
     if (blurOverlapHeight > 0) {
-      // `blurOverlapHeight`는 그라데이션이 블러보다 위로 올라가는 높이입니다.
-      // 이 영역의 특정 비율(여기서는 80%)까지 투명도를 유지하여 콘텐츠가 부드럽게 전환되도록 합니다.
-      // (blurOverlapHeight / totalGradientHeight)는 전체 그라데이션 중 이 "겹침" 영역의 비율입니다.
       const transparentUntilRatio =
-        (blurOverlapHeight / totalGradientHeight) * 0.8; // 0.8은 조절 가능한 페이드 시작점 계수
+        (blurOverlapHeight / totalGradientHeight) * 0.8;
       gradientLocations = [0, transparentUntilRatio, 1];
     } else {
-      // `blurOverlapHeight`가 0이면, 그라데이션 시작부터 바로 색상 전환이 일어납니다.
       gradientLocations = [0, 0, 1];
     }
   }
@@ -80,15 +74,13 @@ const CustomView: React.FC<CustomViewProps> = ({
 
   return (
     <RootElement
-      style={[styles.rootView, { backgroundColor: colors.background }, style]}
+      style={[styles.rootView, { backgroundColor: colors.white }, style]}
       {...rootElementProps}
     >
       <View style={styles.contentWrapper}>{children}</View>
 
-      {/* 하단 효과 영역: 탭 바가 있을 때만 렌더링 */}
       {bottomTabBarHeight > 0 && (
         <>
-          {/* 블러 효과 레이어 (그라데이션 아래에 위치) */}
           {totalBlurHeight > 0 && (
             <BlurView
               style={[styles.effectLayer, { height: totalBlurHeight }]}
@@ -98,7 +90,6 @@ const CustomView: React.FC<CustomViewProps> = ({
             />
           )}
 
-          {/* 스무딩 그라데이션 레이어 (가장 위에 위치하여 블러와 콘텐츠 경계를 부드럽게) */}
           {totalGradientHeight > 0 && (
             <LinearGradient
               colors={gradientColors}

@@ -228,8 +228,7 @@ const styles = StyleSheet.create({
   },
   visibilityText: {
     fontFamily: "Literata", // 폰트 로드 확인
-    fontSize: 16, // 기존 값 유지
-    // color: "#333333", // 제거됨 (동적 적용)
+    fontSize: 16,
   },
 });
 
