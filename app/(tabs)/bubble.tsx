@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Platform,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useUIStore } from "@/stores/uiStore"; // [추가] Zustand 스토어 임포트
 // [참고] useShallow는 현재 코드에서 필요하지 않지만, 필요시 아래처럼 임포트합니다.
 // import { useShallow } from 'zustand/react/shallow'
@@ -21,6 +22,8 @@ const bubbleImages = {
 };
 
 export default function BubbleScreen() {
+  const router = useRouter();
+
   // [추가] 스토어에서 탭 바 높이를 가져옵니다.
   // 단일 원시 값(primitive value)을 선택할 때는 리렌더링이 자동으로 최적화되므로
   // useShallow를 사용할 필요가 없습니다.
@@ -40,6 +43,7 @@ export default function BubbleScreen() {
 
   const handleMailPress = () => {
     console.log("- mail button pressed");
+    router.push("/search");
   };
 
   return (
@@ -126,7 +130,7 @@ const styles = StyleSheet.create({
   },
   bubble44: {
     top: "5%",
-    left: "10%"
+    left: "10%",
   },
   bubble33: {
     top: "50%",

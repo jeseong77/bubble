@@ -30,6 +30,8 @@ const isCurrentPath = (
 const ALLOWED_FIRST_SEGMENTS_WHEN_FULLY_SETUP = [
   "(tabs)", // 메인 탭 화면 그룹
   "settings", // 설정 페이지
+  "search", // 검색 페이지
+  "bubble", // 버블 폼 페이지 허용
   // 여기에 추가적인 허용 경로의 첫 번째 세그먼트를 필요에 따라 추가할 수 있습니다.
   // 예: 'user-profile', 'notifications' 등
 ];
