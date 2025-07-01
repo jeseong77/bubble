@@ -3,7 +3,11 @@ import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
-import { Literata_400Regular, Literata_500Medium, Literata_600SemiBold } from "@expo-google-fonts/literata";
+import {
+  Literata_400Regular,
+  Literata_500Medium,
+  Literata_600SemiBold,
+} from "@expo-google-fonts/literata";
 
 import { useInitialRouteRedirect } from "../hooks/useInitialRouteRedirect"; // 이 훅의 실제 경로를 확인해주세요.
 import { ThemeProvider } from "@/theme/ThemeContext"; // ThemeProvider 임포트 (경로 확인!)
@@ -50,6 +54,13 @@ function AppInitializer() {
         options={{
           headerShown: false,
           animation: "flip", // settings로 전환 시 플립 애니메이션
+        }}
+      />
+      <Stack.Screen
+        name="bubble"
+        options={{
+          headerShown: false,
+          animation: "slide_from_bottom",
         }}
       />
       {/* 다른 최상위 스택 스크린이 있다면 여기에 추가 */}

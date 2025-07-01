@@ -59,6 +59,10 @@ export default function BubbleFormScreen() {
   const overlapRatio = 0.18;
   const bubbleSize = totalBubblesWidth / (2 - overlapRatio);
   const overlapOffset = bubbleSize * overlapRatio;
+  const [showPoppableMent, setShowPoppableMent] = useState(false);
+  const [poppableTimeout, setPoppableTimeout] = useState<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setAccepted(true), 3000);
@@ -66,17 +70,45 @@ export default function BubbleFormScreen() {
   }, []);
 
   useEffect(() => {
+    console.log(`[BubbleForm] accepted: ${accepted}, phase: ${phase}`);
     if (accepted && phase === "named") {
+      console.log("[BubbleForm] Transitioning to phase: formed");
       setPhase("formed");
     }
   }, [accepted, phase]);
 
-  const handleFormedClick = () => {
-    if (phase === "formed") setPhase("poppable");
+  useEffect(() => {
+    console.log(`[BubbleForm] Phase changed: ${phase}`);
+    if (phase === "formed") {
+      setShowPoppableMent(false);
+      if (poppableTimeout) clearTimeout(poppableTimeout);
+      const timeout = setTimeout(() => {
+        setShowPoppableMent(true);
+        console.log("[BubbleForm] Transitioning to phase: poppable");
+        setPhase("poppable");
+      }, 2000);
+      setPoppableTimeout(timeout);
+      return () => clearTimeout(timeout);
+    }
+    return () => {
+      if (poppableTimeout) clearTimeout(poppableTimeout);
+    };
+  }, [phase]);
+
+  const handleScreenPress = () => {
+    if (phase === "poppable") {
+      console.log("[BubbleForm] Routing to ./match from poppable phase");
+      router.push("./match");
+    } else {
+      console.log(
+        `[BubbleForm] handleScreenPress called, but phase is ${phase}`
+      );
+    }
   };
 
   const handleNext = () => {
     if (phase === "naming" && bubbleName.trim()) {
+      console.log("[BubbleForm] Transitioning to phase: named");
       setPhase("named");
     }
   };
@@ -89,7 +121,8 @@ export default function BubbleFormScreen() {
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
-        extraScrollHeight={Platform.OS === 'android' ? -100 : 0} // 안드로이드에서 스크롤 위치 미세 조정
+        extraScrollHeight={Platform.OS === "android" ? -100 : 0}
+        {...(phase === "poppable" ? { onTouchEnd: handleScreenPress } : {})}
       >
         {/* Top Section: Title and Ment */}
         {phase === "naming" && (
@@ -103,12 +136,10 @@ export default function BubbleFormScreen() {
           </View>
         )}
         {phase === "formed" && (
-          <TouchableWithoutFeedback onPress={handleFormedClick}>
-            <View style={styles.topSection}>
-              <Text style={styles.ment}>Your bubble is formed!</Text>
-              <Text style={styles.formedBubbleName}>{bubbleName}</Text>
-            </View>
-          </TouchableWithoutFeedback>
+          <View style={styles.topSection}>
+            <Text style={styles.ment}>Your bubble is formed!</Text>
+            <Text style={styles.formedBubbleName}>{bubbleName}</Text>
+          </View>
         )}
         {phase === "poppable" && (
           <View style={styles.topSection}>
