@@ -1,56 +1,121 @@
-import React from "react";
-import { View, Text, StyleSheet, ImageBackground } from "react-native";
-import { useAppTheme } from "@/hooks/useAppTheme";
-import CustomView from "@/components/CustomView"; // <--- [추가] CustomView 임포트 (경로 확인!)
+import React from 'react';
+import { StyleSheet, View, Text, Image, ScrollView, SafeAreaView, Dimensions, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-// 컴포넌트 함수의 이름은 PascalCase가 일반적이나,
-// 파일 기반 라우팅에서는 파일 이름이 중요합니다. export default는 유지합니다.
-function Message() {
-  const { colors } = useAppTheme(); // 테마 색상 (텍스트 등 스타일에 사용 가능)
-  const girl1Image = require("../../assets/images/girl1.png");
-  const girl2Image = require("../../assets/images/talk.png");
+const { width } = Dimensions.get('window');
 
+// 웹에 있는 제니님 이미지 URL 배열
+const jennyImages = [
+  'https://i.namu.wiki/i/R02RR-8aM60N_9b2d_2oT34a2n-y3l_u_2CHJ8v_2f2lqXlE2v8a-p-RKOiXv8n4XzE8m_w.webp',
+  'https://talkimg.imbc.com/TVianUpload/tvian/TViews/image/2023/12/24/391394a2-1111-4828-9799-317588383215.jpg',
+  'https://thumb.named.com/normal/resize/270/2020/01/17/20200117105018651_1.jpg'
+];
+
+export default function App() {
   return (
-    <CustomView>
-      {/* CustomView가 화면 전체 프레임과 SafeArea, 하단 그라데이션을 제공합니다. */}
-      {/* ImageBackground는 CustomView의 자식으로 들어가 전체 내용을 채웁니다. */}
-      <ImageBackground
-        source={girl2Image}
-        resizeMode="cover"
-        style={styles.imageBackgroundContainer} // flex: 1을 주어 CustomView 내부를 채움
-      >
-        {/* ImageBackground 위에 표시될 내용 */}
-        <View style={styles.contentOverlay}>
-          <Text style={styles.exploreText}>Talk</Text>
-          {/* 여기에 탐색 페이지의 다른 UI 요소들을 추가할 수 있습니다. */}
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.headerBar}>
+        <Ionicons name="chevron-back" size={24} color="#333" />
+        <Text style={styles.headerTitle}>Jenny 22</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* 첫 번째 사진 */}
+        <Image
+          source={{ uri: jennyImages[0] }}
+          style={styles.profileImage}
+        />
+
+        {/* 키, MBTI, 사는 지역 정보 */}
+        <View style={styles.infoRow}>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>5'5</Text>
+          </View>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>INFP</Text>
+          </View>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>Brooklyn</Text>
+          </View>
         </View>
-      </ImageBackground>
-    </CustomView>
+
+        {/* 두 번째 사진 */}
+        <Image
+          source={{ uri: jennyImages[1] }}
+          style={styles.profileImage}
+        />
+
+        {/* 자기소개 */}
+        <View style={styles.bioContainer}>
+          <Text style={styles.bioText}>
+            "Lover of coffee, good books, and spontaneous road trips."
+          </Text>
+        </View>
+
+        {/* 세 번째 사진 */}
+        <Image
+          source={{ uri: jennyImages[2] }}
+          style={styles.profileImage}
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  // styles.container는 ImageBackground에 적용될 스타일로 이름을 변경하거나 내용을 수정합니다.
-  imageBackgroundContainer: {
-    flex: 1, // CustomView의 content 영역을 꽉 채우도록 설정
-    justifyContent: "center",
-    alignItems: "center",
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? 25 : 0,
   },
-  contentOverlay: {
-    padding: 20,
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  exploreText: {
-    // 배경 이미지(girl1Image)와 잘 대비되는 색상을 선택해야 합니다.
-    // 예시: girl1Image가 어두운 경우 밝은 색상 사용
-    color: "#FFFFFF", // 또는 테마 색상 중 밝은 색 (예: colors.surface, 또는 colors.onPrimary가 밝다면 그것)
-    fontSize: 28,
-    fontWeight: "bold",
-    textAlign: "center",
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 10,
+    color: '#333',
+  },
+  container: {
+    alignItems: 'center',
+    paddingBottom: 20,
+    paddingHorizontal: 15,
+  },
+  profileImage: {
+    width: width - 30,
+    height: width - 30,
+    borderRadius: 12,
+    marginTop: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%',
+    marginVertical: 20,
+    gap: 50,
+  },
+  infoBox: {},
+  infoText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  bioContainer: {
+    width: '100%',
+    maxWidth: 600,
+    marginVertical: 20,
+  },
+  bioText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#555',
+    textAlign: 'center',
   },
 });
-
-// Expo Router는 파일 이름을 기반으로 라우트를 생성하므로,
-// export default 이름은 파일 이름과 일치하거나 원하는 대로 설정할 수 있습니다.
-// 여기서는 원래 함수 이름 'explore'를 유지합니다.
-export default Message; // 함수 이름을 ExplorePage로 변경했으므로 export도 맞춰줍니다.
-// 만약 원래 함수 이름 'explore'를 유지하고 싶다면 export default explore;
