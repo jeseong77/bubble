@@ -57,7 +57,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore" // 예: app/(tabs)/explore.tsx
+        name="search" // Changed from "explore" to "search"
         options={{
           title: "Find",
           animation: "none",

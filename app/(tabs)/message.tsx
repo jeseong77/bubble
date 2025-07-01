@@ -1,63 +1,82 @@
-import React from 'react';
-import { StyleSheet, View, Text, Image, ScrollView, SafeAreaView, Dimensions, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  SafeAreaView,
+  FlatList,
+  Dimensions,
+  Platform,
+} from "react-native";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
-// 웹에 있는 제니님 이미지 URL 배열
-const jennyImages = [
-  'https://i.namu.wiki/i/R02RR-8aM60N_9b2d_2oT34a2n-y3l_u_2CHJ8v_2f2lqXlE2v8a-p-RKOiXv8n4XzE8m_w.webp',
-  'https://talkimg.imbc.com/TVianUpload/tvian/TViews/image/2023/12/24/391394a2-1111-4828-9799-317588383215.jpg',
-  'https://thumb.named.com/normal/resize/270/2020/01/17/20200117105018651_1.jpg'
+// Mock data for chatrooms
+const chatrooms = [
+  {
+    id: "1",
+    myBubbleName: "Chill Bros",
+    otherBubbleName: "Chicken Lover",
+    unreadCount: 4,
+    users: [
+      {
+        name: "Lisa",
+        image: {
+          uri: "https://i.namu.wiki/i/Uot0tQDfWx3O_1fWe7mshlKfZ5H0eyAiaNbKgSwrWg14lZqQyXTmaHBo0CL0A9oQYiGG9noJFh6jFpb-fA2sAg.webp",
+        },
+      },
+      {
+        name: "Rose",
+        image: {
+          uri: "https://cdn.hankooki.com/news/photo/202409/193587_268030_5014.jpg",
+        },
+      },
+    ],
+  },
 ];
 
-export default function App() {
+export default function MessageListScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.headerBar}>
-        <Ionicons name="chevron-back" size={24} color="#333" />
-        <Text style={styles.headerTitle}>Jenny 22</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* 첫 번째 사진 */}
-        <Image
-          source={{ uri: jennyImages[0] }}
-          style={styles.profileImage}
-        />
-
-        {/* 키, MBTI, 사는 지역 정보 */}
-        <View style={styles.infoRow}>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>5'5</Text>
+      <Text style={styles.header}>Bubble Chats</Text>
+      <FlatList
+        data={chatrooms}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        renderItem={({ item }) => (
+          <View style={styles.rowWrap}>
+            <View style={styles.avatarsWrap}>
+              <Image
+                source={{
+                  uri: "https://picsum.photos/seed/chill_bros/200/200",
+                }}
+                style={styles.avatar}
+              />
+              <View style={styles.avatarOverlapWrap}>
+                <Image
+                  source={item.users[0].image}
+                  style={styles.avatarOverlap}
+                />
+                <Image
+                  source={item.users[1].image}
+                  style={[styles.avatarOverlap, { left: 24, zIndex: 1 }]}
+                />
+              </View>
+            </View>
+            <View style={styles.infoWrap}>
+              <Text style={styles.bubbleName}>{item.myBubbleName}</Text>
+              <Text style={styles.otherBubbleName}>{item.otherBubbleName}</Text>
+            </View>
+            <View style={styles.badgeWrap}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{item.unreadCount}</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>INFP</Text>
-          </View>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>Brooklyn</Text>
-          </View>
-        </View>
-
-        {/* 두 번째 사진 */}
-        <Image
-          source={{ uri: jennyImages[1] }}
-          style={styles.profileImage}
-        />
-
-        {/* 자기소개 */}
-        <View style={styles.bioContainer}>
-          <Text style={styles.bioText}>
-            "Lover of coffee, good books, and spontaneous road trips."
-          </Text>
-        </View>
-
-        {/* 세 번째 사진 */}
-        <Image
-          source={{ uri: jennyImages[2] }}
-          style={styles.profileImage}
-        />
-      </ScrollView>
+        )}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      />
     </SafeAreaView>
   );
 }
@@ -65,57 +84,95 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'android' ? 25 : 0,
+    backgroundColor: "#fff",
+    paddingTop: Platform.OS === "android" ? 25 : 0,
   },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  header: {
+    fontSize: 32,
+    fontWeight: "700",
+    marginTop: 12,
+    marginBottom: 18,
+    marginLeft: 18,
   },
-  headerTitle: {
+  rowWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    backgroundColor: "#fff",
+  },
+  avatarsWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 16,
+    width: 80,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: "#fff",
+    backgroundColor: "#eee",
+    marginRight: 0,
+    zIndex: 3,
+  },
+  avatarOverlapWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: -18,
+    width: 56,
+    position: "relative",
+  },
+  avatarOverlap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#fff",
+    backgroundColor: "#eee",
+    position: "absolute",
+    left: 0,
+    zIndex: 2,
+  },
+  infoWrap: {
+    flex: 1,
+    justifyContent: "center",
+    marginLeft: 12,
+  },
+  bubbleName: {
     fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 10,
-    color: '#333',
+    fontWeight: "600",
+    color: "#222",
   },
-  container: {
-    alignItems: 'center',
-    paddingBottom: 20,
-    paddingHorizontal: 15,
+  otherBubbleName: {
+    fontSize: 16,
+    color: "#444",
+    marginTop: 2,
   },
-  profileImage: {
-    width: width - 30,
-    height: width - 30,
-    borderRadius: 12,
-    marginTop: 20,
-    backgroundColor: '#f0f0f0',
+  badgeWrap: {
+    marginLeft: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    width: '100%',
-    marginVertical: 20,
-    gap: 50,
+  badge: {
+    backgroundColor: "#A9CBFF",
+    borderRadius: 16,
+    minWidth: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
   },
-  infoBox: {},
-  infoText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+  badgeText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
   },
-  bioContainer: {
-    width: '100%',
-    maxWidth: 600,
-    marginVertical: 20,
-  },
-  bioText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#555',
-    textAlign: 'center',
+  separator: {
+    height: 1,
+    backgroundColor: "#eee",
+    marginLeft: 18,
+    marginRight: 18,
   },
 });

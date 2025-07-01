@@ -83,7 +83,7 @@ const UserRow: React.FC<UserRowProps & { onInvite: () => void }> = ({
 );
 
 // 메인 컴포넌트
-const FriendSearchView: React.FC = () => {
+const SearchPage: React.FC = () => {
   const [searchText, setSearchText] = useState<string>("");
   const router = useRouter();
 
@@ -149,7 +149,7 @@ const FriendSearchView: React.FC = () => {
   );
 };
 
-export default FriendSearchView;
+export default SearchPage;
 
 const styles = StyleSheet.create({
   container: {
@@ -202,24 +202,27 @@ const styles = StyleSheet.create({
   userID: {
     fontSize: 16,
     fontWeight: "600",
+    marginBottom: 4,
   },
   userMbti: {
     fontSize: 14,
-    color: "gray",
-    marginTop: 4,
+    color: "#666",
   },
   addButton: {
-    padding: 5,
-  },
-  emptyContainer: {
-    flex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 40,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    marginTop: 50,
   },
   emptyText: {
     fontSize: 16,
-    color: "#888",
+    color: "#666",
     textAlign: "center",
   },
 });

@@ -41,11 +41,6 @@ export default function BubbleScreen() {
     console.log(`- ${bubbleType} bubble pressed`);
   };
 
-  const handleMailPress = () => {
-    console.log("- mail button pressed");
-    router.push("/search");
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
@@ -80,13 +75,10 @@ export default function BubbleScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* [수정] 메일 버튼의 위치를 동적으로 설정합니다. */}
-      <TouchableOpacity
-        style={[styles.mailButton, { bottom: mailButtonBottomPosition }]}
-        onPress={handleMailPress}
-      >
+      {/* Mail button without routing - just for visual */}
+      <View style={[styles.mailButton, { bottom: mailButtonBottomPosition }]}>
         <Image source={bubbleImages.mail} style={styles.mailButtonImage} />
-      </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
