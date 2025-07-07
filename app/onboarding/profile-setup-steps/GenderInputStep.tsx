@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20, // 기존 값 유지
   },
   title: {
-    fontFamily: "Literata", // 폰트 로드 확인
+    fontFamily: "Quicksand-Bold",
     fontSize: 32, // 기존 값 유지
     // color: "#000000", // 제거됨 (동적 적용)
     fontWeight: "bold", // 기존 값 유지
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     // borderBottomColor: "#e9ecef", // 제거됨 (동적 적용)
   },
   optionText: {
-    fontFamily: "Literata", // 폰트 로드 확인
+    fontFamily: "Quicksand-Regular",
     fontSize: 20, // 기존 값 유지
     // color: "#495057", // 제거됨 (동적 적용)
   },
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     // backgroundColor: "#000000", // 제거됨 (동적 적용)
   },
   visibilityText: {
-    fontFamily: "Literata", // 폰트 로드 확인
+    fontFamily: "Quicksand-Regular",
     fontSize: 16,
   },
 });

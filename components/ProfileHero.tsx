@@ -15,7 +15,7 @@ import { useAppTheme } from "@/hooks/useAppTheme"; // 테마 훅 경로 확인
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 프로필 이미지 및 정보 (목업 데이터)
-const MOCK_PROFILE_IMAGE_URI = require('../assets/images/guy.png')
+const MOCK_PROFILE_IMAGE_URI = require("../assets/images/guy.png");
 const MOCK_USER_NAME = "Noah Kim";
 const MOCK_INSTAGRAM_ID = "@nkim";
 
@@ -268,13 +268,13 @@ const styles = StyleSheet.create({
   userNameText: {
     fontSize: 24,
     fontWeight: "bold",
-    fontFamily: "Literata-Bold", // 폰트 적용 (프로젝트에 해당 폰트 필요)
+    fontFamily: "Quicksand-Bold",
     marginBottom: 4,
     zIndex: 10,
   },
   instagramIdText: {
     fontSize: 16,
-    fontFamily: "Literata", // 폰트 적용
+    fontFamily: "Quicksand-Regular",
     zIndex: 10,
   },
   bubble: {

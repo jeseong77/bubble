@@ -244,10 +244,9 @@ const styles = StyleSheet.create({
     // marginLeft은 제거되거나 0으로 설정됨 (부모의 alignItems: 'center' 및 alignSelf: 'stretch'와 연관)
   },
   questionText: {
-    fontFamily: "Literata", // 폰트 로드 확인
+    fontFamily: "Quicksand-Bold",
     fontSize: 32,
-    // color: "#000000", // 제거됨 (동적 적용)
-    textAlign: "center", // 기존 값 유지
+    textAlign: "center",
   },
   pickerContainer: {
     height: 200,
@@ -260,11 +259,9 @@ const styles = StyleSheet.create({
     height: Platform.OS === "ios" ? 200 : 50, // Android는 드롭다운 스타일이므로 높이가 다름
   },
   pickerItem: {
-    // iOS 전용 스타일
-    fontSize: Platform.OS === "ios" ? 24 : 18, // Android는 이 스타일이 직접 적용 안 될 수 있음
+    fontFamily: "Quicksand-Regular",
+    fontSize: Platform.OS === "ios" ? 24 : 18,
     textAlign: "center",
-    fontFamily: "Literata", // 폰트 로드 확인
-    // color: "#000000", // 제거됨 (동적 적용)
     height: Platform.OS === "ios" ? 150 : undefined,
   },
   unitSelectorContainer: {
@@ -296,9 +293,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   unitButtonText: {
-    fontFamily: "Literata", // 폰트 로드 확인
+    fontFamily: "Quicksand-Regular",
     fontSize: 16,
-    // color: "#555555", // 제거됨 (동적 적용)
   },
   unitButtonTextSelected: {
     // 선택된 버튼 텍스트의 색상 외 스타일

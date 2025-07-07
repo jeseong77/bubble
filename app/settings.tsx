@@ -136,7 +136,7 @@ export default function SettingsScreen() {
         title="Settings"
         showBackButton={true}
         backIconColor={colors.black}
-        titleTextStyle={{color: colors.black}}
+        titleTextStyle={{ color: colors.black }}
       />
       <ScrollView
         style={styles.scrollView}
@@ -146,12 +146,7 @@ export default function SettingsScreen() {
         {sections.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.sectionContainer}>
             {section.title && (
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  { color: colors.black },
-                ]}
-              >
+              <Text style={[styles.sectionTitle, { color: colors.black }]}>
                 {section.title}
               </Text>
             )}
@@ -210,7 +205,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: "Literata-Bold",
+    fontFamily: "Quicksand-Bold",
     paddingHorizontal: 16,
     marginBottom: 4,
     textTransform: "uppercase",
@@ -229,7 +224,7 @@ const styles = StyleSheet.create({
   },
   settingsItemText: {
     fontSize: 17,
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Regular",
   },
   logoutButtonBase: {
     marginTop: 32,
@@ -242,7 +237,7 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     fontSize: 16,
-    fontFamily: "Literata-Bold",
+    fontFamily: "Quicksand-Bold",
     fontWeight: "600",
   },
   footer: {
@@ -253,6 +248,6 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 12,
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Regular",
   },
 });

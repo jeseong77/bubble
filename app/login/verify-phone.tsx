@@ -1,12 +1,13 @@
-import React, { useState } from "react";
+import * as React from "react";
+import { useState } from "react";
 import {
   View,
   StyleSheet,
   SafeAreaView,
   Text,
   Alert,
-  TouchableWithoutFeedback, // 1. 추가
-  Keyboard, // 1. 추가
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,7 +19,7 @@ import VerificationCodeInputPhase from "./verify-phases/VerificationCodeInputPha
 import useAuthStore from "../../stores/authStore";
 import { useAppTheme } from "@/hooks/useAppTheme";
 
-export default function VerifyPhoneScreenNested() {
+const VerifyPhoneScreenNested = () => {
   const router = useRouter();
   const { colors } = useAppTheme();
   const { bottom } = useSafeAreaInsets();
@@ -53,13 +54,8 @@ export default function VerifyPhoneScreenNested() {
   const handleVerifyCodePress = () => {
     console.log("Verifying code:", verificationCodeInput);
     if (verificationCodeInput === generatedCode) {
-      console.log(
-        "Verification successful! Updating auth state and navigating..."
-      );
-      const fakeToken = `verified-token-${Date.now()}`;
-      const fakeUser = { id: countryCode + phoneNumber, name: "Verified User" };
-      login(fakeToken, fakeUser);
-      router.replace("/onboarding");
+      console.log("Verification successful! Navigating to verify-email...");
+      router.replace("/login/verify-email");
     } else {
       console.log("Verification failed: Codes do not match.");
       Alert.alert(
@@ -74,7 +70,6 @@ export default function VerifyPhoneScreenNested() {
     : !phoneNumber.trim();
 
   return (
-    // 2. TouchableWithoutFeedback으로 화면 전체를 감싸기
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <SafeAreaView
         style={[styles.screenContainer, { backgroundColor: colors.white }]}
@@ -94,7 +89,7 @@ export default function VerifyPhoneScreenNested() {
                 <Text
                   style={[
                     styles.headerSubtitle,
-                    { marginTop: 10, color: colors.black },
+                    { marginTop: 27, color: colors.black },
                   ]}
                 >
                   We sent you a 5 digit code (
@@ -113,11 +108,9 @@ export default function VerifyPhoneScreenNested() {
                 <Text
                   style={[
                     styles.headerSubtitle,
-                    { marginTop: 10, color: colors.black },
+                    { marginTop: 27, color: colors.black },
                   ]}
-                >
-                  Please confirm your country code and enter your phone number.
-                </Text>
+                ></Text>
               </>
             )}
           </View>
@@ -147,7 +140,7 @@ export default function VerifyPhoneScreenNested() {
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
-}
+};
 
 const styles = StyleSheet.create({
   screenContainer: {
@@ -158,19 +151,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerTextArea: {
-    marginTop: 115,
-    marginBottom: 55,
+    marginTop: "25%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Bold",
     fontSize: 32,
   },
   headerSubtitle: {
-    fontFamily: "LeagueSpartan-Medium",
+    fontFamily: "Quicksand-Medium",
     fontSize: 12,
+    marginBottom: 40,
   },
   circleButton: {
     position: "absolute",
     right: 22,
   },
 });
+
+export default VerifyPhoneScreenNested;

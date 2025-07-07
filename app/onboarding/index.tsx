@@ -85,9 +85,7 @@ export default function OnboardingScreen() {
           )}
           <View style={styles.phase1BottomTextBox}>
             {/* phase1BottomText에 동적 텍스트 색상 적용 */}
-            <Text
-              style={[styles.phase1BottomText, { color: colors.black }]}
-            >
+            <Text style={[styles.phase1BottomText, { color: colors.black }]}>
               {currentPhaseData.bottomText}
             </Text>
           </View>
@@ -169,21 +167,21 @@ const styles = StyleSheet.create({
     width: "90%", // 좌우 여백을 위해
   },
   phaseTitle1: {
-    fontFamily: "Literata", // 폰트 로드 확인 필요
+    fontFamily: "Quicksand-Bold",
     textAlign: "center", // Phase 2,3,4는 중앙 정렬 유지
     fontSize: 38,
     lineHeight: 42, // 줄 간격
     // color: "#000000", // 제거됨 (동적 적용)
   },
   phaseTitle2: {
-    fontFamily: "Literata", // 폰트 로드 확인 필요
+    fontFamily: "Quicksand-Bold",
     fontSize: 48,
     lineHeight: 50,
     // color: "#000000", // 제거됨 (동적 적용)
     // paddingLeft는 인라인으로 유지됨
   },
   phaseBody: {
-    fontFamily: "Literata", // 폰트 로드 확인 필요
+    fontFamily: "Quicksand-Regular", // 폰트 로드 확인 필요
     fontSize: 16,
     textAlign: "center",
     // color: "#555555", // 제거됨 (동적 적용)
@@ -193,7 +191,7 @@ const styles = StyleSheet.create({
   },
   phase1BottomText: {
     textAlign: "right",
-    fontFamily: "Literata", // 폰트 로드 확인 필요
+    fontFamily: "Quicksand-Regular", // 폰트 로드 확인 필요
     fontSize: 40,
     // color: "#333333", // 제거됨 (동적 적용)
   },

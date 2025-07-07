@@ -93,11 +93,11 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
               styles.tabText,
               {
                 color:
-                  activeTabId === tab.id
-                    ? colors.primary
-                    : colors.darkGray,
+                  activeTabId === tab.id ? colors.primary : colors.darkGray,
                 fontFamily:
-                  activeTabId === tab.id ? "Literata-Bold" : "Literata",
+                  activeTabId === tab.id
+                    ? "Quicksand-Bold"
+                    : "Quicksand-Regular",
               },
             ]}
           >
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 15, // 폰트 크기 조절 가능
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Regular",
   },
   tabIndicator: {
     height: 3,

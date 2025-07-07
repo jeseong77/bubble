@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     marginBottom: 68,
   },
   questionText: {
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Bold",
     fontSize: 32,
   },
   container: {
@@ -107,10 +107,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     padding: 10,
     fontSize: 18,
-    fontFamily: "LeagueSpartan-Regular",
+    fontFamily: "Quicksand-Regular",
   },
   tipText: {
-    fontFamily: "LeagueSpartan-Regular",
+    fontFamily: "Quicksand-Regular",
     fontSize: 12,
     paddingTop: 10,
   },

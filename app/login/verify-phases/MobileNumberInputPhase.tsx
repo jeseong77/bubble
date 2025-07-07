@@ -1,13 +1,14 @@
-import React from "react";
+import * as React from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export interface MobileNumberInputProps {
   phoneNumber: string;
@@ -16,106 +17,100 @@ export interface MobileNumberInputProps {
   onCountryCodePress: () => void;
 }
 
-const MobileNumberInputPhase: React.FC<MobileNumberInputProps> = ({
+const MobileNumberInputPhase = ({
   phoneNumber,
   setPhoneNumber,
   countryCode,
   onCountryCodePress,
-}) => {
-  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+}: MobileNumberInputProps) => {
+  const { colors } = useAppTheme();
 
   return (
+    // Main container now uses a row layout with a gap
     <View style={styles.inputSectionContainer}>
-      {/* inputLabel에 동적 텍스트 색상 적용 */}
-      <Text style={[styles.inputLabel, { color: colors.onSurfaceVariant }]}>
-        Select Region
-      </Text>
-      <View style={styles.inputRow}>
+      {/* Country Code Picker Section */}
+      <View style={styles.countryInputWrapper}>
+        <Text style={[styles.inputLabel, { color: colors.darkGray }]}>
+          Country
+        </Text>
         <TouchableOpacity
-          // countryCodeTouchable에 동적 테두리 하단 색상 적용
-          style={[
-            styles.countryCodeTouchable,
-            { borderBottomColor: colors.outline },
-          ]}
+          style={[styles.countryPickerBox]}
           onPress={onCountryCodePress}
         >
-          {/* countryCodeText에 동적 텍스트 색상 적용 */}
-          <Text style={[styles.countryCodeText, { color: colors.onSurface }]}>
+          <Text style={[styles.inputText, { color: colors.black }]}>
             {countryCode}
           </Text>
-          {/* Ionicons에 동적 아이콘 색상 적용 */}
-          <Ionicons
-            name="chevron-down-outline"
-            size={24}
-            color={colors.onSurfaceVariant}
-          />
+          <Ionicons name="chevron-down" size={22} color={colors.darkGray} />
         </TouchableOpacity>
-        <View style={styles.inputSpacer} />
+      </View>
+
+      {/* Phone Number Input Section */}
+      <View style={styles.phoneInputWrapper}>
         <TextInput
-          // phoneInput에 동적 스타일(테두리 하단 색상, 텍스트 색상) 적용
           style={[
-            styles.phoneInput,
-            { borderBottomColor: colors.outline, color: colors.onSurface },
+            styles.phoneInputBox,
+            {
+              backgroundColor: colors.lightGray || "#F4F4F4",
+              color: colors.black,
+            },
           ]}
-          placeholder="Mobile Number"
-          // placeholderTextColor에 동적 색상 적용
-          placeholderTextColor={colors.onSurfaceVariant}
+          placeholder="Phone Number"
+          placeholderTextColor={colors.mediumGray || "#A9A9A9"}
           keyboardType="phone-pad"
           value={phoneNumber}
           onChangeText={setPhoneNumber}
-          maxLength={15} // 필요에 따라 조절
+          maxLength={15}
         />
       </View>
     </View>
   );
 };
 
-// StyleSheet.create는 정적 스타일만 포함
+// Styles refactored to match the new design
 const styles = StyleSheet.create({
   inputSectionContainer: {
     width: "100%",
-    marginBottom: 46,
+    flexDirection: "row",
+    alignItems: "flex-end", // Aligns the bottom of the input boxes
+    gap: 12, // Creates space between the two inputs
+  },
+  countryInputWrapper: {
+    flex: 1,
+    height: 64,
+    flexDirection: "column",
+    justifyContent: "flex-start",
+  },
+  phoneInputWrapper: {
+    flex: 3,
+    justifyContent: "flex-end",
   },
   inputLabel: {
-    fontFamily: "LeagueSpartan-Regular", // 폰트 로드 확인 필요
-    fontSize: 18,
-    // color: "#7A7A7A", // 제거됨 (동적 적용)
-    marginBottom: 10,
+    fontFamily: "Quicksand-Regular",
+    fontSize: 14,
+    color: "#333",
+    marginLeft: 4,
   },
-  inputRow: {
+  countryPickerBox: {
     flexDirection: "row",
-    alignItems: "flex-end", // TextInput과 TouchableOpacity 높이 맞추기 위함
-    // height: 40, // 필요하다면 행 전체에 고정 높이를 줄 수 있음
-  },
-  countryCodeTouchable: {
-    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center", // 내부 요소 수직 중앙 정렬
-    width: 99,
-    paddingBottom: 4, // TextInput의 paddingBottom과 유사하게 맞춤
-    borderBottomWidth: 1,
-    // borderBottomColor: "#000000", // 제거됨 (동적 적용)
-    // height: '100%', // 부모(inputRow)의 높이가 명확해야 효과적
+    marginTop: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "transparent",
   },
-  countryCodeText: {
-    paddingLeft: 10,
-    fontFamily: "LeagueSpartan-Regular", // 폰트 로드 확인 필요
-    fontSize: 24,
-    // color: "#7A7A7A", // 제거됨 (동적 적용)
+  phoneInputBox: {
+    height: 64,
+    paddingHorizontal: 26,
+    borderRadius: 12,
+    fontSize: 18,
+    fontFamily: "Quicksand-Regular",
+    fontWeight: "500",
   },
-  inputSpacer: {
-    width: 37,
-  },
-  phoneInput: {
-    flex: 1,
-    paddingLeft: 10,
-    paddingBottom: 4, // 밑줄과의 간격
-    borderBottomWidth: 1,
-    // borderBottomColor: "#000000", // 제거됨 (동적 적용)
-    fontFamily: "LeagueSpartan-Regular", // 폰트 로드 확인 필요
-    fontSize: 24,
-    // color: "#000000", // 제거됨 (동적 적용)
-    // height: '100%', // 부모(inputRow)의 높이가 명확해야 효과적
+  inputText: {
+    fontSize: 18,
+    fontFamily: "Quicksand-Regular",
+    fontWeight: "500",
   },
 });
 

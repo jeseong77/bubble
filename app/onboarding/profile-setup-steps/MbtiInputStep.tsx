@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   questionText: {
-    fontFamily: "Literata-Bold",
+    fontFamily: "Quicksand-Bold",
     fontSize: 32,
     textAlign: "center",
   },
@@ -276,12 +276,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   optionLetterText: {
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Regular",
     fontSize: 30,
     textAlign: "center",
   },
   selectedOptionFont: {
-    fontFamily: "Literata-Bold",
+    fontFamily: "Quicksand-Bold",
   },
   lineConnector: {
     flex: 1,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   checkboxText: {
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Regular",
     fontSize: 16,
     marginRight: 12,
   },

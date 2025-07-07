@@ -1,53 +1,107 @@
-import React from "react";
-import { View, Text, TextInput, StyleSheet } from "react-native"; // Text는 현재 사용되지 않지만, 향후 확장 대비
-import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
+import * as React from "react";
+import { View, TextInput, Pressable, StyleSheet, Platform } from "react-native";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export interface VerificationCodeInputProps {
   verificationCodeInput: string;
   setVerificationCodeInput: (text: string) => void;
 }
 
-const VerificationCodeInputPhase: React.FC<VerificationCodeInputProps> = ({
+const CODE_LENGTH = 5;
+
+const VerificationCodeInputPhase = ({
   verificationCodeInput,
   setVerificationCodeInput,
-}) => {
-  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+}: VerificationCodeInputProps) => {
+  const { colors } = useAppTheme();
+  const inputRef = React.useRef<TextInput>(null);
+
+  // Split code into array of chars, pad with empty strings
+  const codeDigits = Array(CODE_LENGTH)
+    .fill("")
+    .map((_, i) => verificationCodeInput[i] || "");
+
+  // Focus input when any box is pressed
+  const handleBoxPress = () => {
+    inputRef.current?.focus();
+  };
+
+  // Only allow numeric input, max length 5
+  const handleChangeText = (text: string) => {
+    setVerificationCodeInput(text.replace(/[^0-9]/g, "").slice(0, CODE_LENGTH));
+  };
 
   return (
     <View style={styles.inputSectionContainer}>
-      <TextInput
-        // codeInput에 동적 스타일(테두리 하단 색상, 텍스트 색상) 적용
-        style={[
-          styles.codeInput,
-          { borderBottomColor: colors.outline, color: colors.onSurface },
-        ]}
-        placeholder="Enter 5-digit code"
-        // placeholderTextColor에 동적 색상 적용
-        placeholderTextColor={colors.onSurfaceVariant}
-        keyboardType="number-pad"
-        value={verificationCodeInput}
-        onChangeText={setVerificationCodeInput}
-        maxLength={5} // 인증 코드 길이에 맞게 조절
-      />
+      <Pressable style={styles.codeRow} onPress={handleBoxPress}>
+        {codeDigits.map((digit, idx) => (
+          <View
+            key={idx}
+            style={[
+              styles.codeBox,
+              { backgroundColor: colors.lightGray || "#f4f4f4" },
+            ]}
+          >
+            <TextInput
+              style={styles.codeDigit}
+              value={digit}
+              editable={false}
+              pointerEvents="none"
+            />
+          </View>
+        ))}
+        {/* Hidden input for actual typing */}
+        <TextInput
+          ref={inputRef}
+          style={styles.hiddenInput}
+          value={verificationCodeInput}
+          onChangeText={handleChangeText}
+          keyboardType="number-pad"
+          maxLength={CODE_LENGTH}
+          autoFocus={false}
+          caretHidden
+        />
+      </Pressable>
     </View>
   );
 };
 
-// StyleSheet.create는 정적 스타일만 포함
 const styles = StyleSheet.create({
   inputSectionContainer: {
     width: "100%",
-    marginBottom: 46, // 부모 컴포넌트와의 간격
+    marginBottom: 46,
   },
-  codeInput: {
+  codeRow: {
     width: "100%",
-    height: 50, // 입력 필드 높이
-    borderBottomWidth: 1,
-    // borderBottomColor: "#A9A9A9", // 제거됨 (동적 적용)
-    fontSize: 24,
-    textAlign: "center", // 코드가 중앙에 오도록
-    fontFamily: "LeagueSpartan-Regular", // 폰트 로드 확인 필요
-    // color: "#000000", // 제거됨 (동적 적용)
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 12,
+    flex: 1,
+    minHeight: 72,
+  },
+  codeBox: {
+    flex: 1,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: "#f4f4f4",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  codeDigit: {
+    fontSize: 32,
+    color: "#333",
+    textAlign: "center",
+    fontFamily: "Quicksand-Regular",
+    fontWeight: "500",
+    width: "100%",
+  },
+  hiddenInput: {
+    position: "absolute",
+    opacity: 0,
+    width: 1,
+    height: 1,
   },
 });
 

@@ -159,12 +159,7 @@ function ProfileScreen() {
             />
           ) : (
             <>
-              <Text
-                style={[
-                  styles.imageSlotNumber,
-                  { color: colors.black },
-                ]}
-              >
+              <Text style={[styles.imageSlotNumber, { color: colors.black }]}>
                 {index + 1}.
               </Text>
               <View style={styles.imagePlusIconContainer}>
@@ -198,12 +193,7 @@ function ProfileScreen() {
 
   const renderProfileDetails = (profile: ProfileFormData) => (
     <View style={styles.profileDetailsContainer}>
-      <View
-        style={[
-          styles.detailItem,
-          { borderBottomColor: colors.darkGray },
-        ]}
-      >
+      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           First name
         </Text>
@@ -211,12 +201,7 @@ function ProfileScreen() {
           {profile.firstName}
         </Text>
       </View>
-      <View
-        style={[
-          styles.detailItem,
-          { borderBottomColor: colors.darkGray },
-        ]}
-      >
+      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Last name
         </Text>
@@ -224,12 +209,7 @@ function ProfileScreen() {
           {profile.lastName}
         </Text>
       </View>
-      <View
-        style={[
-          styles.detailItem,
-          { borderBottomColor: colors.darkGray },
-        ]}
-      >
+      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Age
         </Text>
@@ -237,12 +217,7 @@ function ProfileScreen() {
           {profile.age ?? "N/A"}
         </Text>
       </View>
-      <View
-        style={[
-          styles.detailItem,
-          { borderBottomColor: colors.darkGray },
-        ]}
-      >
+      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Height
         </Text>
@@ -250,12 +225,7 @@ function ProfileScreen() {
           {profile.height ? `${profile.height} cm` : "N/A"}
         </Text>
       </View>
-      <View
-        style={[
-          styles.detailItem,
-          { borderBottomColor: colors.darkGray },
-        ]}
-      >
+      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           MBTI
         </Text>
@@ -263,12 +233,7 @@ function ProfileScreen() {
           {profile.mbti ?? "N/A"}
         </Text>
       </View>
-      <View
-        style={[
-          styles.detailItem,
-          { borderBottomColor: colors.darkGray },
-        ]}
-      >
+      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Description
         </Text>
@@ -332,7 +297,7 @@ function ProfileScreen() {
         leftComponent={
           <Text
             style={{
-              fontFamily: "Literata",
+              fontFamily: "Quicksand-Bold",
               fontSize: 22,
               color: logoTextColor,
             }}
@@ -396,12 +361,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Regular",
     marginBottom: 4,
   },
   detailValue: {
     fontSize: 18,
-    fontFamily: "Literata",
+    fontFamily: "Quicksand-Regular",
   },
   imageBackgroundContainer: { flex: 1 },
   contentOverlay: { flex: 1 },
@@ -432,7 +397,7 @@ const styles = StyleSheet.create({
   imageSlotButton: {
     flex: 1,
     justifyContent: "space-between", // 내부 요소 (숫자, +아이콘) 배치
-    alignItems: "stretch", 
+    alignItems: "stretch",
     borderRadius: 12,
     padding: 8,
   },

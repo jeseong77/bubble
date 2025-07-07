@@ -23,7 +23,7 @@ interface CustomButtonProps {
   loading?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
-  paddingVertical?: number,
+  paddingVertical?: number;
   width?: DimensionValue;
 }
 
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   text: {
-    fontFamily: "LeagueSpartan",
+    fontFamily: "Quicksand-SemiBold",
     fontSize: 16,
     fontWeight: "500",
   },

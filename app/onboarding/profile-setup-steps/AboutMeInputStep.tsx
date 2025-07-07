@@ -81,12 +81,11 @@ const styles = StyleSheet.create({
     paddingBottom: 20, // 기존 값 유지
   },
   title: {
-    fontFamily: "Literata", // 폰트 로드 확인
-    fontSize: 32, // 기존 값 유지
-    // color: "#000000", // 제거됨 (동적 적용)
-    fontWeight: "bold", // 기존 값 유지
-    marginBottom: 30, // 기존 값 유지
-    lineHeight: 40, // 기존 값 유지
+    fontFamily: "Quicksand-Bold",
+    fontSize: 32,
+    fontWeight: "bold",
+    marginBottom: 30,
+    lineHeight: 40,
   },
   textInput: {
     fontFamily: Platform.OS === "ios" ? "System" : "sans-serif", // 기존 값 유지
