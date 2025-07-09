@@ -322,10 +322,7 @@ function ProfileScreen() {
         extendStatusBar
       />
       <ScrollView
-        style={[
-          styles.container,
-          { marginBottom: bottomHeight, paddingTop: topPadding },
-        ]}
+        style={[styles.container, { paddingTop: topPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <ProfileHero />

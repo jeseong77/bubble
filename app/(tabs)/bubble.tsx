@@ -35,7 +35,7 @@ export default function BubbleScreen() {
 
   // [추가] 메일 버튼이 탭 바 위로 자연스럽게 올라오도록 최종 bottom 값을 계산합니다.
   // (탭 바 높이 + 탭 바의 하단 여백 + 추가 여백 15)
-  const mailButtonBottomPosition = customTabBarHeight + tabBarBottomOffset + 15;
+  const mailButtonBottomPosition = 15;
 
   const handleBubblePress = (bubbleType: "2-2" | "3-3" | "4-4") => {
     console.log(`- ${bubbleType} bubble pressed`);

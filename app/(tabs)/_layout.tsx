@@ -1,7 +1,8 @@
 import React from "react"; // useCallback 사용을 위해 React import
 import { Tabs, useFocusEffect } from "expo-router";
 import { useUIStore } from "@/stores/uiStore"; // Zustand 스토어 import (경로 확인)
-import { CustomTabBar } from "@/components/CustomTabBar"; // CustomTabBar import (경로 확인)
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { Image } from "react-native";
 
 export default function TabLayout() {
   const { showTabBar, hideTabBar } = useUIStore();
@@ -40,48 +41,72 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />} // CustomTabBar 사용
       screenOptions={{
         headerShown: false,
-        // (tabs) 그룹 내 화면 간 전환 애니메이션은 여기서 설정할 수 있지만,
-        // 탭 바 애니메이션과는 별개입니다.
+        tabBarStyle: {
+          backgroundColor: "transparent",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingTop: 10,
+        },
       }}
     >
       <Tabs.Screen
         name="index" // 예: app/(tabs)/index.tsx
         options={{
-          title: "Home",
+          title: "",
           animation: "none",
-
-          // 탭 아이콘 등은 CustomTabBar 또는 여기서 options.tabBarIcon 등으로 설정
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="heart" color={color} size={28} />
+          ),
         }}
       />
       <Tabs.Screen
         name="search" // Changed from "explore" to "search"
         options={{
-          title: "Find",
+          title: "",
           animation: "none",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search" color={color} size={28} />
+          ),
         }}
       />
       <Tabs.Screen
         name="bubble"
         options={{
-          title: "Bubble",
+          title: "",
           animation: "none",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Image
+              source={
+                focused
+                  ? require("@/assets/images/vector.png")
+                  : require("@/assets/images/vector-blank.png")
+              }
+              style={{ width: 28, height: 28 }}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="message" // 예: app/(tabs)/message.tsx
         options={{
-          title: "Message", // "Messaege" 오타 수정 가정
+          title: "",
           animation: "none",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubble" color={color} size={28} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile" // 예: app/(tabs)/profile.tsx
         options={{
-          title: "Profile",
+          title: "",
           animation: "none",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" color={color} size={28} />
+          ),
         }}
       />
       {/* 필요한 다른 Tabs.Screen들을 여기에 추가합니다. */}
