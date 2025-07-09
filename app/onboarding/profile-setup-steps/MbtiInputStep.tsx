@@ -10,6 +10,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 interface MbtiInputStepProps {
   currentMbti: string | null;
@@ -178,7 +179,13 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.white }]}>
+    <View
+      style={[
+        inputFieldContainerStyles.container,
+        styles.container,
+        { backgroundColor: colors.white },
+      ]}
+    >
       <View style={styles.questionTextBox}>
         <Text style={[styles.questionText, { color: colors.black }]}>
           What's your MBTI?
@@ -249,7 +256,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   questionTextBox: {
-    marginTop: 60,
+    marginTop: 80,
     marginBottom: 50,
     alignSelf: "stretch",
   },

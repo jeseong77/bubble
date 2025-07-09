@@ -8,6 +8,7 @@ import {
   Keyboard,
 } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { inputFieldContainerStyles } from "./inputFieldContainer.styles"; // 공통 컨테이너 스타일 import
 
 interface NameInputStepProps {
   firstName: string;
@@ -26,10 +27,13 @@ const NameInputStep = ({
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      {/* [색상 변경] background -> white */}
-      <View style={[styles.container, { backgroundColor: colors.white }]}>
+      <View
+        style={[
+          inputFieldContainerStyles.container,
+          { backgroundColor: colors.white },
+        ]}
+      >
         <View style={styles.questionTextBox}>
-          {/* [색상 변경] onBackground -> black */}
           <Text style={[styles.questionText, { color: colors.black }]}>
             What's your name?
           </Text>
@@ -39,20 +43,16 @@ const NameInputStep = ({
           style={[
             styles.input,
             {
-              // [색상 변경] outline -> mediumGray
-              borderColor: colors.mediumGray,
-              // [색상 변경] onSurface -> bubbleFont (입력된 텍스트 색상)
+              backgroundColor: colors.lightGray,
               color: colors.bubbleFont,
             },
           ]}
-          placeholder="First name (required)"
-          // [색상 변경] onSurfaceVariant -> darkGray
+          placeholder="First Name"
           placeholderTextColor={colors.darkGray}
           value={firstName}
           onChangeText={onFirstNameChange}
           autoCapitalize="words"
           autoCorrect={false}
-          // [색상 변경] primary는 그대로 유지 (새 팔레트의 primary 사용)
           selectionColor={colors.primary}
           returnKeyType="next"
           blurOnSubmit={false}
@@ -62,15 +62,12 @@ const NameInputStep = ({
           style={[
             styles.input,
             {
-              marginTop: 55,
-              // [색상 변경] outline -> mediumGray
-              borderColor: colors.mediumGray,
-              // [색상 변경] onSurface -> bubbleFont
+              marginTop: 16,
+              backgroundColor: colors.lightGray,
               color: colors.bubbleFont,
             },
           ]}
-          placeholder="Last name"
-          // [색상 변경] onSurfaceVariant -> darkGray
+          placeholder="Last Name"
           placeholderTextColor={colors.darkGray}
           value={lastName}
           onChangeText={onLastNameChange}
@@ -81,9 +78,9 @@ const NameInputStep = ({
           onSubmitEditing={Keyboard.dismiss}
         />
 
-        {/* [색상 변경] onSurfaceVariant -> darkGray */}
         <Text style={[styles.tipText, { color: colors.darkGray }]}>
-          Last name is only shared with matches. Why?
+          Last name is only shared with matches.{" "}
+          <Text style={{ color: colors.primary }}>Why?</Text>
         </Text>
       </View>
     </TouchableWithoutFeedback>
@@ -92,27 +89,26 @@ const NameInputStep = ({
 
 const styles = StyleSheet.create({
   questionTextBox: {
-    marginTop: 171,
-    marginBottom: 68,
+    marginBottom: 40,
+    alignItems: "center",
   },
   questionText: {
     fontFamily: "Quicksand-Bold",
-    fontSize: 32,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
+    fontSize: 32, // ✅ Locofy 코드 참고하여 28 -> 32로 수정
+    textAlign: "center",
   },
   input: {
-    borderBottomWidth: 1,
-    padding: 10,
-    fontSize: 18,
+    borderRadius: 12,
+    height: 56,
+    paddingHorizontal: 20,
+    fontSize: 16, // Locofy 코드와 일치하여 16으로 유지
     fontFamily: "Quicksand-Regular",
   },
   tipText: {
     fontFamily: "Quicksand-Regular",
-    fontSize: 12,
-    paddingTop: 10,
+    fontSize: 14, // ✅ Locofy 코드 참고하여 12 -> 14로 수정
+    paddingTop: 12,
+    textAlign: "center",
   },
 });
 

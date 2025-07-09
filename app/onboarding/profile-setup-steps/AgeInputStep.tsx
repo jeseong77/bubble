@@ -7,7 +7,8 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from "react-native";
-import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
+import { useAppTheme } from "@/hooks/useAppTheme";
+import { inputFieldContainerStyles } from "./inputFieldContainer.styles"; // 공통 컨테이너 스타일 import
 
 interface AgeInputStepProps {
   day: string;
@@ -26,22 +27,22 @@ const AgeInputStep = ({
   onMonthChange,
   onYearChange,
 }: AgeInputStepProps): JSX.Element => {
-  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+  const { colors } = useAppTheme();
 
-  const monthInputRef = useRef<TextInput>(null);
+  const dayInputRef = useRef<TextInput>(null);
   const yearInputRef = useRef<TextInput>(null);
-
-  const handleDayChange = (text: string) => {
-    const numericText = text.replace(/[^0-9]/g, "");
-    onDayChange(numericText);
-    if (numericText.length === 2) {
-      monthInputRef.current?.focus();
-    }
-  };
 
   const handleMonthChange = (text: string) => {
     const numericText = text.replace(/[^0-9]/g, "");
     onMonthChange(numericText);
+    if (numericText.length === 2) {
+      dayInputRef.current?.focus();
+    }
+  };
+
+  const handleDayChange = (text: string) => {
+    const numericText = text.replace(/[^0-9]/g, "");
+    onDayChange(numericText);
     if (numericText.length === 2) {
       yearInputRef.current?.focus();
     }
@@ -57,62 +58,86 @@ const AgeInputStep = ({
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      {/* container에 동적 배경색 적용 */}
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          inputFieldContainerStyles.container,
+          { backgroundColor: colors.white },
+        ]}
+      >
         <View style={styles.questionTextBox}>
-          {/* questionText에 동적 텍스트 색상 적용 */}
-          <Text style={[styles.questionText, { color: colors.onBackground }]}>
+          <Text style={[styles.questionText, { color: colors.black }]}>
             How old are you?
           </Text>
         </View>
 
-        {/* inputBox에 동적 테두리 하단 색상 적용 */}
-        <View style={[styles.inputBox, { borderBottomColor: colors.outline }]}>
+        <View style={styles.inputBox}>
+          {/* Month Input */}
           <TextInput
-            // inputText에 동적 텍스트 색상 적용
-            style={[styles.inputText, { color: colors.onSurface }]}
-            placeholder="DD"
-            placeholderTextColor={colors.onSurfaceVariant} // 동적 플레이스홀더 색상
-            keyboardType="numeric"
-            value={day}
-            onChangeText={handleDayChange}
-            maxLength={2}
-            onSubmitEditing={() => monthInputRef.current?.focus()}
-            blurOnSubmit={false}
-            returnKeyType="next"
-            selectionColor={colors.primary} // 동적 커서/선택 색상
-          />
-          <TextInput
-            ref={monthInputRef}
-            // inputText에 동적 텍스트 색상 적용
-            style={[styles.inputText, { color: colors.onSurface }]}
+            style={[
+              styles.input,
+              styles.monthAndDayInput,
+              {
+                backgroundColor: colors.lightGray,
+                color: colors.bubbleFont,
+              },
+            ]}
             placeholder="MM"
-            placeholderTextColor={colors.onSurfaceVariant} // 동적 플레이스홀더 색상
+            placeholderTextColor={colors.darkGray}
             keyboardType="numeric"
             value={month}
             onChangeText={handleMonthChange}
             maxLength={2}
+            returnKeyType="next"
+            onSubmitEditing={() => dayInputRef.current?.focus()}
+            blurOnSubmit={false}
+            selectionColor={colors.primary}
+            textAlign="center"
+          />
+
+          {/* Day Input */}
+          <TextInput
+            ref={dayInputRef}
+            style={[
+              styles.input,
+              styles.monthAndDayInput,
+              {
+                backgroundColor: colors.lightGray,
+                color: colors.bubbleFont,
+              },
+            ]}
+            placeholder="DD"
+            placeholderTextColor={colors.darkGray}
+            keyboardType="numeric"
+            value={day}
+            onChangeText={handleDayChange}
+            maxLength={2}
+            returnKeyType="next"
             onSubmitEditing={() => yearInputRef.current?.focus()}
             blurOnSubmit={false}
-            returnKeyType="next"
-            selectionColor={colors.primary} // 동적 커서/선택 색상
+            selectionColor={colors.primary}
+            textAlign="center"
           />
+
+          {/* Year Input */}
           <TextInput
             ref={yearInputRef}
-            // inputText 및 yearInput 스타일에 동적 텍스트 색상 적용
             style={[
-              styles.inputText,
+              styles.input,
               styles.yearInput,
-              { color: colors.onSurface },
+              {
+                backgroundColor: colors.lightGray,
+                color: colors.bubbleFont,
+              },
             ]}
             placeholder="YYYY"
-            placeholderTextColor={colors.onSurfaceVariant} // 동적 플레이스홀더 색상
+            placeholderTextColor={colors.darkGray}
             keyboardType="numeric"
             value={year}
             onChangeText={handleYearChange}
             maxLength={4}
             returnKeyType="done"
-            selectionColor={colors.primary} // 동적 커서/선택 색상
+            selectionColor={colors.primary}
+            textAlign="center"
           />
         </View>
       </View>
@@ -120,39 +145,32 @@ const AgeInputStep = ({
   );
 };
 
-// StyleSheet.create는 레이아웃 등 정적 스타일을 유지하고, 색상 관련 속성만 제거/수정
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
-  },
   questionTextBox: {
-    marginTop: 171,
-    marginBottom: 68,
-    marginLeft: 16, // 기존 값 유지
+    marginBottom: 40,
+    alignItems: "center",
   },
   questionText: {
-    fontFamily: "Literata", // 기존 값 유지
-    fontSize: 32, // 기존 값 유지
-    // color는 동적으로 적용 (기본값 사용 또는 명시적으로 설정)
+    fontFamily: "Quicksand-Bold",
+    fontSize: 32, // ✅ Locofy 코드 참고하여 28 -> 32로 수정
+    textAlign: "center",
   },
   inputBox: {
     flexDirection: "row",
-    justifyContent: "space-between", // 기존 값 유지
-    // borderBottomColor: "#A0A0A0", // 제거됨 (동적 적용)
-    borderBottomWidth: 1, // 기존 값 유지
-    marginHorizontal: 16, // 기존 값 유지
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  inputText: {
-    fontSize: 32, // 기존 값 유지
-    fontFamily: "Literata", // 기존 값 유지
-    // color: "#000000",          // 제거됨 (동적 적용)
-    textAlign: "center", // 기존 값 유지
-    width: 60, // 기존 값 유지
-    marginHorizontal: 10, // <--- 기존 값 "유지" (중요)
+  input: {
+    borderRadius: 12,
+    height: 56,
+    fontSize: 24, // ✅ Locofy 코드 참고하여 18 -> 24로 수정
+    fontFamily: "Quicksand-Regular",
+  },
+  monthAndDayInput: {
+    width: "28%",
   },
   yearInput: {
-    width: 90, // 기존 값 유지
+    width: "38%",
   },
 });
 

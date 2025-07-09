@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
+import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 interface AboutMeInputStepProps {
   currentAboutMe: string;
@@ -28,7 +29,7 @@ const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={styles.container}>
+        <View style={inputFieldContainerStyles.container}>
           {/* title에 동적 텍스트 색상 적용 */}
           <Text style={[styles.title, { color: colors.onBackground }]}>
             About me
@@ -42,13 +43,11 @@ const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
                 color: colors.onSurface,
                 backgroundColor: colors.surface,
                 borderColor: colors.outlineVariant,
-                shadowColor: colors.shadow, // Material Design에서는 elevation으로 그림자 표현, 직접 shadowColor 사용도 가능
               },
             ]}
             multiline
             placeholder="A brief introduction about yourself."
-            // placeholderTextColor에 동적 색상 적용
-            placeholderTextColor={colors.onSurfaceVariant}
+            placeholderTextColor={colors.darkGray}
             value={currentAboutMe}
             onChangeText={onAboutMeChange}
             maxLength={500}
@@ -56,12 +55,6 @@ const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
             textAlignVertical="top"
             selectionColor={colors.primary} // <--- [추가] 커서/선택 색상
           />
-          {/* Optional: Character counter - 주석 처리된 부분도 테마 색상 적용 가능하게 수정 */}
-          {/*
-          <Text style={[styles.charCounter, { color: colors.onSurfaceVariant }]}>
-            {currentAboutMe.length} / 500
-          </Text>
-          */}
         </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
@@ -72,13 +65,6 @@ const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    // backgroundColor: '#f0f0f0', // 제거됨 (동적 적용)
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 30, // 기존 값 유지
-    paddingTop: Platform.OS === "android" ? 40 : 60, // 기존 값 유지
-    paddingBottom: 20, // 기존 값 유지
   },
   title: {
     fontFamily: "Quicksand-Bold",

@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
+import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 interface HeightInputStepProps {
   onHeightChange: (heightInCm: number) => void;
@@ -127,7 +128,13 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
 
   return (
     // container에 동적 배경색 적용
-    <View style={[styles.container, { backgroundColor: colors.white }]}>
+    <View
+      style={[
+        inputFieldContainerStyles.container,
+        styles.container,
+        { backgroundColor: colors.white },
+      ]}
+    >
       <View style={styles.questionTextBox}>
         {/* questionText에 동적 텍스트 색상 적용 */}
         <Text style={[styles.questionText, { color: colors.black }]}>

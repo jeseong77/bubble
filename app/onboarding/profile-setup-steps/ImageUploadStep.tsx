@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
+import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 export interface ProfileImage {
   uri: string;
@@ -98,7 +99,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
       >
         {isRequired && (
           // requiredText에 동적 텍스트 색상 적용
-          <Text style={[styles.requiredText, { color: colors.tertiary }]}>
+          <Text style={[styles.requiredText, { color: colors.primary }]}>
             Required
           </Text>
         )}
@@ -159,7 +160,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   return (
     // safeArea에 동적 배경색 적용
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.white }]}>
-      <View style={styles.container}>
+      <View style={inputFieldContainerStyles.container}>
         {/* title에 동적 텍스트 색상 적용 */}
         <Text style={[styles.title, { color: colors.black }]}>
           Upload pictures
@@ -181,10 +182,7 @@ const styles = StyleSheet.create({
     // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
   },
   container: {
-    flex: 1,
-    paddingHorizontal: 30, // 기존 값 유지
-    paddingTop: Platform.OS === "android" ? 40 : 60, // 기존 값 유지
-    paddingBottom: 20, // 기존 값 유지
+    // inputFieldContainer.styles가 모든 레이아웃을 담당하므로 여기서는 제거
   },
   title: {
     fontFamily: "Quicksand-Bold",
