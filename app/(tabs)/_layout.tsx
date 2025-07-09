@@ -68,20 +68,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="search" // Changed from "explore" to "search"
-        options={{
-          title: "",
-          animation: "none",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name="search"
-              color={focused ? colors.primary : color}
-              size={28}
-            />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="bubble"
         options={{

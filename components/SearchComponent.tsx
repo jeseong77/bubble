@@ -29,7 +29,6 @@ type UserRowProps = {
   user: User;
 };
 
-// --- 변경된 부분 ---
 // require 대신 { uri: '...' } 형태로 이미지 URL을 사용합니다.
 const ALL_USERS: User[] = [
   {
@@ -63,7 +62,6 @@ const ALL_USERS: User[] = [
     image: { uri: "https://picsum.photos/seed/david_nguyen/200/200" },
   },
 ];
-// --- 변경된 부분 끝 ---
 
 // 사용자 한 명의 행(Row)을 표시하는 컴포넌트
 const UserRow: React.FC<UserRowProps & { onInvite: () => void }> = ({
@@ -83,7 +81,7 @@ const UserRow: React.FC<UserRowProps & { onInvite: () => void }> = ({
 );
 
 // 메인 컴포넌트
-const SearchPage: React.FC = () => {
+const SearchComponent: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [searchText, setSearchText] = useState<string>("");
   const router = useRouter();
 
@@ -109,6 +107,14 @@ const SearchPage: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+
+      {/* Back button */}
+      <View style={styles.headerContainer}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Feather name="arrow-left" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Find Friends</Text>
+      </View>
 
       <View style={styles.searchContainer}>
         <Feather
@@ -149,13 +155,27 @@ const SearchPage: React.FC = () => {
   );
 };
 
-export default SearchPage;
+export default SearchComponent;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  headerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
   },
   searchContainer: {
     flexDirection: "row",

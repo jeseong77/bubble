@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useUIStore } from "@/stores/uiStore"; // [추가] Zustand 스토어 임포트
+import SearchComponent from "@/components/SearchComponent"; // [추가] SearchComponent 임포트
 // [참고] useShallow는 현재 코드에서 필요하지 않지만, 필요시 아래처럼 임포트합니다.
 // import { useShallow } from 'zustand/react/shallow'
 
@@ -23,6 +24,7 @@ const bubbleImages = {
 
 export default function BubbleScreen() {
   const router = useRouter();
+  const [showSearch, setShowSearch] = useState(false); // [추가] 검색 화면 표시 상태
 
   // [추가] 스토어에서 탭 바 높이를 가져옵니다.
   // 단일 원시 값(primitive value)을 선택할 때는 리렌더링이 자동으로 최적화되므로
@@ -39,7 +41,22 @@ export default function BubbleScreen() {
 
   const handleBubblePress = (bubbleType: "2-2" | "3-3" | "4-4") => {
     console.log(`- ${bubbleType} bubble pressed`);
+
+    // [추가] 2:2 버튼을 눌렀을 때 검색 화면을 표시합니다
+    if (bubbleType === "2-2") {
+      setShowSearch(true);
+    }
   };
+
+  // [추가] 검색 화면에서 뒤로 가기 버튼을 눌렀을 때 호출되는 함수
+  const handleBackFromSearch = () => {
+    setShowSearch(false);
+  };
+
+  // [추가] 검색 화면이 표시되어야 하는 경우 SearchComponent를 렌더링합니다
+  if (showSearch) {
+    return <SearchComponent onBack={handleBackFromSearch} />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
