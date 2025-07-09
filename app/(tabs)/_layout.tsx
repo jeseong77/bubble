@@ -55,13 +55,13 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index" // 예: app/(tabs)/index.tsx
+        name="match" // New match tab as first item
         options={{
           title: "",
           animation: "none",
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name="heart"
+              name="sparkles"
               color={focused ? colors.primary : color}
               size={28}
             />
@@ -82,6 +82,21 @@ export default function TabLayout() {
                   : require("@/assets/images/vector-blank.png")
               }
               style={{ width: 28, height: 28 }}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="index" // 예: app/(tabs)/index.tsx
+        options={{
+          title: "",
+          animation: "none",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name="heart"
+              color={focused ? colors.primary : color}
+              size={28}
             />
           ),
         }}

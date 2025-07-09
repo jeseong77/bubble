@@ -21,6 +21,8 @@ import ProfileTab, { TabInfo } from "@/components/ProfileTab";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker"; // ImagePicker 임포트
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import BubbleItem from "@/components/bubble/BubbleItem"; // BubbleItem import 추가
+import CreateBubbleModal from "@/components/ui/CreateBubbleModal"; // CreateBubbleModal import 추가
 
 // 목업 프로필 데이터 (images 필드는 currentImages 상태로 관리)
 const mockProfileData: ProfileFormData = {
@@ -40,6 +42,25 @@ const mockProfileData: ProfileFormData = {
   images: Array(6).fill(null),
 };
 
+// Mock bubble data for My Bubble section
+const mockBubbleData = [
+  {
+    id: "1",
+    title: "Coffee Lovers",
+    status: "Active",
+    users: [
+      {
+        id: "user1",
+        avatar: "https://picsum.photos/seed/noah_kim/200/200",
+      },
+      {
+        id: "user2",
+        avatar: "https://picsum.photos/seed/user2/200/200",
+      },
+    ],
+  },
+];
+
 const TABS_DATA: TabInfo[] = [
   { id: "bubblePro", title: "Bubble pro" },
   { id: "myBubble", title: "My Bubble" },
@@ -57,6 +78,7 @@ function ProfileScreen() {
   const topPadding = useSafeAreaInsets().top + 56;
 
   const [activeTab, setActiveTab] = useState<string>(TABS_DATA[0].id);
+  const [showCreateBubbleModal, setShowCreateBubbleModal] = useState(false);
 
   // 이미지 상태 관리
   const [currentImages, setCurrentImages] = useState<(ProfileImage | null)[]>(
@@ -72,6 +94,13 @@ function ProfileScreen() {
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
+  };
+
+  const handleCreateBubble = (bubbleType: "2-2" | "3-3" | "4-4") => {
+    console.log(`Creating new bubble: ${bubbleType}`);
+    setShowCreateBubbleModal(false);
+    // Navigate to bubble form page
+    router.push("/bubble/form");
   };
 
   // 이미지 그리드 레이아웃 계산
@@ -269,8 +298,31 @@ function ProfileScreen() {
       );
     } else if (activeTab === "myBubble") {
       return (
-        <View style={styles.tabContentPlaceholder}>
-          <Text style={{ color: colors.black }}>My Bubble Content</Text>
+        <View style={styles.myBubbleContainer}>
+          {mockBubbleData.map((bubble) => (
+            <BubbleItem
+              key={bubble.id}
+              bubble={bubble}
+              onPress={() => console.log(`Bubble ${bubble.title} pressed`)}
+            />
+          ))}
+          <TouchableOpacity
+            style={styles.createBubbleRow}
+            onPress={() => setShowCreateBubbleModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.createBubbleContent}>
+              <Ionicons name="add-circle-outline" size={24} color="#5A99E5" />
+              <Text style={styles.createBubbleText}>Create New Bubble</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#C0C0C0" />
+          </TouchableOpacity>
+
+          <CreateBubbleModal
+            visible={showCreateBubbleModal}
+            onClose={() => setShowCreateBubbleModal(false)}
+            onCreate={handleCreateBubble}
+          />
         </View>
       );
     } else if (activeTab === "myInfo") {
@@ -380,12 +432,35 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 200,
   },
-  // --- ImageUploadStep에서 가져온 스타일 (수정 적용) ---
+  myBubbleContainer: {
+    paddingVertical: 10,
+  },
+  createBubbleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 12,
+    borderBottomWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  createBubbleContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 15,
+  },
+  createBubbleText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#5A99E5",
+    marginLeft: 10,
+  },
   imageGridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    paddingTop: 20, // 탭 바 또는 이전 요소와의 간격
+    paddingTop: 20,
   },
   imageSlotContainer: {
     marginBottom: 10, // 아이템 간 하단 간격 (itemGap과 유사)
