@@ -3,9 +3,11 @@ import { Tabs, useFocusEffect } from "expo-router";
 import { useUIStore } from "@/stores/uiStore"; // Zustand 스토어 import (경로 확인)
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Image } from "react-native";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export default function TabLayout() {
   const { showTabBar, hideTabBar } = useUIStore();
+  const { colors } = useAppTheme();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -57,8 +59,12 @@ export default function TabLayout() {
         options={{
           title: "",
           animation: "none",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart" color={color} size={28} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name="heart"
+              color={focused ? colors.primary : color}
+              size={28}
+            />
           ),
         }}
       />
@@ -67,8 +73,12 @@ export default function TabLayout() {
         options={{
           title: "",
           animation: "none",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" color={color} size={28} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name="search"
+              color={focused ? colors.primary : color}
+              size={28}
+            />
           ),
         }}
       />
@@ -94,8 +104,12 @@ export default function TabLayout() {
         options={{
           title: "",
           animation: "none",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble" color={color} size={28} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name="chatbubble"
+              color={focused ? colors.primary : color}
+              size={28}
+            />
           ),
         }}
       />
@@ -104,8 +118,12 @@ export default function TabLayout() {
         options={{
           title: "",
           animation: "none",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" color={color} size={28} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name="person"
+              color={focused ? colors.primary : color}
+              size={28}
+            />
           ),
         }}
       />
