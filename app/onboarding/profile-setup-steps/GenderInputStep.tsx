@@ -70,7 +70,6 @@ const GenderInputStep: React.FC<GenderInputStepProps> = ({
               >
                 {gender}
               </Text>
-              {/* 라디오 버튼 스타일 변경 */}
               <View
                 style={[
                   styles.radioCircle,
@@ -94,7 +93,6 @@ const GenderInputStep: React.FC<GenderInputStepProps> = ({
         onPress={toggleVisibility}
         activeOpacity={0.7}
       >
-        {/* 체크박스 스타일 변경 */}
         <View
           style={[
             styles.checkbox,
@@ -140,13 +138,13 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontFamily: "Quicksand-Regular",
-    fontSize: 22, // Locofy 참고하여 폰트 크기 조정
+    fontSize: 22,
   },
   selectedOptionText: {
-    fontFamily: "Quicksand-Bold", // 선택 시 폰트 Bold
+    fontFamily: "Quicksand-Bold",
   },
   radioCircle: {
-    width: 22, // 크기 조정
+    width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
@@ -168,7 +166,7 @@ const styles = StyleSheet.create({
   },
   visibilityText: {
     fontFamily: "Quicksand-Regular",
-    fontSize: 14, // 일관성을 위해 폰트 크기 조정
+    fontSize: 14,
   },
 });
 

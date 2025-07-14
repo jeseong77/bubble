@@ -10,9 +10,8 @@ import {
   FlatList,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-// [변경] 각 타입 파일에서 직접 임포트
-import { ProfileFormData, ProfileImage } from "@/types/profile"; // ProfileFormData와 ProfileImage (경로 확인!)
-import { Bubble, BubblePost } from "@/types/bubble"; // Bubble과 BubblePost (경로 확인!)
+import { ProfileFormData, ProfileImage } from "@/types/profile";
+import { Bubble, BubblePost } from "@/types/bubble";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { useRouter } from "expo-router";
 
@@ -25,8 +24,8 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 interface HorizontalFeedItem {
   id: string;
   type: "profile" | "post";
-  sourceUri: string | number; // ProfileImage.uri가 string | number 타입이라고 가정
-  profileData?: ProfileFormData; // 'profile' 타입 또는 'post'의 uploader일 때
+  sourceUri: string | number;
+  profileData?: ProfileFormData;
   postData?: BubblePost;
 }
 
@@ -51,17 +50,15 @@ const BubbleComponent: React.FC<BubbleComponentProps> = ({ bubble }) => {
         (m) => m.userId === post.uploaderUserId
       );
       if (uploaderProfile && post.uri) {
-        // post.uri도 유효한지 확인
         items.push({
           id: `post-${post.id}`,
           type: "post",
           sourceUri: post.uri,
-          profileData: uploaderProfile, // 게시물 작성자 프로필
+          profileData: uploaderProfile,
           postData: post,
         });
       }
     });
-    // TODO: 실제 "랜덤 배치" 로직이 필요하면 여기서 items 배열을 섞습니다.
     return items.filter(
       (item) => item.sourceUri !== null && item.sourceUri !== undefined
     );
@@ -101,7 +98,6 @@ const BubbleComponent: React.FC<BubbleComponentProps> = ({ bubble }) => {
   }
 
   const currentItem = horizontalFeedItems[activeIndex];
-  // currentItem이 없을 경우를 대비한 방어 코드 (horizontalFeedItems.length === 0 에서 이미 처리되지만, 안전을 위해)
   if (!currentItem) {
     return (
       <View
@@ -148,17 +144,14 @@ const BubbleComponent: React.FC<BubbleComponentProps> = ({ bubble }) => {
   const handleLearnMorePress = () => {
     if (displayProfile) {
       console.log("Learn More for:", displayProfile.firstName);
-      // router.push(`/profile/${displayProfile.userId}`);
     } else {
       console.log("Learn More for bubble:", bubble.name);
-      // router.push(`/bubble/${bubble.id}`);
     }
   };
 
   const renderHorizontalItem = ({ item }: { item: HorizontalFeedItem }) => {
     return (
       <ImageBackground
-        // source prop이 string | number를 모두 처리한다고 가정 (이전 논의)
         source={
           typeof item.sourceUri === "string"
             ? { uri: item.sourceUri }
@@ -252,7 +245,6 @@ const BubbleComponent: React.FC<BubbleComponentProps> = ({ bubble }) => {
   );
 };
 
-// 스타일 정의는 이전 답변과 동일하게 유지됩니다.
 const styles = StyleSheet.create({
   fullScreenContainer: {
     flex: 1,

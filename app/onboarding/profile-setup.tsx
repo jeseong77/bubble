@@ -71,7 +71,6 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
   }
 };
 
-// 나이 계산 유틸리티 함수 (여기 두거나 utils로 분리)
 const calculateAge = (birthDate: Date): number => {
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
@@ -100,7 +99,7 @@ export default function ProfileSetupScreen() {
     birthMonth: "",
     birthYear: "",
     height: null,
-    mbti: null, // <--- [변경] "" 대신 null로 초기화 (타입 및 유효성 검사 일관성)
+    mbti: null,
     gender: "",
     genderVisibleOnProfile: true,
     aboutMe: "",
@@ -191,12 +190,10 @@ export default function ProfileSetupScreen() {
 
   const handleImagesChange = useCallback(
     (newImages: (ProfileImage | null)[]) => {
-      // Use ProfileImage type
       updateProfileField("images", newImages);
     },
     [updateProfileField]
   );
-  // const handleImagesChange = useCallback(...)
 
   const handleNextStep = () => {
     if (!isStepValid(currentStep, profileData)) return;
@@ -219,7 +216,6 @@ export default function ProfileSetupScreen() {
     if (isSubmitting || !isStepValid(currentStep, profileData)) return;
     setIsSubmitting(true);
 
-    // --- 제출 시 나이 계산 ---
     let calculatedAge: number | null = null;
     const { birthDay, birthMonth, birthYear } = profileData;
     const dayNum = parseInt(birthDay, 10);
@@ -236,7 +232,7 @@ export default function ProfileSetupScreen() {
       }
     }
     console.log("Calculated Age on Submit:", calculatedAge);
-    // ------------------------
+
     console.log("Submitting Profile Data:", profileData);
     await new Promise((resolve) => setTimeout(resolve, 3000));
     console.log(
@@ -261,50 +257,50 @@ export default function ProfileSetupScreen() {
       case 1:
         return (
           <AgeInputStep
-            day={profileData.birthDay} // <<< day prop 전달
-            month={profileData.birthMonth} // <<< month prop 전달
-            year={profileData.birthYear} // <<< year prop 전달
-            onDayChange={handleBirthDayChange} // <<< day 변경 핸들러 전달
-            onMonthChange={handleBirthMonthChange} // <<< month 변경 핸들러 전달
-            onYearChange={handleBirthYearChange} // <<< year 변경 핸들러 전달
+            day={profileData.birthDay}
+            month={profileData.birthMonth}
+            year={profileData.birthYear}
+            onDayChange={handleBirthDayChange}
+            onMonthChange={handleBirthMonthChange}
+            onYearChange={handleBirthYearChange}
           />
         );
-      case 2: // This is the Height Input Step
+      case 2:
         return (
           <HeightInputStep
-            initialHeightCm={profileData.height ?? undefined} // Use initialHeightCm and handle null case
+            initialHeightCm={profileData.height ?? undefined}
             onHeightChange={handleHeightChange}
           />
         );
-      case 3: // Assuming MBTI is step 3
+      case 3:
         return (
           <MbtiInputStep
             currentMbti={profileData.mbti}
             onMbtiChange={handleMbtiChange}
           />
         );
-      case 4: // GENDER STEP
+      case 4:
         return (
           <GenderInputStep
             currentGender={profileData.gender}
-            currentVisibility={profileData.genderVisibleOnProfile} // Ensure this field exists in your profileData state
+            currentVisibility={profileData.genderVisibleOnProfile}
             onGenderChange={handleGenderChange}
             onVisibilityChange={handleGenderVisibilityChange}
           />
         );
-      case 5: // ABOUT ME STEP
+      case 5:
         return (
           <AboutMeInputStep
             currentAboutMe={profileData.aboutMe}
             onAboutMeChange={handleAboutMeChange}
           />
         );
-      case 6: // IMAGE UPLOAD STEP
+      case 6:
         return (
           <ImageUploadStep
             currentImages={profileData.images}
             onImagesChange={handleImagesChange}
-            maxImages={MAX_IMAGES} // Pass maxImages if you made it configurable
+            maxImages={MAX_IMAGES}
           />
         );
       default:
@@ -315,7 +311,6 @@ export default function ProfileSetupScreen() {
   const isCurrentInputValid = isStepValid(currentStep, profileData);
   const isButtonDisabled = !isCurrentInputValid || isSubmitting;
 
-  // 버튼 배경색과 아이콘 색상을 테마에 맞게 동적으로 설정
   const buttonBackgroundColor = isButtonDisabled
     ? colors.disableButton
     : colors.primary;
@@ -324,23 +319,20 @@ export default function ProfileSetupScreen() {
     : colors.white;
 
   return (
-    // SafeAreaView에 동적 배경색 적용
     <SafeAreaView
       style={[styles.screenContainer, { backgroundColor: colors.white }]}
     >
       <Stack.Screen options={{ headerShown: false }} />
-      {/* CustomAppBar는 내부적으로 테마 색상을 사용 (이전 단계에서 수정 완료) */}
       <CustomAppBar
         onBackPress={handlePreviousStep}
         showBackButton={currentStep > 0}
       />
-      {/* contentContainer의 배경색은 screenContainer와 동일하게 colors.background를 따름 (스타일 시트에서 제거) */}
       <View style={styles.contentContainer}>
         {renderCurrentStepComponent()}
 
         <View style={styles.bottomButtonContainer}>
           <TouchableOpacity
-            style={styles.circularButtonWrapper} // 이 스타일은 현재 비어있지만, 필요시 사용
+            style={styles.circularButtonWrapper}
             onPress={handleNextStep}
             disabled={isButtonDisabled}
             activeOpacity={0.7}
@@ -348,13 +340,13 @@ export default function ProfileSetupScreen() {
             <View
               style={[
                 styles.circularButton,
-                { backgroundColor: buttonBackgroundColor }, // <--- [변경] 테마 기반 동적 배경색
+                { backgroundColor: buttonBackgroundColor },
               ]}
             >
               <Ionicons
                 name="chevron-forward"
                 size={30}
-                color={buttonIconColor} // <--- [변경] 테마 기반 동적 아이콘 색상
+                color={buttonIconColor}
               />
             </View>
           </TouchableOpacity>
@@ -364,32 +356,27 @@ export default function ProfileSetupScreen() {
   );
 }
 
-// StyleSheet.create는 정적인 스타일만 포함
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
   },
   contentContainer: {
-    flex: 1, // 스텝 컴포넌트와 하단 버튼 영역을 포함하도록
-    // backgroundColor는 screenContainer와 동일하게 동적으로 적용되므로 여기선 명시 안 함
+    flex: 1,
   },
   bottomButtonContainer: {
-    position: "absolute", // 화면 하단에 고정
+    position: "absolute",
     bottom: 0,
     right: 0,
-    paddingBottom: 16, // 하단 여백 (SafeAreaView 고려하여 조정 가능)
-    paddingRight: 16, // 오른쪽 여백
+    paddingBottom: 16,
+    paddingRight: 16,
   },
   circularButtonWrapper: {
-    // 필요에 따라 래퍼 스타일 추가 (예: 그림자 효과)
   },
   circularButton: {
     width: 60,
     height: 60,
-    borderRadius: 30, // 원형 버튼
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    // backgroundColor는 동적으로 적용되므로 여기서 제거
   },
 });

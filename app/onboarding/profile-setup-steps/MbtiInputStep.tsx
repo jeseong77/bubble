@@ -76,17 +76,13 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
     }).start();
   }, [isUnknown, animatedIsUnknownValue]);
 
-  // [수정된 부분]
   useEffect(() => {
     if (isUnknown) {
-      // 'I don't know'를 체크하면 부모 상태를 null로 업데이트
       onMbtiChange(null);
     } else {
-      // 4개의 글자가 모두 선택되었을 때만 부모 상태를 완성된 MBTI로 업데이트
       if (val1 && val2 && val3 && val4) {
         onMbtiChange(`${val1}${val2}${val3}${val4}`);
       }
-      // 4개가 모두 채워지기 전까지는 부모 상태를 건드리지 않음 (else 블록 제거)
     }
   }, [val1, val2, val3, val4, isUnknown, onMbtiChange]);
 
@@ -248,7 +244,6 @@ const MbtiInputStep: React.FC<MbtiInputStepProps> = ({
   );
 };
 
-// styles는 변경사항 없습니다.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

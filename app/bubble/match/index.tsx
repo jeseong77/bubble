@@ -139,13 +139,11 @@ export default function MatchScreen() {
   const [displayedBubble, setDisplayedBubble] = useState(oppositeBubbles[0]);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Unified animation values
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
-  // Handle user image click
   const handleUserClick = (user: any) => {
     router.push({
       pathname: "/bubble/user/[userId]",
@@ -162,24 +160,19 @@ export default function MatchScreen() {
     });
   };
 
-  // Animate and switch bubble data
   const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
-    // 1. Determine next bubble index and data
     const nextIdx = (bubbleIdx + 1) % oppositeBubbles.length;
     const nextBubbleData = oppositeBubbles[nextIdx];
 
-    // 2. Update state for the next bubble
     setBubbleIdx(nextIdx);
     setDisplayedBubble(nextBubbleData);
 
-    // 3. Instantly move the (now invisible) bubble to the entry position
     const entryX =
       direction === "left" ? screenWidth * 0.5 : -screenWidth * 0.5;
     translateX.value = entryX;
     translateY.value = -screenHeight * 0.3;
     scale.value = 0.6;
 
-    // 4. Animate IN to the center
     translateX.value = withTiming(0, { duration: 400 });
     translateY.value = withTiming(0, { duration: 400 });
     scale.value = withTiming(1, { duration: 400 });
@@ -190,12 +183,10 @@ export default function MatchScreen() {
     });
   };
 
-  // Handler for X and Heart
   const handleSwipe = (direction: "left" | "right") => {
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // Animate OUT
     const targetX =
       direction === "left" ? -screenWidth * 0.5 : screenWidth * 0.5;
     translateX.value = withTiming(targetX, { duration: 400 });
@@ -208,7 +199,6 @@ export default function MatchScreen() {
     });
   };
 
-  // Unified animated style for the center bubble
   const animatedBubbleStyle = useAnimatedStyle(() => {
     return {
       opacity: opacity.value,
@@ -231,7 +221,6 @@ export default function MatchScreen() {
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {/* User's bubble at top left */}
       <View
         style={[
           styles.userBubbleContainer,
@@ -284,7 +273,6 @@ export default function MatchScreen() {
         </View>
       </View>
 
-      {/* Single, Unified Center Bubble */}
       <Animated.View
         style={[
           styles.centerBubbleWrap,
@@ -325,7 +313,6 @@ export default function MatchScreen() {
         </BlurView>
       </Animated.View>
 
-      {/* X and Check buttons */}
       <TouchableOpacity
         style={styles.xButton}
         onPress={() => handleSwipe("left")}
@@ -342,7 +329,6 @@ export default function MatchScreen() {
   );
 }
 
-// Styles (unchanged from original)
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "transparent" },
   userBubbleContainer: {

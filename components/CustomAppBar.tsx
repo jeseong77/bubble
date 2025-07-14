@@ -30,9 +30,9 @@ interface CustomAppBarProps {
   leftComponent?: React.ReactNode;
   rightComponent?: React.ReactNode;
   style?: ViewStyle;
-  background?: boolean; // true일 때 BlurView 배경 및 'absolute' 포지셔닝 활성화
+  background?: boolean;
   blurIntensity?: number;
-  extendStatusBar?: boolean; // 상태 표시줄 영역까지 배경 확장 여부 prop
+  extendStatusBar?: boolean;
 }
 
 const CustomAppBar: React.FC<CustomAppBarProps> = ({
@@ -46,9 +46,9 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
   leftComponent,
   rightComponent,
   style,
-  background = false, // 기본값 false
+  background = false,
   blurIntensity = Platform.OS === "ios" ? 70 : 100,
-  extendStatusBar = false, // 기본값 false
+  extendStatusBar = false,
 }) => {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
@@ -99,13 +99,12 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
     <View style={styles.sideItemContainer}>{rightComponent}</View>
   );
 
-  // 'background' prop이 true일 때만 절대 위치 스타일(appBarAbsoluteBase) 적용
   const baseStyle = background ? styles.appBarAbsoluteBase : {};
 
   return (
-    <View // 메인 AppBar 컨테이너
+    <View
       style={[
-        baseStyle, // background prop에 따라 절대 위치 스타일 또는 빈 객체 적용
+        baseStyle,
         {
           height: appBarTotalHeight,
           paddingTop: appBarContentPaddingTop,
@@ -114,14 +113,11 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
           justifyContent: "space-between",
           paddingHorizontal: 10,
         },
-        style, // 사용자가 전달한 스타일 (position, zIndex 등 덮어쓰기 가능)
-        // background가 true일 때만 backgroundColor를 transparent로 설정 (BlurView 위함)
-        // background가 false이면, 이 객체는 아무것도 하지 않으므로,
-        // 사용자의 style prop이나 다른 스타일에서 배경색을 설정할 수 있음.
+        style,
         background ? { backgroundColor: "transparent" } : {},
       ]}
     >
-      {background && ( // background가 true일 때만 BlurView 렌더링
+      {background && (
         <BlurView
           intensity={blurIntensity}
           tint={isDark ? "dark" : "light"}
@@ -144,7 +140,6 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
 
 const styles = StyleSheet.create({
   appBarAbsoluteBase: {
-    // 'background={true}'일 때 적용될 절대 위치 스타일
     position: "absolute",
     top: 0,
     left: 0,

@@ -8,7 +8,7 @@ import {
   Keyboard,
 } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { inputFieldContainerStyles } from "./inputFieldContainer.styles"; // 공통 컨테이너 스타일 import
+import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 interface NameInputStepProps {
   firstName: string;
@@ -94,19 +94,19 @@ const styles = StyleSheet.create({
   },
   questionText: {
     fontFamily: "Quicksand-Bold",
-    fontSize: 32, // ✅ Locofy 코드 참고하여 28 -> 32로 수정
+    fontSize: 32,
     textAlign: "center",
   },
   input: {
     borderRadius: 12,
     height: 56,
     paddingHorizontal: 20,
-    fontSize: 16, // Locofy 코드와 일치하여 16으로 유지
+    fontSize: 16,
     fontFamily: "Quicksand-Regular",
   },
   tipText: {
     fontFamily: "Quicksand-Regular",
-    fontSize: 14, // ✅ Locofy 코드 참고하여 12 -> 14로 수정
+    fontSize: 14,
     paddingTop: 12,
     textAlign: "center",
   },

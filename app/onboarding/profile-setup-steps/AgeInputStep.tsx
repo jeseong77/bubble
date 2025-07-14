@@ -8,7 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { inputFieldContainerStyles } from "./inputFieldContainer.styles"; // 공통 컨테이너 스타일 import
+import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 interface AgeInputStepProps {
   day: string;
@@ -71,7 +71,6 @@ const AgeInputStep = ({
         </View>
 
         <View style={styles.inputBox}>
-          {/* Month Input */}
           <TextInput
             style={[
               styles.input,
@@ -94,7 +93,6 @@ const AgeInputStep = ({
             textAlign="center"
           />
 
-          {/* Day Input */}
           <TextInput
             ref={dayInputRef}
             style={[
@@ -118,7 +116,6 @@ const AgeInputStep = ({
             textAlign="center"
           />
 
-          {/* Year Input */}
           <TextInput
             ref={yearInputRef}
             style={[
@@ -152,7 +149,7 @@ const styles = StyleSheet.create({
   },
   questionText: {
     fontFamily: "Quicksand-Bold",
-    fontSize: 32, // ✅ Locofy 코드 참고하여 28 -> 32로 수정
+    fontSize: 32,
     textAlign: "center",
   },
   inputBox: {
@@ -163,7 +160,7 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: 12,
     height: 56,
-    fontSize: 24, // ✅ Locofy 코드 참고하여 18 -> 24로 수정
+    fontSize: 24,
     fontFamily: "Quicksand-Regular",
   },
   monthAndDayInput: {

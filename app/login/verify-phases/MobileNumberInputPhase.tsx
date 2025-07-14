@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/hooks/useAppTheme";
@@ -71,8 +70,8 @@ const styles = StyleSheet.create({
   inputSectionContainer: {
     width: "100%",
     flexDirection: "row",
-    alignItems: "flex-end", // Aligns the bottom of the input boxes
-    gap: 12, // Creates space between the two inputs
+    alignItems: "flex-end",
+    gap: 12,
   },
   countryInputWrapper: {
     flex: 1,

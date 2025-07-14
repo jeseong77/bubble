@@ -6,15 +6,12 @@ import {
   StyleProp,
   ViewStyle,
 } from "react-native";
-import { Feather } from "@expo/vector-icons"; // Expo 프로젝트가 아닐 경우 'react-native-vector-icons/Feather'
+import { Feather } from "@expo/vector-icons";
 import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface CircleButtonProps {
-  /** 버튼을 눌렀을 때 실행될 함수 */
   onPress: () => void;
-  /** 버튼의 비활성화 여부 */
   disabled?: boolean;
-  /** 추가적인 스타일을 적용할 때 사용 */
   style?: StyleProp<ViewStyle>;
 }
 
@@ -31,7 +28,6 @@ export default function CircleButton({
 }: CircleButtonProps): JSX.Element {
   const { colors } = useAppTheme();
 
-  // 비활성화 상태에 따라 배경색을 동적으로 결정
   const buttonBackgroundColor = disabled
     ? colors.disableButton
     : colors.primary;

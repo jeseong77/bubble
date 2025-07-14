@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 export interface ProfileImage {
@@ -33,17 +33,16 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   onImagesChange,
   maxImages = MAX_IMAGES_DEFAULT,
 }) => {
-  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+  const { colors } = useAppTheme();
 
   const screenWidth = Dimensions.get("window").width;
-  const contentPaddingHorizontal = 30; // styles.container.paddingHorizontal와 일치
-  const itemGap = 10; // 슬롯 간 간격 (필요시 styles에서 정의하고 가져오기)
+  const contentPaddingHorizontal = 30;
+  const itemGap = 10;
   const totalGapSpace = itemGap * (NUM_COLUMNS - 1);
   const itemSize =
     (screenWidth - contentPaddingHorizontal * 2 - totalGapSpace) / NUM_COLUMNS;
 
   const handlePickImage = async (index: number) => {
-    // ... (기존 이미지 선택 로직은 동일)
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
@@ -73,12 +72,11 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   };
 
   const handleRemoveImage = (index: number) => {
-    // ... (기존 이미지 제거 로직은 동일)
     Alert.alert("Remove Image", "Are you sure you want to remove this image?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
-        style: "destructive", // iOS에서 destructive 스타일은 텍스트를 빨갛게 표시
+        style: "destructive",
         onPress: () => {
           const updatedImages = [...currentImages];
           updatedImages[index] = null;
@@ -98,17 +96,15 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         style={[styles.slotContainer, { width: itemSize, height: itemSize }]}
       >
         {isRequired && (
-          // requiredText에 동적 텍스트 색상 적용
           <Text style={[styles.requiredText, { color: colors.primary }]}>
             Required
           </Text>
         )}
         <TouchableOpacity
-          // slotButton에 동적 스타일 (테두리 색상, 배경색) 적용
           style={[
             styles.slotButton,
             {
-              backgroundColor: colors.lightGray, // 슬롯 배경
+              backgroundColor: colors.lightGray,
             },
           ]}
           onPress={() =>
@@ -123,14 +119,12 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             />
           ) : (
             <>
-              {/* slotNumber에 동적 텍스트 색상 적용 */}
               <Text
                 style={[styles.slotNumber, { color: colors.onSurfaceVariant }]}
               >
                 {index + 1}.
               </Text>
               <View style={styles.plusIconContainer}>
-                {/* add-circle-outline 아이콘에 동적 색상 적용 */}
                 <Ionicons
                   name="add-circle-outline"
                   size={32}
@@ -143,13 +137,11 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         {imageAsset && (
           <TouchableOpacity
             onPress={() => handleRemoveImage(index)}
-            // removeIconContainer에 동적 배경색 적용 (화면 배경과 동일하게 하여 아이콘만 보이도록)
             style={[
               styles.removeIconContainer,
               { backgroundColor: colors.background },
             ]}
           >
-            {/* close-circle 아이콘에 동적 색상 적용 (오류/제거 의미) */}
             <Ionicons name="close-circle" size={28} color={colors.error} />
           </TouchableOpacity>
         )}

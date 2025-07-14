@@ -19,7 +19,6 @@ export default function UserDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // Parse user data from route params
   const userId = params.userId as string;
   const name = params.name as string;
   const age = params.age as string;
@@ -45,10 +44,8 @@ export default function UserDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.container}>
-        {/* First image */}
         <Image source={{ uri: images[0] }} style={styles.profileImage} />
 
-        {/* Height, MBTI, Location info */}
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>{height}</Text>
@@ -61,15 +58,12 @@ export default function UserDetailScreen() {
           </View>
         </View>
 
-        {/* Second image */}
         <Image source={{ uri: images[1] }} style={styles.profileImage} />
 
-        {/* Bio */}
         <View style={styles.bioContainer}>
           <Text style={styles.bioText}>"{bio}"</Text>
         </View>
 
-        {/* Third image */}
         <Image source={{ uri: images[2] }} style={styles.profileImage} />
       </ScrollView>
     </SafeAreaView>

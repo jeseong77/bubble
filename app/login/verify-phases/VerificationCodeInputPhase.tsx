@@ -16,17 +16,14 @@ const VerificationCodeInputPhase = ({
   const { colors } = useAppTheme();
   const inputRef = React.useRef<TextInput>(null);
 
-  // Split code into array of chars, pad with empty strings
   const codeDigits = Array(CODE_LENGTH)
     .fill("")
     .map((_, i) => verificationCodeInput[i] || "");
 
-  // Focus input when any box is pressed
   const handleBoxPress = () => {
     inputRef.current?.focus();
   };
 
-  // Only allow numeric input, max length 5
   const handleChangeText = (text: string) => {
     setVerificationCodeInput(text.replace(/[^0-9]/g, "").slice(0, CODE_LENGTH));
   };
@@ -50,7 +47,6 @@ const VerificationCodeInputPhase = ({
             />
           </View>
         ))}
-        {/* Hidden input for actual typing */}
         <TextInput
           ref={inputRef}
           style={styles.hiddenInput}

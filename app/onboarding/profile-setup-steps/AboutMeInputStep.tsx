@@ -9,7 +9,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from "react-native";
-import { useAppTheme } from "@/hooks/useAppTheme"; // <--- [추가] 테마 훅 임포트 (경로 확인!)
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 interface AboutMeInputStepProps {
@@ -21,22 +21,19 @@ const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
   currentAboutMe,
   onAboutMeChange,
 }) => {
-  const { colors } = useAppTheme(); // <--- [추가] 현재 테마의 색상 가져오기
+  const { colors } = useAppTheme();
 
   return (
-    // safeArea에 동적 배경색 적용
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={inputFieldContainerStyles.container}>
-          {/* title에 동적 텍스트 색상 적용 */}
           <Text style={[styles.title, { color: colors.onBackground }]}>
             About me
           </Text>
 
           <TextInput
-            // textInput에 동적 스타일(텍스트 색상, 배경색, 테두리 색상, 그림자 색상) 적용
             style={[
               styles.textInput,
               {
@@ -53,7 +50,7 @@ const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
             maxLength={500}
             scrollEnabled={true}
             textAlignVertical="top"
-            selectionColor={colors.primary} // <--- [추가] 커서/선택 색상
+            selectionColor={colors.primary}
           />
         </View>
       </TouchableWithoutFeedback>

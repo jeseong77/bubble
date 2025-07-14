@@ -49,7 +49,6 @@ export default function BubbleFormScreen() {
 
   const handleInviteFriend = () => {
     console.log("Invite friend button pressed");
-    // Add your invite friend logic here
   };
 
   const handleCancel = () => {
@@ -65,7 +64,6 @@ export default function BubbleFormScreen() {
         enableOnAndroid={true}
         extraScrollHeight={Platform.OS === "android" ? -100 : 0}
       >
-        {/* Top Section: Title Input */}
         <View style={styles.topSection}>
           <TextInput
             style={styles.titleInput}
@@ -77,7 +75,6 @@ export default function BubbleFormScreen() {
           />
         </View>
 
-        {/* Bubble Row */}
         <View
           style={{
             width: totalBubblesWidth,
@@ -87,7 +84,6 @@ export default function BubbleFormScreen() {
             position: "relative",
           }}
         >
-          {/* Left bubble (host) */}
           <View
             style={[
               styles.bubbleContainer,
@@ -152,7 +148,6 @@ export default function BubbleFormScreen() {
           </View>
         </View>
 
-        {/* Invite Friend CTA Button */}
         <TouchableOpacity
           style={styles.inviteButton}
           onPress={handleInviteFriend}
@@ -162,7 +157,6 @@ export default function BubbleFormScreen() {
         </TouchableOpacity>
       </KeyboardAwareScrollView>
 
-      {/* Cancel Button */}
       <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
         <Text style={styles.cancelButtonText}>✕</Text>
       </TouchableOpacity>
