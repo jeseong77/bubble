@@ -10,7 +10,7 @@ import {
 import { Stack, useRouter } from "expo-router";
 import CustomAppBar from "@/components/CustomAppBar";
 import { ProfileFormData, ProfileImage } from "@/types/profile";
-import useAuthStore from "@/stores/authStore";
+import { useAuth } from "@/providers/AuthProvider";
 import { Ionicons } from "@expo/vector-icons";
 import NameInputStep from "./profile-setup-steps/NameInputStep";
 import AgeInputStep from "./profile-setup-steps/AgeInputStep";
@@ -87,7 +87,8 @@ const calculateAge = (birthDate: Date): number => {
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
-  const authenticatedUserId = useAuthStore((state) => state.user?.id);
+  const { session } = useAuth();
+  const authenticatedUserId = session?.user?.id;
 
   const [currentStep, setCurrentStep] = useState(0);
   const [profileData, setProfileData] = useState<ProfileFormData>({
@@ -106,9 +107,7 @@ export default function ProfileSetupScreen() {
     images: Array(MAX_IMAGES).fill(null) as (ProfileImage | null)[],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const completeProfileSetup = useAuthStore(
-    (state) => state.completeProfileSetup
-  );
+  const { completeProfileSetup } = useAuth();
 
   const updateProfileField = useCallback(
     <K extends keyof ProfileFormData>(field: K, value: ProfileFormData[K]) => {
@@ -314,9 +313,7 @@ export default function ProfileSetupScreen() {
   const buttonBackgroundColor = isButtonDisabled
     ? colors.disableButton
     : colors.primary;
-  const buttonIconColor = isButtonDisabled
-    ? colors.black
-    : colors.white;
+  const buttonIconColor = isButtonDisabled ? colors.black : colors.white;
 
   return (
     <SafeAreaView
@@ -370,8 +367,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingRight: 16,
   },
-  circularButtonWrapper: {
-  },
+  circularButtonWrapper: {},
   circularButton: {
     width: 60,
     height: 60,

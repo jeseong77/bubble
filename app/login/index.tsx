@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import {
   View,
@@ -11,15 +11,64 @@ import {
 } from "react-native";
 import CustomButton from "@/components/CustomButton"; // CustomButton 경로 확인
 import { useAppTheme } from "@/hooks/useAppTheme"; // 테마 훅 임포트
+import { useAuth } from "@/providers/AuthProvider"; // AuthProvider 훅 추가
+import * as AppleAuthentication from "expo-apple-authentication";
 
 const loginBgImage = require("../../assets/images/bg.png");
 
 export default function LoginScreen() {
   const router = useRouter();
   const { colors } = useAppTheme(); // 앱 테마 색상 가져오기 (전화번호 로그인 버튼에 사용)
+  const { signInWithApple, signInWithGoogle } = useAuth(); // Auth 훅 사용
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
+
+  useEffect(() => {
+    // Apple 로그인 사용 가능 여부 확인
+    const checkAppleAuthAvailability = async () => {
+      try {
+        const isAvailable = await AppleAuthentication.isAvailableAsync();
+        setIsAppleAuthAvailable(isAvailable);
+      } catch (error) {
+        console.error(
+          "[LoginScreen] Apple 로그인 사용 가능 여부 확인 실패:",
+          error
+        );
+        setIsAppleAuthAvailable(false);
+      }
+    };
+
+    checkAppleAuthAvailability();
+  }, []);
 
   const handlePhoneSignInPress = () => {
     router.push("/login/verify-phone");
+  };
+
+  const handleAppleSignIn = async () => {
+    console.log("[LoginScreen] Apple 로그인 시작");
+    setIsLoading(true);
+    try {
+      await signInWithApple();
+      console.log("[LoginScreen] Apple 로그인 성공");
+    } catch (error) {
+      console.error("[LoginScreen] Apple 로그인 실패:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    console.log("[LoginScreen] Google 로그인 시작");
+    setIsLoading(true);
+    try {
+      await signInWithGoogle();
+      console.log("[LoginScreen] Google 로그인 성공");
+    } catch (error) {
+      console.error("[LoginScreen] Google 로그인 실패:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -43,26 +92,28 @@ export default function LoginScreen() {
         </View>
 
         <View style={[styles.container, { marginBottom: 40 }]}>
-          <CustomButton
-            title="Sign in with Apple"
-            onPress={() => {
-              /* Apple 로그인 로직 */
-            }}
-            buttonColor={colors.white}
-            textColor={colors.black}
-            width="80%"
-            style={{ marginTop: 28 }}
-          />
+          {isAppleAuthAvailable && (
+            <CustomButton
+              title={isLoading ? "Signing in..." : "Sign in with Apple"}
+              onPress={handleAppleSignIn}
+              buttonColor={colors.white}
+              textColor={colors.black}
+              width="80%"
+              style={{ marginTop: 28 }}
+              disabled={isLoading}
+              loading={isLoading}
+            />
+          )}
 
           <CustomButton
-            title="Sign in with Facebook"
-            onPress={() => {
-              /* Facebook 로그인 로직 */
-            }}
+            title={isLoading ? "Signing in..." : "Sign in with Google"}
+            onPress={handleGoogleSignIn}
             buttonColor={colors.facebookBlue}
             textColor={colors.white}
             width="80%"
             style={{ marginTop: 16 }}
+            disabled={isLoading}
+            loading={isLoading}
           />
 
           <CustomButton

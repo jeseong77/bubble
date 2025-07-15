@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
-import "react-native-url-polyfill/auto";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -8,9 +7,13 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 // .env 파일에 변수가 제대로 설정되었는지 확인합니다.
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    "Supabase URL 또는 Anon Key가 .env 파일에 설정되지 않았습니다. 변수 이름이 EXPO_PUBLIC_으로 시작하는지 확인해주세요."
+    "[Supabase] Supabase URL 또는 Anon Key가 .env 파일에 설정되지 않았습니다. 변수 이름이 EXPO_PUBLIC_으로 시작하는지 확인해주세요."
   );
-  console.warn("Using fallback values for development...");
+  console.warn("[Supabase] Using fallback values for development...");
+} else {
+  console.log("[Supabase] 환경 변수 로드 성공");
+  console.log("[Supabase] URL:", supabaseUrl.substring(0, 20) + "...");
+  console.log("[Supabase] Anon Key:", supabaseAnonKey.substring(0, 10) + "...");
 }
 
 // Supabase 클라이언트를 생성합니다.
@@ -29,3 +32,5 @@ export const supabase = createClient(
     },
   }
 );
+
+console.log("[Supabase] 클라이언트 생성 완료");

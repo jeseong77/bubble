@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import CircleButton from "@/components/CircleButton";
-import useAuthStore from "@/stores/authStore";
+import { useAuth } from "@/providers/AuthProvider";
 
 const VerifyEmailScreen = () => {
   const { colors } = useAppTheme();
@@ -23,20 +23,20 @@ const VerifyEmailScreen = () => {
   const [localPart, setLocalPart] = useState("");
   const [domainPart, setDomainPart] = useState("");
   const [touched, setTouched] = useState(false);
-  const login = useAuthStore((state) => state.login);
+  const { completeOnboarding } = useAuth();
 
   const email = `${localPart}@${domainPart}`;
   const isValidEmail = (email: string) => /^\S+@\S+\.\S+$/.test(email);
 
   const handleNext = () => {
     if (isValidEmail(email)) {
-      login(`verified-token-${Date.now()}`, { id: email });
+      // 이메일 검증 완료 후 온보딩으로 이동
       router.replace("/onboarding");
     }
   };
 
   const handleNotNow = () => {
-    login(`verified-token-${Date.now()}`, { id: "no-email-user" });
+    // 이메일 없이 온보딩으로 이동
     router.replace("/onboarding");
   };
 

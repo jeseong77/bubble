@@ -3,9 +3,10 @@ import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
-
+import "core-js/actual/structured-clone";
 import { useInitialRouteRedirect } from "../hooks/useInitialRouteRedirect";
 import { ThemeProvider } from "@/theme/ThemeContext";
+import { AuthProvider } from "@/providers/AuthProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -83,7 +84,9 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <AppInitializer />
+      <AuthProvider>
+        <AppInitializer />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

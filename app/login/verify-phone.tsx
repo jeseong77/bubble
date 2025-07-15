@@ -16,7 +16,7 @@ import CircleButton from "@/components/CircleButton";
 import { generateVerificationCode } from "@/utils/auth/verification";
 import MobileNumberInputPhase from "./verify-phases/MobileNumberInputPhase";
 import VerificationCodeInputPhase from "./verify-phases/VerificationCodeInputPhase";
-import useAuthStore from "../../stores/authStore";
+import { useAuth } from "@/providers/AuthProvider";
 import { useAppTheme } from "@/hooks/useAppTheme";
 
 const VerifyPhoneScreenNested = () => {
@@ -29,7 +29,7 @@ const VerifyPhoneScreenNested = () => {
   const [countryCode, setCountryCode] = useState("+1");
   const [verificationCodeInput, setVerificationCodeInput] = useState("");
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
-  const login = useAuthStore((state) => state.login);
+  const { completeOnboarding } = useAuth();
 
   const handleCountryCodePress = () => {
     console.log("Country code pressed!");

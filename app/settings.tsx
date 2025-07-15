@@ -12,7 +12,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import CustomAppBar from "@/components/CustomAppBar";
 import { useUIStore } from "@/stores/uiStore";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import useAuthStore from "@/stores/authStore";
+import { useAuth } from "@/providers/AuthProvider";
 import { Ionicons } from "@expo/vector-icons";
 
 const SettingsItem: React.FC<{
@@ -47,7 +47,7 @@ const SettingsItem: React.FC<{
 export default function SettingsScreen() {
   const { hideTabBar, showTabBar } = useUIStore();
   const { colors } = useAppTheme();
-  const logout = useAuthStore((state) => state.logout);
+  const { signOut } = useAuth();
   const router = useRouter();
 
   useFocusEffect(
@@ -61,7 +61,7 @@ export default function SettingsScreen() {
 
   const handleLogout = () => {
     console.log("Logout pressed");
-    logout();
+    signOut();
   };
 
   const sections = [

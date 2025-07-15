@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, SafeAreaView, Image } from "react-native";
 import { Stack, useRouter } from "expo-router";
-import useAuthStore from "@/stores/authStore";
+import { useAuth } from "@/providers/AuthProvider";
 import CustomButton from "@/components/CustomButton";
 import { useAppTheme } from "@/hooks/useAppTheme";
 
@@ -33,7 +33,7 @@ const onboardingPhases = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
-  const completeOnboarding = useAuthStore((state) => state.completeOnboarding);
+  const { completeOnboarding } = useAuth();
   const [currentPhase, setCurrentPhase] = useState(0);
 
   const currentPhaseData = onboardingPhases[currentPhase];

@@ -1,7 +1,7 @@
 // hooks/useInitialRouteRedirect.tsx
 import { useEffect, useState } from "react";
 import { useRouter, useSegments } from "expo-router";
-import useAuthStore from "@/stores/authStore"; // authStore의 실제 경로를 확인해주세요.
+import { useAuth } from "@/providers/AuthProvider";
 
 // Helper function (기존과 동일)
 const isCurrentPath = (
@@ -42,21 +42,19 @@ export function useInitialRouteRedirect() {
   const [isRedirectLogicCompleted, setIsRedirectLogicCompleted] =
     useState(false);
 
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
-  const hasCompletedOnboarding = useAuthStore(
-    (state) => state.hasCompletedOnboarding
-  );
-  const hasCompletedProfileSetup = useAuthStore(
-    (state) => state.hasCompletedProfileSetup
-  );
-  // const isAuthLoading = useAuthStore((state) => state.isLoading);
+  const {
+    isLoggedIn,
+    hasCompletedOnboarding,
+    hasCompletedProfileSetup,
+    loading,
+  } = useAuth();
 
   useEffect(() => {
-    // if (isAuthLoading) {
-    //   console.log("useInitialRouteRedirect: Auth state is loading...");
-    //   if (isRedirectLogicCompleted) setIsRedirectLogicCompleted(false);
-    //   return;
-    // }
+    if (loading) {
+      console.log("useInitialRouteRedirect: Auth state is loading...");
+      if (isRedirectLogicCompleted) setIsRedirectLogicCompleted(false);
+      return;
+    }
 
     console.log("useInitialRouteRedirect: Evaluating redirection logic.");
     let isActive = true;
@@ -130,7 +128,7 @@ export function useInitialRouteRedirect() {
     isLoggedIn,
     hasCompletedOnboarding,
     hasCompletedProfileSetup,
-    // isAuthLoading,
+    loading,
   ]);
 
   return { isReady: isRedirectLogicCompleted };

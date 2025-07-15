@@ -2,23 +2,36 @@
   "expo": {
     "name": "bubble",
     "slug": "bubble",
+    "scheme": "bubble",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/bubble-ios-icon.png",
-    "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.playlounge.bubble",
+      "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.applesignin": ["Default"]
+        "com.apple.developer.applesignin": [
+          "Default",
+          "Default"
+        ]
+      },
+      "associatedDomains": [
+        "applinks:your-project.supabase.co",
+        "applinks:your-project.supabase.co"
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icons/bubble-ios-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.playlounge.bubble"
     },
     "web": {
       "bundler": "metro",
@@ -46,6 +59,12 @@
       "image": "./assets/images/bg.png",
       "resizeMode": "cover",
       "backgroundColor": "#000000"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "da919264-4069-4ddf-b59d-00af9bfb0a41"
+      }
     }
   }
 }
