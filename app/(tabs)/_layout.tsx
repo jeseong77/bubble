@@ -43,6 +43,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -55,7 +56,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="match" // New match tab as first item
+        name="index" // Main match tab as first item
         options={{
           title: "",
           animation: "none",
@@ -68,27 +69,8 @@ export default function TabLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
-        name="bubble"
-        options={{
-          title: "",
-          animation: "none",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Image
-              source={
-                focused
-                  ? require("@/assets/images/vector.png")
-                  : require("@/assets/images/vector-blank.png")
-              }
-              style={{ width: 28, height: 28 }}
-            />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="index" // 예: app/(tabs)/index.tsx
+        name="match" // Heart tab
         options={{
           title: "",
           animation: "none",
