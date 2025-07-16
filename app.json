@@ -13,10 +13,7 @@
       "bundleIdentifier": "com.playlounge.bubble",
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.applesignin": [
-          "Default",
-          "Default"
-        ]
+        "com.apple.developer.applesignin": ["Default", "Default"]
       },
       "associatedDomains": [
         "applinks:your-project.supabase.co",

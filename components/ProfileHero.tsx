@@ -1,5 +1,5 @@
 // src/components/ProfileHero.tsx
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import Animated, {
   useSharedValue,
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRealtime } from "@/providers/RealtimeProvider";
 import { useRouter } from "expo-router";
+import { supabase } from "@/lib/supabase";
 
 // ProfileHero props 인터페이스
 interface ProfileHeroProps {

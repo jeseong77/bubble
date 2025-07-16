@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // useEffect 추가
 import {
   View,
   Text,
@@ -10,45 +10,92 @@ import {
   TextInput,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-
-const mockProfileData = {
-  userId: "john_doe_123",
-  firstName: "Noah",
-  lastName: "Kim",
-  age: 30,
-  birthDay: "15",
-  birthMonth: "07",
-  birthYear: "1994",
-  height: 180,
-  mbti: "INFP",
-  gender: "Man",
-  genderVisibleOnProfile: true,
-  aboutMe:
-    "Loves coding, hiking, and exploring new coffee shops. Always looking for new adventures and interesting people to meet!",
-  images: [
-    { uri: "https://picsum.photos/seed/noah_kim/200/200" },
-    null,
-    null,
-    null,
-    null,
-    null,
-  ],
-};
+import { supabase } from "@/lib/supabase"; // supabase 클라이언트 추가
 
 export default function BubbleFormScreen() {
   const router = useRouter();
+
+  // 이전 화면에서 전달된 파라미터 가져오기
+  const {
+    groupId, // groupId를 받음
+    bubbleSize: bubbleSizeParam,
+    creatorId,
+    creatorFirstName,
+    creatorImagePath, // 이미지 경로를 받음
+  } = useLocalSearchParams<{
+    groupId: string;
+    bubbleSize: string;
+    creatorId: string;
+    creatorFirstName: string;
+    creatorImagePath?: string;
+  }>();
+
+  // 버블 이름은 이 화면에서 관리
   const [bubbleName, setBubbleName] = useState("");
+  const [creatorSignedUrl, setCreatorSignedUrl] = useState<string | null>(null); // 이미지 URL 상태 추가
+
+  // 전달받은 버블 크기 파라미터를 숫자로 변환
+  const bubbleMemberCount = parseInt(bubbleSizeParam || "2", 10);
+
+  // 이미지 경로를 받아 새로운 Signed URL을 생성하는 로직
+  useEffect(() => {
+    if (creatorImagePath) {
+      const getSignedUrl = async () => {
+        const { data, error } = await supabase.storage
+          .from("user-images")
+          .createSignedUrl(creatorImagePath, 60); // 60초 유효한 새 URL 생성
+
+        if (error) {
+          console.error("Error creating signed URL for creator image:", error);
+        } else {
+          setCreatorSignedUrl(data.signedUrl);
+        }
+      };
+      getSignedUrl();
+    }
+  }, [creatorImagePath]);
+
+  // ... (기존 bubbleSize 계산 로직)
   const screenWidth = Dimensions.get("window").width;
   const totalBubblesWidth = screenWidth * 0.9;
   const overlapRatio = 0.18;
-  const bubbleSize = totalBubblesWidth / (2 - overlapRatio);
-  const overlapOffset = bubbleSize * overlapRatio;
+  const bubbleSize =
+    totalBubblesWidth /
+    (bubbleMemberCount - (bubbleMemberCount - 1) * overlapRatio);
+  const overlapOffset = bubbleSize * (1 - overlapRatio);
 
-  const handleInviteFriend = () => {
-    console.log("Invite friend button pressed");
+  const handleInviteFriend = async () => {
+    if (!bubbleName.trim()) {
+      alert("버블 이름을 입력해주세요.");
+      return;
+    }
+
+    try {
+      // 버블 이름을 서버에 업데이트
+      const { error } = await supabase
+        .from("groups")
+        .update({ name: bubbleName })
+        .eq("id", groupId);
+
+      if (error) throw error;
+
+      // TODO: 실제 친구 초대 화면 경로로 수정 필요
+      router.push({
+        pathname: "/bubble/form",
+        params: {
+          groupId,
+          bubbleName,
+          bubbleSize: bubbleSizeParam,
+          creatorId,
+        },
+      });
+    } catch (error) {
+      console.error("Error updating bubble name:", error);
+      alert("버블 이름 저장에 실패했습니다. 다시 시도해주세요.");
+    }
   };
 
   const handleCancel = () => {
@@ -96,56 +143,76 @@ export default function BubbleFormScreen() {
               },
             ]}
           >
-            <Image
-              source={
-                mockProfileData.images[0] || {
-                  uri: "https://picsum.photos/seed/noah_kim/200/200",
-                }
-              }
-              style={[
-                styles.bubbleImage,
-                {
-                  width: bubbleSize,
-                  height: bubbleSize,
-                  borderRadius: bubbleSize / 2,
-                  marginBottom: 0,
-                },
-              ]}
-            />
-            <Text style={[styles.nameText, { marginTop: 12 }]}>John Kim</Text>
+            {creatorSignedUrl ? (
+              <Image
+                source={{ uri: creatorSignedUrl }}
+                style={[
+                  styles.bubbleImage,
+                  {
+                    width: bubbleSize,
+                    height: bubbleSize,
+                    borderRadius: bubbleSize / 2,
+                    marginBottom: 0,
+                  },
+                ]}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.bubbleImage,
+                  {
+                    width: bubbleSize,
+                    height: bubbleSize,
+                    borderRadius: bubbleSize / 2,
+                    marginBottom: 0,
+                    backgroundColor: "#e0e0e0",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  },
+                ]}
+              >
+                <Feather name="user" size={bubbleSize * 0.4} color="#999" />
+              </View>
+            )}
+            <Text style={[styles.nameText, { marginTop: 12 }]}>
+              {creatorFirstName || "Me"}
+            </Text>
           </View>
 
-          {/* Right bubble (invitee) - Gray and blank */}
-          <View
-            style={[
-              styles.bubbleContainer,
-              {
-                position: "absolute",
-                left: bubbleSize - overlapOffset,
-                top: 0,
-                zIndex: 1,
-                alignItems: "center",
-              },
-            ]}
-          >
+          {/* 친구 초대 슬롯 (동적 생성) */}
+          {Array.from({ length: bubbleMemberCount - 1 }).map((_, index) => (
             <View
+              key={index}
               style={[
-                styles.emptyBubble,
+                styles.bubbleContainer,
                 {
-                  width: bubbleSize,
-                  height: bubbleSize,
-                  borderRadius: bubbleSize / 2,
-                  justifyContent: "center",
+                  position: "absolute",
+                  left: (index + 1) * overlapOffset,
+                  top: 0,
+                  zIndex: 1 - index, // zIndex를 다르게 주어 겹치게 함
                   alignItems: "center",
                 },
               ]}
             >
-              <Feather name="plus" size={32} color="#999" />
+              <View
+                style={[
+                  styles.emptyBubble,
+                  {
+                    width: bubbleSize,
+                    height: bubbleSize,
+                    borderRadius: bubbleSize / 2,
+                    justifyContent: "center",
+                    alignItems: "center",
+                  },
+                ]}
+              >
+                <Feather name="plus" size={32} color="#999" />
+              </View>
+              <Text style={[styles.nameText, { marginTop: 12, color: "#999" }]}>
+                Invite Friend
+              </Text>
             </View>
-            <Text style={[styles.nameText, { marginTop: 12, color: "#999" }]}>
-              Invite Friend
-            </Text>
-          </View>
+          ))}
         </View>
 
         <TouchableOpacity

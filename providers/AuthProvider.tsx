@@ -25,7 +25,7 @@ const isValidSession = (
 };
 
 const redirectUri = makeRedirectUri({
-  scheme: "bubble",
+  native: "bubble://",
 });
 
 type AuthContextType = {
@@ -68,8 +68,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         console.log("[AuthProvider] DB에서 프로필 설정 완료 상태 확인됨");
         // completeProfileSetup 함수를 호출하여 state와 AsyncStorage를 모두 업데이트
         await completeProfileSetup();
-      } else {
-        console.log("[AuthProvider] DB에서 프로필 설정이 완료되지 않음 확인됨");
       }
     } catch (error) {
       console.error("[AuthProvider] 프로필 상태 확인 실패:", error);
@@ -86,33 +84,36 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (onboardingStatus === "true") {
           setHasCompletedOnboarding(true);
         }
+
+        // 프로필 설정 상태도 확인
+        const profileSetupStatus = await AsyncStorage.getItem(
+          "hasCompletedProfileSetup"
+        );
+        if (profileSetupStatus === "true") {
+          setHasCompletedProfileSetup(true);
+        }
       } catch (error) {
-        console.error("[AuthProvider] 온보딩 상태 로드 실패:", error);
+        console.error("[AuthProvider] AsyncStorage 상태 로드 실패:", error);
       }
 
       try {
-        console.log("[AuthProvider] Initializing authentication...");
         const {
           data: { session: initialSession },
         } = await supabase.auth.getSession();
 
         if (initialSession) {
           console.log(
-            "[AuthProvider] Found existing session for:",
+            "[AuthProvider] 기존 세션 발견:",
             initialSession.user.email
           );
           setSession(initialSession);
           // 👇 [변경] 세션이 있으면 DB에서 프로필 상태 확인
           await checkProfileStatus(initialSession.user.id);
         } else {
-          console.log("[AuthProvider] No existing session found");
           setSession(null);
         }
       } catch (error) {
-        console.error(
-          "[AuthProvider] Error during auth initialization:",
-          error
-        );
+        console.error("[AuthProvider] 인증 초기화 중 에러:", error);
       } finally {
         setLoading(false);
       }
@@ -125,30 +126,57 @@ export function AuthProvider({ children }: PropsWithChildren) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log(
-        "[AuthProvider] Auth state changed:",
+        "[AuthProvider] 🔄 인증 상태 변경 감지:",
         event,
         session?.user?.email
       );
 
       if (event === "TOKEN_REFRESHED") {
-        console.log("[AuthProvider] Token was refreshed automatically");
+        console.log("[AuthProvider] 토큰이 자동으로 갱신됨");
       } else if (event === "SIGNED_OUT") {
-        console.log("[AuthProvider] User signed out");
+        console.log("[AuthProvider] 사용자 로그아웃됨");
+        setSession(null);
         // 로그아웃 시 로그인 화면으로 이동
         router.replace("/login");
       } else if (event === "SIGNED_IN" && session) {
-        console.log("[AuthProvider] User signed in successfully");
+        console.log("[AuthProvider] 🎉 사용자 로그인 성공!");
+        console.log("[AuthProvider] 로그인된 사용자 정보:", {
+          email: session.user.email,
+          id: session.user.id,
+          expiresAt: session.expires_at,
+        });
 
-        await syncUserProfile(session);
+        console.log("[AuthProvider] syncUserProfile 시작");
+        // syncUserProfile을 비동기적으로 실행하되, 실패해도 다음 단계로 진행
+        syncUserProfile(session).catch((error) => {
+          console.error(
+            "[AuthProvider] syncUserProfile 실패했지만 계속 진행:",
+            error
+          );
+        });
+
         // 👇 [추가] 로그인 성공 시에도 DB에서 프로필 상태 확인
-        await checkProfileStatus(session.user.id);
+        console.log("[AuthProvider] 로그인 후 프로필 상태 확인 시작");
+        checkProfileStatus(session.user.id).catch((error) => {
+          console.error(
+            "[AuthProvider] checkProfileStatus 실패했지만 계속 진행:",
+            error
+          );
+        });
+
+        console.log("[AuthProvider] 세션 상태 업데이트");
+        setSession(session);
 
         // 리디렉션 로직은 useInitialRouteRedirect 훅이 담당하므로 여기서는 제거하거나
         // 기본 경로로만 보내는 것이 더 안전할 수 있습니다.
         // router.replace("/onboarding"); // 이 부분은 useInitialRouteRedirect가 처리하도록 둘 수 있습니다.
+      } else if (event === "USER_UPDATED") {
+        console.log("[AuthProvider] 사용자 정보 업데이트됨");
+        setSession(session);
+      } else {
+        console.log("[AuthProvider] 기타 인증 이벤트:", event);
+        setSession(session);
       }
-
-      setSession(session);
     });
 
     return () => {
@@ -159,12 +187,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // Google 로그인 - 웹 기반 OAuth 방식
   const signInWithGoogle = async () => {
     try {
-      setIsAuthenticating(true); // [추가] 로그인 프로세스 시작
+      setIsAuthenticating(true);
       console.log("[AuthProvider] Google 로그인 시작");
-      console.log(`[AuthProvider] Redirect URI: ${redirectUri}`);
 
       // 1. OAuth URL 요청
-      console.log("[AuthProvider] Google OAuth URL 요청 중...");
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -175,52 +201,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       if (error) {
         console.error("[AuthProvider] Google OAuth URL 요청 실패:", error);
-        console.error("[AuthProvider] Error details:", {
-          message: error.message,
-          status: error.status,
-          name: error.name,
-        });
         return;
       }
 
       if (!data.url) {
         console.error("[AuthProvider] Google OAuth URL이 없습니다.");
-        console.error("[AuthProvider] Response data:", data);
         return;
       }
 
-      console.log("[AuthProvider] Google OAuth URL 획득 성공:", data.url);
-
       // 2. 브라우저에서 인증 진행
-      console.log("[AuthProvider] Google 브라우저 인증 시작...");
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
         redirectUri
       );
 
-      console.log("[AuthProvider] Google 브라우저 인증 결과:", {
-        type: result.type,
-        url: "url" in result ? result.url : undefined,
-        errorCode: "errorCode" in result ? result.errorCode : undefined,
-        errorMessage:
-          "errorMessage" in result ? result.errorMessage : undefined,
-      });
-
       if (result.type === "success" && "url" in result && result.url) {
-        console.log("[AuthProvider] Google 브라우저 인증 성공");
-        console.log("[AuthProvider] Redirect URL:", result.url);
-
         // 3. URL에서 'code' 파라미터를 추출
         const url = new URL(result.url);
         const code = url.searchParams.get("code");
         const error = url.searchParams.get("error");
         const errorDescription = url.searchParams.get("error_description");
-
-        console.log("[AuthProvider] URL 파라미터:", {
-          code: code ? `${code.substring(0, 10)}...` : null,
-          error,
-          errorDescription,
-        });
 
         if (error) {
           console.error("[AuthProvider] Google OAuth 에러:", {
@@ -232,7 +232,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         if (code) {
           const cleanCode = code.replace("#", "");
-          console.log("[AuthProvider] Google 코드 교환 시작...");
 
           try {
             const { data: exchangeData, error: exchangeError } =
@@ -243,20 +242,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 "[AuthProvider] Google 세션 교환 실패:",
                 exchangeError
               );
-              console.error("[AuthProvider] Exchange error details:", {
-                message: exchangeError.message,
-                status: exchangeError.status,
-                name: exchangeError.name,
-              });
             } else {
-              console.log("[AuthProvider] Google 세션 교환 성공");
-              console.log("[AuthProvider] Session data:", {
-                user: exchangeData.session?.user?.email,
-                expiresAt: exchangeData.session?.expires_at,
-                accessToken: exchangeData.session?.access_token
-                  ? "present"
-                  : "missing",
-              });
+              console.log("[AuthProvider] Google 세션 교환 성공!");
+
+              // 세션 교환 성공 후 세션 상태 업데이트
+              if (exchangeData.session) {
+                setSession(exchangeData.session);
+              }
             }
           } catch (exchangeErr) {
             console.error(
@@ -266,7 +258,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
         } else {
           console.error("[AuthProvider] Google 인증 코드 추출 실패");
-          console.error("[AuthProvider] URL 검사:", result.url);
         }
       } else if (result.type === "cancel") {
         console.log("[AuthProvider] Google 로그인 취소됨");
@@ -275,21 +266,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     } catch (err) {
       console.error("[AuthProvider] Google 로그인 중 예외 발생:", err);
-      console.error("[AuthProvider] Exception details:", {
-        name: err instanceof Error ? err.name : "Unknown",
-        message: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      });
     } finally {
-      setIsAuthenticating(false); // [추가] 로그인 프로세스 종료 (성공/실패 무관)
+      setIsAuthenticating(false);
     }
   };
 
   // Apple 로그인 - 네이티브 방식 (Best Practice)
   const signInWithApple = async () => {
     try {
-      setIsAuthenticating(true); // [추가] 로그인 프로세스 시작
-      console.log("[AuthProvider] 네이티브 Apple 로그인 시작");
+      setIsAuthenticating(true);
 
       const isAvailable = await AppleAuthentication.isAvailableAsync();
       if (!isAvailable) {
@@ -305,8 +290,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-
-      console.log("[AuthProvider] Apple credential 획득 성공");
 
       // 2. 받은 id_token으로 Supabase에 로그인합니다.
       if (credential.identityToken) {
@@ -330,7 +313,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         console.error("[AuthProvider] 네이티브 Apple 로그인 중 에러 발생:", e);
       }
     } finally {
-      setIsAuthenticating(false); // [추가] 로그인 프로세스 종료
+      setIsAuthenticating(false);
     }
   };
 
@@ -364,66 +347,77 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     // 👇 [핵심 수정] 메타데이터에서 실제 이름 값을 가져온 경우에만 DB를 업데이트합니다.
     if (!firstName) {
-      console.log(
-        "[syncUserProfile] 메타데이터에 이름 정보가 없어 동기화를 건너뜁니다."
-      );
       return; // 이름이 없으면 아무 작업도 하지 않고 종료
     }
 
     // 2. public.users 테이블에 사용자 정보 저장
     //    upsert는 ID가 없으면 생성(INSERT), 있으면 업데이트(UPDATE)를 한번에 처리합니다.
-    const { error } = await supabase.from("users").upsert({
+
+    // 타임아웃 설정 (5초)
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("DB 업데이트 타임아웃")), 5000);
+    });
+
+    const upsertPromise = supabase.from("users").upsert({
       id: session.user.id, // auth.users의 id와 동일하게 설정
       first_name: firstName,
       last_name: lastName,
       updated_at: new Date().toISOString(), // 마지막 업데이트 시간 기록
     });
 
+    const { error } = (await Promise.race([
+      upsertPromise,
+      timeoutPromise,
+    ])) as any;
+
     if (error) {
-      console.error("[syncUserProfile] 프로필 동기화 실패:", error);
+      console.error("[AuthProvider] 프로필 동기화 실패:", error);
     } else {
-      console.log("[syncUserProfile] 프로필 동기화 성공:", session.user.id);
+      console.log("[AuthProvider] 프로필 동기화 성공:", session.user.id);
     }
   };
 
   const signOut = async () => {
     try {
-      console.log("[AuthProvider] Signing out user...");
+      console.log("[AuthProvider] 사용자 로그아웃 시작...");
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error("[AuthProvider] Error during sign out:", error);
+        console.error("[AuthProvider] 로그아웃 중 에러:", error);
       } else {
-        console.log("[AuthProvider] User signed out successfully");
+        console.log("[AuthProvider] 사용자 로그아웃 성공");
         // 로그아웃 시 온보딩 상태도 리셋
         setHasCompletedOnboarding(false);
         setHasCompletedProfileSetup(false);
         try {
           await AsyncStorage.removeItem("hasCompletedOnboarding");
           await AsyncStorage.removeItem("hasCompletedProfileSetup");
+          console.log("[AuthProvider] 온보딩 상태 리셋 완료");
         } catch (error) {
           console.error("[AuthProvider] 온보딩 상태 리셋 실패:", error);
         }
       }
     } catch (error) {
-      console.error("[AuthProvider] Unexpected error during sign out:", error);
+      console.error("[AuthProvider] 로그아웃 중 예상치 못한 에러:", error);
     }
   };
 
   const completeOnboarding = async () => {
-    console.log("[AuthProvider] 온보딩 완료");
+    console.log("[AuthProvider] 온보딩 완료 처리 시작");
     setHasCompletedOnboarding(true);
     try {
       await AsyncStorage.setItem("hasCompletedOnboarding", "true");
+      console.log("[AuthProvider] 온보딩 상태 저장 완료");
     } catch (error) {
       console.error("[AuthProvider] 온보딩 상태 저장 실패:", error);
     }
   };
 
   const completeProfileSetup = async () => {
-    console.log("[AuthProvider] 프로필 설정 완료");
+    console.log("[AuthProvider] 프로필 설정 완료 처리 시작");
     setHasCompletedProfileSetup(true);
     try {
       await AsyncStorage.setItem("hasCompletedProfileSetup", "true");
+      console.log("[AuthProvider] 프로필 설정 상태 저장 완료");
     } catch (error) {
       console.error("[AuthProvider] 프로필 설정 상태 저장 실패:", error);
     }

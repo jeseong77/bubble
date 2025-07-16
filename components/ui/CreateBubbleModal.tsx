@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "@/lib/supabase";
 
 interface CreateBubbleModalProps {
   visible: boolean;
@@ -24,8 +25,30 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
     "2-2" | "3-3" | "4-4" | null
   >(null);
 
+  // 클라이언트에서 위 함수를 호출하는 테스트 코드
+  const handleTestRpc = async () => {
+    console.log("Testing group creation via RPC...");
+    const { data, error } = await supabase.rpc("test_create_group");
+
+    if (error) {
+      console.error("RPC Error:", error);
+      alert("RPC 호출에 실패했습니다. 로그를 확인하세요.");
+    } else {
+      console.log("RPC Success, new group ID:", data);
+      alert("RPC 호출 성공! 새로운 그룹이 생성되었습니다.");
+    }
+  };
+
   const handleCreate = () => {
     if (selectedType) {
+      // 3:3 버튼을 누르면 테스트 RPC 함수 실행
+      if (selectedType === "3-3") {
+        handleTestRpc();
+        setSelectedType(null);
+        onClose();
+        return;
+      }
+
       onCreate(selectedType);
       setSelectedType(null);
     }
