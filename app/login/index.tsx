@@ -19,8 +19,9 @@ const loginBgImage = require("../../assets/images/bg.png");
 export default function LoginScreen() {
   const router = useRouter();
   const { colors } = useAppTheme(); // 앱 테마 색상 가져오기 (전화번호 로그인 버튼에 사용)
-  const { signInWithApple, signInWithGoogle } = useAuth(); // Auth 훅 사용
-  const [isLoading, setIsLoading] = useState(false);
+  // 👇 isAuthenticating을 AuthProvider로부터 가져옴
+  const { signInWithApple, signInWithGoogle, isAuthenticating } = useAuth(); // Auth 훅 사용
+  // const [isLoading, setIsLoading] = useState(false); // 👈 제거
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
 
   useEffect(() => {
@@ -47,28 +48,28 @@ export default function LoginScreen() {
 
   const handleAppleSignIn = async () => {
     console.log("[LoginScreen] Apple 로그인 시작");
-    setIsLoading(true);
+    // setIsLoading(true); // 👈 제거
     try {
       await signInWithApple();
-      console.log("[LoginScreen] Apple 로그인 성공");
+      // '성공' 로그는 AuthProvider가 담당하므로 여기서 제거해도 무방
     } catch (error) {
-      console.error("[LoginScreen] Apple 로그인 실패:", error);
-    } finally {
-      setIsLoading(false);
+      // 에러 처리는 AuthProvider에서 이미 하고 있으므로 여기서는 최소화 가능
+      console.error("[LoginScreen] Apple 로그인 호출 실패:", error);
     }
+    // finally 블록 및 setIsLoading(false) 제거
   };
 
   const handleGoogleSignIn = async () => {
     console.log("[LoginScreen] Google 로그인 시작");
-    setIsLoading(true);
+    // setIsLoading(true); // 👈 제거
     try {
       await signInWithGoogle();
-      console.log("[LoginScreen] Google 로그인 성공");
+      // '성공' 로그는 AuthProvider가 담당하므로 여기서 제거해도 무방
     } catch (error) {
-      console.error("[LoginScreen] Google 로그인 실패:", error);
-    } finally {
-      setIsLoading(false);
+      // 에러 처리는 AuthProvider에서 이미 하고 있으므로 여기서는 최소화 가능
+      console.error("[LoginScreen] Google 로그인 호출 실패:", error);
     }
+    // finally 블록 및 setIsLoading(false) 제거
   };
 
   return (
@@ -94,26 +95,26 @@ export default function LoginScreen() {
         <View style={[styles.container, { marginBottom: 40 }]}>
           {isAppleAuthAvailable && (
             <CustomButton
-              title={isLoading ? "Signing in..." : "Sign in with Apple"}
+              title={isAuthenticating ? "Signing in..." : "Sign in with Apple"}
               onPress={handleAppleSignIn}
               buttonColor={colors.white}
               textColor={colors.black}
               width="80%"
               style={{ marginTop: 28 }}
-              disabled={isLoading}
-              loading={isLoading}
+              disabled={isAuthenticating}
+              loading={isAuthenticating}
             />
           )}
 
           <CustomButton
-            title={isLoading ? "Signing in..." : "Sign in with Google"}
+            title={isAuthenticating ? "Signing in..." : "Sign in with Google"}
             onPress={handleGoogleSignIn}
             buttonColor={colors.facebookBlue}
             textColor={colors.white}
             width="80%"
             style={{ marginTop: 16 }}
-            disabled={isLoading}
-            loading={isLoading}
+            disabled={isAuthenticating}
+            loading={isAuthenticating}
           />
 
           <CustomButton

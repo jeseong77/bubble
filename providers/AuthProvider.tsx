@@ -31,6 +31,7 @@ const redirectUri = makeRedirectUri({
 type AuthContextType = {
   session: Session | null;
   loading: boolean;
+  isAuthenticating: boolean; // [추가] 로그인 프로세스 진행 상태
   isLoggedIn: boolean;
   hasCompletedOnboarding: boolean;
   hasCompletedProfileSetup: boolean;
@@ -46,6 +47,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false); // [추가]
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [hasCompletedProfileSetup, setHasCompletedProfileSetup] =
     useState(false);
@@ -157,6 +159,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // Google 로그인 - 웹 기반 OAuth 방식
   const signInWithGoogle = async () => {
     try {
+      setIsAuthenticating(true); // [추가] 로그인 프로세스 시작
       console.log("[AuthProvider] Google 로그인 시작");
       console.log(`[AuthProvider] Redirect URI: ${redirectUri}`);
 
@@ -277,13 +280,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
         message: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined,
       });
+    } finally {
+      setIsAuthenticating(false); // [추가] 로그인 프로세스 종료 (성공/실패 무관)
     }
   };
 
   // Apple 로그인 - 네이티브 방식 (Best Practice)
   const signInWithApple = async () => {
-    console.log("[AuthProvider] 네이티브 Apple 로그인 시작");
     try {
+      setIsAuthenticating(true); // [추가] 로그인 프로세스 시작
+      console.log("[AuthProvider] 네이티브 Apple 로그인 시작");
+
       const isAvailable = await AppleAuthentication.isAvailableAsync();
       if (!isAvailable) {
         alert("이 기기에서는 Apple 로그인을 사용할 수 없습니다.");
@@ -322,6 +329,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } else {
         console.error("[AuthProvider] 네이티브 Apple 로그인 중 에러 발생:", e);
       }
+    } finally {
+      setIsAuthenticating(false); // [추가] 로그인 프로세스 종료
     }
   };
 
@@ -415,6 +424,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const value = {
     session,
     loading,
+    isAuthenticating, // [추가] Context 값으로 전달
     isLoggedIn: !!session,
     hasCompletedOnboarding,
     hasCompletedProfileSetup,
