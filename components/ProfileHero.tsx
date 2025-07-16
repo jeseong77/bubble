@@ -1,6 +1,6 @@
 // src/components/ProfileHero.tsx
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -13,6 +13,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAppTheme } from "@/hooks/useAppTheme"; // 테마 훅 경로 확인
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRealtime } from "@/providers/RealtimeProvider";
+import { useRouter } from "expo-router";
 
 // ProfileHero props 인터페이스
 interface ProfileHeroProps {
@@ -124,7 +127,7 @@ const FloatingBubble: React.FC<FloatingBubbleProps> = ({
       transform: [
         { translateX: translateX.value },
         { translateY: translateY.value },
-      ],
+      ] as any,
       opacity: opacity.value,
     };
   });
@@ -167,12 +170,19 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
   lastName,
   imageUrl,
 }) => {
+  const router = useRouter();
   const { colors } = useAppTheme();
+  const { invitations } = useRealtime();
 
   // 화면 크기나 부모 컨테이너 크기에 따라 동적으로 범위 설정 가능
   const BUBBLE_X_RANGE = 80; // 공이 좌우로 움직일 최대 범위 (중심 기준)
   const BUBBLE_Y_RANGE = 60; // 공이 상하로 움직일 최대 범위 (중심 기준)
   const DURATION_RANGE_MS: [number, number] = [3000, 7000]; // 애니메이션 지속 시간 범위
+
+  const navigateToInvitations = () => {
+    // TODO: Update this path to the actual invitation page
+    router.push("/(tabs)");
+  };
 
   return (
     <View style={[styles.container, { paddingTop: 60 }]}>
@@ -252,6 +262,27 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         @{firstName?.toLowerCase() || "user"}
         {lastName?.toLowerCase() || ""}
       </Text>
+
+      {/* Message Indicator Button */}
+      <TouchableOpacity
+        style={[
+          styles.messageIndicatorContainer,
+          { backgroundColor: colors.secondary },
+        ]}
+        onPress={navigateToInvitations}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="mail-outline" size={30} color={colors.onSecondary} />
+        {invitations.length > 0 && (
+          <View
+            style={[styles.badgeContainer, { backgroundColor: colors.error }]}
+          >
+            <Text style={[styles.badgeText, { color: colors.white }]}>
+              {invitations.length}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
     </View>
   );
 };
@@ -297,6 +328,43 @@ const styles = StyleSheet.create({
     // backgroundColor는 FloatingBubble 컴포넌트 내부에서 설정
     // zIndex를 낮춰 프로필 이미지/텍스트보다 뒤에 있도록 할 수 있지만,
     // 보통은 렌더링 순서로 조절합니다. (배경 요소들을 먼저 렌더링)
+  },
+  messageIndicatorContainer: {
+    position: "absolute",
+    right: 16,
+    bottom: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 20,
+  },
+  badgeContainer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    fontFamily: "Quicksand-Bold",
   },
 });
 

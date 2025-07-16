@@ -558,7 +558,6 @@ function ProfileScreen() {
             {
               color: colors.black,
               borderBottomColor: colors.darkGray,
-              height: 80,
             },
           ]}
           value={editingProfile?.aboutMe || ""}
@@ -569,7 +568,6 @@ function ProfileScreen() {
           }
           placeholder="Tell us about yourself"
           placeholderTextColor={colors.darkGray}
-          multiline
           textAlignVertical="top"
         />
       </View>

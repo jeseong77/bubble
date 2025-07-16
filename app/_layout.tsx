@@ -7,6 +7,7 @@ import "core-js/actual/structured-clone";
 import { useInitialRouteRedirect } from "../hooks/useInitialRouteRedirect";
 import { ThemeProvider } from "@/theme/ThemeContext";
 import { AuthProvider } from "@/providers/AuthProvider";
+import RealtimeProvider from "@/providers/RealtimeProvider"; // [추가] RealtimeProvider 임포트
 
 SplashScreen.preventAutoHideAsync();
 
@@ -85,7 +86,10 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppInitializer />
+        {/* [변경] RealtimeProvider로 AppInitializer를 감싸줍니다. */}
+        <RealtimeProvider>
+          <AppInitializer />
+        </RealtimeProvider>
       </AuthProvider>
     </ThemeProvider>
   );
