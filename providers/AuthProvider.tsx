@@ -51,83 +51,57 @@ export function AuthProvider({ children }: PropsWithChildren) {
     useState(false);
   const router = useRouter();
 
+  // [추가] DB에서 프로필 완료 상태를 확인하는 함수
+  const checkProfileStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("profile_setup_completed")
+        .eq("id", userId)
+        .single();
+
+      if (error) throw error;
+
+      if (data?.profile_setup_completed) {
+        console.log("[AuthProvider] DB에서 프로필 설정 완료 상태 확인됨");
+        // completeProfileSetup 함수를 호출하여 state와 AsyncStorage를 모두 업데이트
+        await completeProfileSetup();
+      } else {
+        console.log("[AuthProvider] DB에서 프로필 설정이 완료되지 않음 확인됨");
+      }
+    } catch (error) {
+      console.error("[AuthProvider] 프로필 상태 확인 실패:", error);
+    }
+  };
+
   useEffect(() => {
-    // 앱 시작 시 세션 정보를 가져오고, 인증 상태 변경을 감지하는 로직
     const initializeAuth = async () => {
       try {
-        // 온보딩 상태 로드
+        // 온보딩 상태는 로컬에 유지 (일회성)
         const onboardingStatus = await AsyncStorage.getItem(
           "hasCompletedOnboarding"
         );
-        const profileSetupStatus = await AsyncStorage.getItem(
-          "hasCompletedProfileSetup"
-        );
-
         if (onboardingStatus === "true") {
           setHasCompletedOnboarding(true);
-        }
-        if (profileSetupStatus === "true") {
-          setHasCompletedProfileSetup(true);
         }
       } catch (error) {
         console.error("[AuthProvider] 온보딩 상태 로드 실패:", error);
       }
+
       try {
         console.log("[AuthProvider] Initializing authentication...");
-
-        // 1. 기존 세션 가져오기
         const {
           data: { session: initialSession },
-          error: sessionError,
         } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error("[AuthProvider] Error getting session:", sessionError);
-        }
 
         if (initialSession) {
           console.log(
-            "[AuthProvider] Found existing session, user:",
+            "[AuthProvider] Found existing session for:",
             initialSession.user.email
           );
-
-          // 2. 토큰 만료 시간 확인 및 갱신 필요성 체크
-          if (!isValidSession(initialSession)) {
-            console.log(
-              "[AuthProvider] Session missing required fields, skipping refresh check"
-            );
-            setSession(initialSession);
-            return;
-          }
-
-          const now = Math.floor(Date.now() / 1000);
-          const timeUntilExpiry = initialSession.expires_at - now;
-
-          console.log(
-            `[AuthProvider] Token expires in ${timeUntilExpiry} seconds`
-          );
-
-          // 토큰이 10분 이내에 만료되면 미리 갱신
-          if (timeUntilExpiry < 600) {
-            console.log("[AuthProvider] Token expiring soon, refreshing...");
-            const { data: refreshData, error: refreshError } =
-              await supabase.auth.refreshSession();
-
-            if (refreshError) {
-              console.error(
-                "[AuthProvider] Error refreshing token:",
-                refreshError
-              );
-              // 토큰 갱신 실패 시 세션 클리어
-              await supabase.auth.signOut();
-              setSession(null);
-            } else {
-              console.log("[AuthProvider] Token refreshed successfully");
-              setSession(refreshData.session);
-            }
-          } else {
-            setSession(initialSession);
-          }
+          setSession(initialSession);
+          // 👇 [변경] 세션이 있으면 DB에서 프로필 상태 확인
+          await checkProfileStatus(initialSession.user.id);
         } else {
           console.log("[AuthProvider] No existing session found");
           setSession(null);
@@ -137,7 +111,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
           "[AuthProvider] Error during auth initialization:",
           error
         );
-        setSession(null);
       } finally {
         setLoading(false);
       }
@@ -163,9 +136,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
         router.replace("/login");
       } else if (event === "SIGNED_IN" && session) {
         console.log("[AuthProvider] User signed in successfully");
-        // 로그인 성공 시 온보딩 또는 메인 화면으로 이동
-        // TODO: 사용자 프로필 설정 상태에 따라 적절한 화면으로 이동
-        router.replace("/onboarding");
+
+        await syncUserProfile(session);
+        // 👇 [추가] 로그인 성공 시에도 DB에서 프로필 상태 확인
+        await checkProfileStatus(session.user.id);
+
+        // 리디렉션 로직은 useInitialRouteRedirect 훅이 담당하므로 여기서는 제거하거나
+        // 기본 경로로만 보내는 것이 더 안전할 수 있습니다.
+        // router.replace("/onboarding"); // 이 부분은 useInitialRouteRedirect가 처리하도록 둘 수 있습니다.
       }
 
       setSession(session);
@@ -344,6 +322,50 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } else {
         console.error("[AuthProvider] 네이티브 Apple 로그인 중 에러 발생:", e);
       }
+    }
+  };
+
+  const syncUserProfile = async (session: Session) => {
+    if (!session?.user) {
+      throw new Error("No user on the session!");
+    }
+
+    // 1. Supabase의 메타데이터에서 이름 정보 추출
+    const metadata = session.user.user_metadata;
+
+    // Apple은 이름을 객체로, Google은 문자열로 제공하는 경우가 많습니다.
+    const appleFirstName = metadata?.full_name?.givenName;
+    const appleLastName = metadata?.full_name?.familyName;
+
+    const googleFullName = metadata?.name;
+
+    let firstName = "";
+    let lastName = "";
+
+    if (appleFirstName) {
+      // Apple 로그인인 경우
+      firstName = appleFirstName;
+      lastName = appleLastName || "";
+    } else if (googleFullName) {
+      // Google 로그인인 경우
+      const nameParts = googleFullName.split(" ");
+      firstName = nameParts[0] ?? "";
+      lastName = nameParts.slice(1).join(" ");
+    }
+
+    // 2. public.users 테이블에 사용자 정보 저장
+    //    upsert는 ID가 없으면 생성(INSERT), 있으면 업데이트(UPDATE)를 한번에 처리합니다.
+    const { error } = await supabase.from("users").upsert({
+      id: session.user.id, // auth.users의 id와 동일하게 설정
+      first_name: firstName,
+      last_name: lastName,
+      updated_at: new Date().toISOString(), // 마지막 업데이트 시간 기록
+    });
+
+    if (error) {
+      console.error("[syncUserProfile] 프로필 동기화 실패:", error);
+    } else {
+      console.log("[syncUserProfile] 프로필 동기화 성공:", session.user.id);
     }
   };
 

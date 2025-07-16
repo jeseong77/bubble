@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   Keyboard,
+  Alert,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import CustomAppBar from "@/components/CustomAppBar";
@@ -20,6 +21,9 @@ import GenderInputStep from "./profile-setup-steps/GenderInputStep";
 import AboutMeInputStep from "./profile-setup-steps/AboutMeInputStep";
 import ImageUploadStep from "./profile-setup-steps/ImageUploadStep";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { supabase } from "@/lib/supabase";
+import * as ImagePicker from "expo-image-picker";
+import { decode } from "base64-arraybuffer";
 
 const MAX_IMAGES = 6;
 const TOTAL_STEPS = 7;
@@ -194,6 +198,102 @@ export default function ProfileSetupScreen() {
     [updateProfileField]
   );
 
+  // 👇 [추가] 컴포넌트가 렌더링될 때 서버에서 기존 프로필 정보를 가져오는 로직
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      // session.user.id가 없으면 실행하지 않음
+      if (!session?.user?.id) return;
+
+      console.log("[ProfileSetup] 기존 사용자 프로필을 가져오는 중...");
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("first_name, last_name")
+        .eq("id", session.user.id)
+        .single();
+
+      // 'PGRST116'는 행을 찾지 못했다는 의미로, 신규 사용자의 경우 정상적인 상황입니다.
+      if (error && error.code !== "PGRST116") {
+        console.error("프로필 정보를 가져오는 데 실패했습니다.", error);
+        return;
+      }
+
+      if (data) {
+        console.log("[ProfileSetup] 기존 프로필 발견, 이름 필드를 채웁니다.");
+        // 서버에서 가져온 이름으로 상태를 업데이트합니다.
+        updateProfileField("firstName", data.first_name || "");
+        updateProfileField("lastName", data.last_name || "");
+      }
+    };
+
+    fetchUserProfile();
+  }, [session, updateProfileField]); // session 정보가 준비되면 이 로직이 실행됩니다.
+
+  // [추가] 이미지 업로드 함수
+  const handleImageUpload = async (index: number) => {
+    if (!session?.user) {
+      Alert.alert("Error", "You must be logged in to upload images.");
+      return;
+    }
+
+    // 1. 앨범 접근 권한 요청
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission required",
+        "Please grant access to your photo library."
+      );
+      return;
+    }
+
+    // 2. 이미지 선택
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.base64) return;
+    const imageAsset = result.assets[0];
+
+    // 3. 상태 업데이트 (로딩 시작)
+    const newImages = [...profileData.images];
+    newImages[index] = { url: imageAsset.uri, isLoading: true };
+    handleImagesChange(newImages);
+
+    try {
+      // 4. Supabase Storage에 업로드
+      const fileExt = imageAsset.uri.split(".").pop()?.toLowerCase() ?? "jpeg";
+      const filePath = `${session.user.id}/${new Date().getTime()}.${fileExt}`;
+      const contentType = `image/${fileExt}`;
+
+      const { data, error: uploadError } = await supabase.storage
+        .from("user-images")
+        .upload(filePath, decode(imageAsset.base64), { contentType });
+
+      if (uploadError) throw uploadError;
+
+      // 5. 업로드된 파일의 공개 URL 가져오기
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("user-images").getPublicUrl(data.path);
+
+      // 6. 상태 업데이트 (URL 저장, 로딩 종료)
+      const finalImages = [...profileData.images];
+      finalImages[index] = { url: publicUrl, isLoading: false };
+      handleImagesChange(finalImages);
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      Alert.alert("Error", "Failed to upload image.");
+      // 실패 시 로딩 상태 되돌리기
+      const revertedImages = [...profileData.images];
+      revertedImages[index] = null;
+      handleImagesChange(revertedImages);
+    }
+  };
+
   const handleNextStep = () => {
     if (!isStepValid(currentStep, profileData)) return;
     if (currentStep < TOTAL_STEPS - 1) {
@@ -212,34 +312,65 @@ export default function ProfileSetupScreen() {
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting || !isStepValid(currentStep, profileData)) return;
+    if (isSubmitting || !session?.user) return;
     setIsSubmitting(true);
 
-    let calculatedAge: number | null = null;
-    const { birthDay, birthMonth, birthYear } = profileData;
-    const dayNum = parseInt(birthDay, 10);
-    const monthNum = parseInt(birthMonth, 10);
-    const yearNum = parseInt(birthYear, 10);
-    if (!isNaN(dayNum) && !isNaN(monthNum) && !isNaN(yearNum)) {
-      const birthDate = new Date(yearNum, monthNum - 1, dayNum);
-      if (
-        birthDate.getFullYear() === yearNum &&
-        birthDate.getMonth() === monthNum - 1 &&
-        birthDate.getDate() === dayNum
-      ) {
-        calculatedAge = calculateAge(birthDate);
-      }
-    }
-    console.log("Calculated Age on Submit:", calculatedAge);
+    try {
+      // 1. 프로필 정보(텍스트)를 public.users에 저장
+      const { birthYear, birthMonth, birthDay } = profileData;
+      const birthDate = new Date(`${birthYear}-${birthMonth}-${birthDay}`);
 
-    console.log("Submitting Profile Data:", profileData);
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    console.log(
-      "Submission simulation complete. Updating state and navigating..."
-    );
-    completeProfileSetup();
-    setIsSubmitting(false);
-    router.replace("/(tabs)");
+      const userProfile = {
+        id: session.user.id,
+        first_name: profileData.firstName,
+        last_name: profileData.lastName,
+        birth_date: birthDate.toISOString(),
+        height_cm: profileData.height,
+        mbti: profileData.mbti,
+        gender: profileData.gender,
+        bio: profileData.aboutMe,
+        profile_setup_completed: true, // 완료 상태를 true로 설정
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: profileError } = await supabase
+        .from("users")
+        .upsert(userProfile);
+      if (profileError) throw profileError;
+
+      // 2. 업로드된 이미지 URL들을 public.user_images에 저장
+      const uploadedImageUrls = profileData.images
+        .map((img) => img?.url)
+        .filter((url): url is string => !!url);
+
+      if (uploadedImageUrls.length > 0) {
+        // 기존 이미지를 모두 삭제하고 새로 추가 (멱등성 보장)
+        await supabase
+          .from("user_images")
+          .delete()
+          .eq("user_id", session.user.id);
+
+        const imagesToInsert = uploadedImageUrls.map((url, index) => ({
+          user_id: session.user.id,
+          image_url: url,
+          position: index,
+        }));
+
+        const { error: imageError } = await supabase
+          .from("user_images")
+          .insert(imagesToInsert);
+        if (imageError) throw imageError;
+      }
+
+      // 3. 모든 과정 완료 처리
+      await completeProfileSetup();
+      router.replace("/(tabs)");
+    } catch (error) {
+      console.error("Profile submission failed:", error);
+      Alert.alert("Error", "Failed to save profile. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderCurrentStepComponent = () => {
@@ -299,6 +430,7 @@ export default function ProfileSetupScreen() {
           <ImageUploadStep
             currentImages={profileData.images}
             onImagesChange={handleImagesChange}
+            onUploadImage={handleImageUpload}
             maxImages={MAX_IMAGES}
           />
         );

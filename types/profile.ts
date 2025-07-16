@@ -2,7 +2,9 @@
 
 // 이미지 타입 정의 (기존과 동일하거나, 사용자님의 정의를 따릅니다)
 export interface ProfileImage {
-  uri: string; // 로컬 이미지의 경우 require()의 결과, 원격 이미지의 경우 URL
+  uri?: string; // 로컬 이미지의 경우 require()의 결과, 원격 이미지의 경우 URL
+  url?: string; // Supabase Storage에서 업로드된 이미지의 URL
+  isLoading?: boolean; // 이미지 업로드 중인지 여부
 }
 
 // 프로필 데이터 전체 구조 정의 (고유 ID 필드 추가)

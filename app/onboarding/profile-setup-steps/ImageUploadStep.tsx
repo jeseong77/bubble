@@ -16,12 +16,15 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
 
 export interface ProfileImage {
-  uri: string;
+  uri?: string;
+  url?: string;
+  isLoading?: boolean;
 }
 
 interface ImageUploadStepProps {
   currentImages: (ProfileImage | null)[];
   onImagesChange: (images: (ProfileImage | null)[]) => void;
+  onUploadImage?: (index: number) => Promise<void>;
   maxImages?: number;
 }
 
@@ -31,6 +34,7 @@ const MAX_IMAGES_DEFAULT = 6;
 const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   currentImages,
   onImagesChange,
+  onUploadImage,
   maxImages = MAX_IMAGES_DEFAULT,
 }) => {
   const { colors } = useAppTheme();
@@ -43,31 +47,37 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     (screenWidth - contentPaddingHorizontal * 2 - totalGapSpace) / NUM_COLUMNS;
 
   const handlePickImage = async (index: number) => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissionResult.granted === false) {
-      Alert.alert(
-        "Permission Required",
-        "Permission to access camera roll is required to upload images."
-      );
-      return;
-    }
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const newProfileImage: ProfileImage = { uri: result.assets[0].uri };
-        const updatedImages = [...currentImages];
-        updatedImages[index] = newProfileImage;
-        onImagesChange(updatedImages);
+    if (onUploadImage) {
+      // 서버 업로드가 가능한 경우
+      await onUploadImage(index);
+    } else {
+      // 기존 로컬 방식
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert(
+          "Permission Required",
+          "Permission to access camera roll is required to upload images."
+        );
+        return;
       }
-    } catch (error) {
-      console.error("ImagePicker Error: ", error);
-      Alert.alert("Image Error", "Could not select image. Please try again.");
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.7,
+        });
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          const newProfileImage: ProfileImage = { uri: result.assets[0].uri };
+          const updatedImages = [...currentImages];
+          updatedImages[index] = newProfileImage;
+          onImagesChange(updatedImages);
+        }
+      } catch (error) {
+        console.error("ImagePicker Error: ", error);
+        Alert.alert("Image Error", "Could not select image. Please try again.");
+      }
     }
   };
 
@@ -114,7 +124,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         >
           {imageAsset ? (
             <Image
-              source={{ uri: imageAsset.uri }}
+              source={{ uri: imageAsset.url || imageAsset.uri }}
               style={styles.imagePreview}
             />
           ) : (

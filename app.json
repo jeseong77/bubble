@@ -23,7 +23,9 @@
         "applinks:your-project.supabase.co"
       ],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "프로필 사진을 설정하거나 사진을 공유하기 위해 앨범에 접근해야 합니다.",
+        "NSCameraUsageDescription": "프로필 사진을 설정하거나 사진을 공유하기 위해 카메라에 접근해야 합니다."
       }
     },
     "android": {
