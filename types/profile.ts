@@ -4,6 +4,7 @@
 export interface ProfileImage {
   uri?: string; // 로컬 이미지의 경우 require()의 결과, 원격 이미지의 경우 URL
   url?: string; // Supabase Storage에서 업로드된 이미지의 URL
+  base64?: string; // base64 인코딩된 이미지 데이터
   isLoading?: boolean; // 이미지 업로드 중인지 여부
 }
 

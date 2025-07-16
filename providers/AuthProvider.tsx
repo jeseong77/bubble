@@ -362,6 +362,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       lastName = nameParts.slice(1).join(" ");
     }
 
+    // 👇 [핵심 수정] 메타데이터에서 실제 이름 값을 가져온 경우에만 DB를 업데이트합니다.
+    if (!firstName) {
+      console.log(
+        "[syncUserProfile] 메타데이터에 이름 정보가 없어 동기화를 건너뜁니다."
+      );
+      return; // 이름이 없으면 아무 작업도 하지 않고 종료
+    }
+
     // 2. public.users 테이블에 사용자 정보 저장
     //    upsert는 ID가 없으면 생성(INSERT), 있으면 업데이트(UPDATE)를 한번에 처리합니다.
     const { error } = await supabase.from("users").upsert({

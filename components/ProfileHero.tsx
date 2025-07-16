@@ -14,10 +14,12 @@ import Animated, {
 import { useAppTheme } from "@/hooks/useAppTheme"; // 테마 훅 경로 확인
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// 프로필 이미지 및 정보 (목업 데이터)
-const MOCK_PROFILE_IMAGE_URI = require("../assets/images/guy.png");
-const MOCK_USER_NAME = "Noah Kim";
-const MOCK_INSTAGRAM_ID = "@nkim";
+// ProfileHero props 인터페이스
+interface ProfileHeroProps {
+  firstName?: string;
+  lastName?: string;
+  imageUrl?: string;
+}
 
 interface FloatingBubbleProps {
   size: number;
@@ -160,7 +162,11 @@ const withDelay = (delayMs: number, animation: any) => {
   return animation; // 여기서는 단순 반환, 실제 딜레이는 useEffect에서 처리
 };
 
-const ProfileHero: React.FC = () => {
+const ProfileHero: React.FC<ProfileHeroProps> = ({
+  firstName,
+  lastName,
+  imageUrl,
+}) => {
   const { colors } = useAppTheme();
 
   // 화면 크기나 부모 컨테이너 크기에 따라 동적으로 범위 설정 가능
@@ -223,19 +229,28 @@ const ProfileHero: React.FC = () => {
         style={[styles.profileImageContainer, { borderColor: colors.primary }]}
       >
         <Image
-          source={require("../assets/images/guy.png")}
+          source={
+            imageUrl ? { uri: imageUrl } : require("../assets/images/guy.png")
+          }
           style={styles.profileImage}
+          onLoad={() =>
+            console.log("ProfileHero image loaded successfully:", imageUrl)
+          }
+          onError={(error) =>
+            console.error("ProfileHero image load error:", error.nativeEvent)
+          }
         />
       </View>
 
       {/* 사용자 정보 */}
       <Text style={[styles.userNameText, { color: colors.onBackground }]}>
-        {MOCK_USER_NAME}
+        {firstName && lastName ? `${firstName} ${lastName}` : "User"}
       </Text>
       <Text
         style={[styles.instagramIdText, { color: colors.onSurfaceVariant }]}
       >
-        {MOCK_INSTAGRAM_ID}
+        @{firstName?.toLowerCase() || "user"}
+        {lastName?.toLowerCase() || ""}
       </Text>
     </View>
   );
