@@ -46,6 +46,51 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
   const [connectionStatus, setConnectionStatus] =
     useState<RealtimeStatus>("DISCONNECTED");
 
+  // Load existing pending invitations using RPC function
+  const loadExistingInvitations = async (userId: string) => {
+    try {
+      console.log("[RealtimeProvider] 기존 초대 목록 로딩 시작...");
+
+      // Use get_my_bubbles RPC to get all user's bubbles
+      const { data, error } = await supabase.rpc("get_my_bubbles", {
+        p_user_id: userId,
+      });
+
+      if (error) {
+        console.error("[RealtimeProvider] 기존 초대 목록 로딩 실패:", error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        // Filter only invited status bubbles
+        const invitedBubbles = data.filter(
+          (bubble: any) => bubble.user_status === "invited"
+        );
+        console.log(
+          `[RealtimeProvider] 기존 초대 ${invitedBubbles.length}개 발견:`,
+          invitedBubbles
+        );
+
+        // Convert to GroupMember format
+        const existingInvitations: GroupMember[] = invitedBubbles.map(
+          (bubble: any) => ({
+            group_id: bubble.id,
+            user_id: userId,
+            status: bubble.user_status,
+            invited_at: bubble.invited_at,
+            joined_at: null,
+          })
+        );
+        setInvitations(existingInvitations);
+      } else {
+        console.log("[RealtimeProvider] 기존 초대가 없습니다.");
+        setInvitations([]);
+      }
+    } catch (error) {
+      console.error("[RealtimeProvider] 기존 초대 목록 로딩 중 예외:", error);
+    }
+  };
+
   useEffect(() => {
     // Supabase Realtime 채널을 저장할 변수
     let channel: RealtimeChannel | undefined;
@@ -66,6 +111,9 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
         console.log("[RealtimeProvider] 인터넷 연결이 없어 구독을 건너뜁니다.");
         return;
       }
+
+      // Load existing invitations first using RPC
+      loadExistingInvitations(userId);
 
       // 이미 채널이 있다면 중복 생성을 방지
       if (channel) {
@@ -94,6 +142,57 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             (payload) => {
               console.log("[RealtimeProvider] 새로운 초대 감지!", payload.new);
               setInvitations((prev) => [...prev, payload.new]);
+            }
+          )
+          .on<GroupMember>(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "group_members",
+              filter: `user_id=eq.${userId}`,
+            },
+            (payload) => {
+              console.log("[RealtimeProvider] 초대 상태 변경 감지!", payload);
+              // If status changed from 'invited' to something else, remove from invitations
+              if (
+                payload.old.status === "invited" &&
+                payload.new.status !== "invited"
+              ) {
+                console.log(
+                  "[RealtimeProvider] 초대가 accepted/declined되어 제거:",
+                  payload.new.group_id
+                );
+                setInvitations((prev) =>
+                  prev.filter((inv) => inv.group_id !== payload.new.group_id)
+                );
+              }
+              // If status changed to 'invited', add to invitations
+              else if (
+                payload.old.status !== "invited" &&
+                payload.new.status === "invited"
+              ) {
+                console.log(
+                  "[RealtimeProvider] 새로운 초대로 추가:",
+                  payload.new
+                );
+                setInvitations((prev) => [...prev, payload.new]);
+              }
+            }
+          )
+          .on<GroupMember>(
+            "postgres_changes",
+            {
+              event: "DELETE",
+              schema: "public",
+              table: "group_members",
+              filter: `user_id=eq.${userId} AND status=eq.invited`,
+            },
+            (payload) => {
+              console.log("[RealtimeProvider] 초대 삭제 감지!", payload);
+              setInvitations((prev) =>
+                prev.filter((inv) => inv.group_id !== payload.old.group_id)
+              );
             }
           )
           .subscribe((status, err) => {

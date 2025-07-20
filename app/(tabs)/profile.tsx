@@ -322,45 +322,43 @@ function ProfileScreen() {
         if (error) throw error;
 
         // RPC 결과가 없을 경우를 대비한 처리
-        const bubbles = data || [];
+        const allBubbles = data || [];
 
         // 서버에서 내려오는 원본 데이터 로깅
         console.log("[ProfileScreen] 🔍 서버에서 내려온 원본 버블 데이터:");
         console.log(
           "[ProfileScreen] 전체 데이터:",
-          JSON.stringify(bubbles, null, 2)
+          JSON.stringify(allBubbles, null, 2)
         );
 
-        if (bubbles.length > 0) {
+        if (allBubbles.length > 0) {
           console.log("[ProfileScreen] 첫 번째 버블 상세 구조:");
-          console.log("[ProfileScreen] - 버블 ID:", bubbles[0].id);
-          console.log("[ProfileScreen] - 버블 이름:", bubbles[0].name);
-          console.log("[ProfileScreen] - 버블 상태:", bubbles[0].status);
-          console.log("[ProfileScreen] - 멤버 배열:", bubbles[0].members);
-
-          if (bubbles[0].members && bubbles[0].members.length > 0) {
-            console.log("[ProfileScreen] 첫 번째 멤버 상세 구조:");
-            console.log("[ProfileScreen] - 멤버 ID:", bubbles[0].members[0].id);
-            console.log(
-              "[ProfileScreen] - 멤버 avatar_url:",
-              bubbles[0].members[0].avatar_url
-            );
-            console.log(
-              "[ProfileScreen] - 멤버 전체 데이터:",
-              JSON.stringify(bubbles[0].members[0], null, 2)
-            );
-          }
+          console.log("[ProfileScreen] - 버블 ID:", allBubbles[0].id);
+          console.log("[ProfileScreen] - 버블 이름:", allBubbles[0].name);
+          console.log("[ProfileScreen] - 버블 상태:", allBubbles[0].status);
+          console.log(
+            "[ProfileScreen] - 유저 상태:",
+            allBubbles[0].user_status
+          );
+          console.log("[ProfileScreen] - 멤버 배열:", allBubbles[0].members);
         }
 
-        // 데이터 구조를 BubbleTabItem에서 사용하는 형태로 변환
-        const transformedBubbles: Bubble[] = bubbles.map((bubble: any) => ({
-          id: bubble.id,
-          name: bubble.name,
-          status: bubble.status,
-          members: bubble.members || [],
-        }));
+        // joined 상태인 버블만 My Bubble 탭에 표시
+        const joinedBubbles = allBubbles.filter(
+          (bubble: any) => bubble.user_status === "joined"
+        );
 
-        console.log("[ProfileScreen] 변환된 버블 데이터:", transformedBubbles);
+        // 데이터 구조를 BubbleTabItem에서 사용하는 형태로 변환
+        const transformedBubbles: Bubble[] = joinedBubbles.map(
+          (bubble: any) => ({
+            id: bubble.id,
+            name: bubble.name,
+            status: bubble.status,
+            members: bubble.members || [],
+          })
+        );
+
+        console.log("[ProfileScreen] joined 상태 버블:", transformedBubbles);
         setMyBubbles(transformedBubbles);
       } catch (error) {
         console.error("Error fetching my bubbles:", error);
