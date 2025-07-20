@@ -24,7 +24,7 @@ import ProfileTab, { TabInfo } from "@/components/ProfileTab";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import BubbleItem from "@/components/bubble/BubbleItem";
+import BubbleTabItem from "@/components/bubble/BubbleTabItem";
 import CreateBubbleModal from "@/components/ui/CreateBubbleModal";
 import * as Camera from "expo-camera";
 
@@ -33,19 +33,11 @@ import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { decode } from "base64-arraybuffer"; // base64 디코딩 라이브러리 추가
 
-// 버블에 속한 멤버의 간략한 정보
-type BubbleMember = {
-  id: string;
-  avatar_url: string | null;
-};
+// BubbleTabItem에서 사용하는 타입을 import
+import { BubbleTabItemData } from "@/components/bubble/BubbleTabItem";
 
-// 화면에 표시될 버블의 정보
-type Bubble = {
-  id: string; // groups.id
-  name: string | null; // groups.name
-  status: string; // groups.status
-  members: BubbleMember[];
-};
+// 화면에 표시될 버블의 정보 (BubbleTabItemData와 동일한 구조)
+type Bubble = BubbleTabItemData;
 
 const TABS_DATA: TabInfo[] = [
   { id: "bubblePro", title: "Bubble pro" },
@@ -323,7 +315,6 @@ function ProfileScreen() {
       setBubblesLoading(true);
       try {
         // Supabase RPC(Remote Procedure Call)를 사용하여 복잡한 쿼리를 한번에 처리합니다.
-        // 이 함수는 Supabase DB에 미리 만들어져 있어야 합니다.
         const { data, error } = await supabase.rpc("get_my_bubbles", {
           p_user_id: session.user.id,
         });
@@ -331,7 +322,46 @@ function ProfileScreen() {
         if (error) throw error;
 
         // RPC 결과가 없을 경우를 대비한 처리
-        setMyBubbles(data || []);
+        const bubbles = data || [];
+
+        // 서버에서 내려오는 원본 데이터 로깅
+        console.log("[ProfileScreen] 🔍 서버에서 내려온 원본 버블 데이터:");
+        console.log(
+          "[ProfileScreen] 전체 데이터:",
+          JSON.stringify(bubbles, null, 2)
+        );
+
+        if (bubbles.length > 0) {
+          console.log("[ProfileScreen] 첫 번째 버블 상세 구조:");
+          console.log("[ProfileScreen] - 버블 ID:", bubbles[0].id);
+          console.log("[ProfileScreen] - 버블 이름:", bubbles[0].name);
+          console.log("[ProfileScreen] - 버블 상태:", bubbles[0].status);
+          console.log("[ProfileScreen] - 멤버 배열:", bubbles[0].members);
+
+          if (bubbles[0].members && bubbles[0].members.length > 0) {
+            console.log("[ProfileScreen] 첫 번째 멤버 상세 구조:");
+            console.log("[ProfileScreen] - 멤버 ID:", bubbles[0].members[0].id);
+            console.log(
+              "[ProfileScreen] - 멤버 avatar_url:",
+              bubbles[0].members[0].avatar_url
+            );
+            console.log(
+              "[ProfileScreen] - 멤버 전체 데이터:",
+              JSON.stringify(bubbles[0].members[0], null, 2)
+            );
+          }
+        }
+
+        // 데이터 구조를 BubbleTabItem에서 사용하는 형태로 변환
+        const transformedBubbles: Bubble[] = bubbles.map((bubble: any) => ({
+          id: bubble.id,
+          name: bubble.name,
+          status: bubble.status,
+          members: bubble.members || [],
+        }));
+
+        console.log("[ProfileScreen] 변환된 버블 데이터:", transformedBubbles);
+        setMyBubbles(transformedBubbles);
       } catch (error) {
         console.error("Error fetching my bubbles:", error);
         setMyBubbles([]); // 에러 발생 시 빈 배열로 초기화
@@ -1001,7 +1031,7 @@ function ProfileScreen() {
               {/* 2. 버블 목록이 있을 때 */}
               {myBubbles.length > 0 ? (
                 myBubbles.map((bubble) => (
-                  <BubbleItem
+                  <BubbleTabItem
                     key={bubble.id}
                     bubble={bubble}
                     onPress={() => console.log(`Bubble ${bubble.name} pressed`)}

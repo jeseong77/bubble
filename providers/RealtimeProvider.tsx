@@ -89,7 +89,7 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
               event: "INSERT",
               schema: "public",
               table: "group_members",
-              filter: `user_id=eq.${userId}`,
+              filter: `user_id=eq.${userId} AND status=eq.invited`,
             },
             (payload) => {
               console.log("[RealtimeProvider] 새로운 초대 감지!", payload.new);

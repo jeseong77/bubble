@@ -31,7 +31,7 @@ const redirectUri = makeRedirectUri({
 type AuthContextType = {
   session: Session | null;
   loading: boolean;
-  isAuthenticating: boolean; // [추가] 로그인 프로세스 진행 상태
+  isAuthenticating: boolean;
   isLoggedIn: boolean;
   hasCompletedOnboarding: boolean;
   hasCompletedProfileSetup: boolean;
