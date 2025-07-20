@@ -181,8 +181,8 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
   const DURATION_RANGE_MS: [number, number] = [3000, 7000]; // 애니메이션 지속 시간 범위
 
   const navigateToInvitations = () => {
-    // TODO: Update this path to the actual invitation page
-    router.push("/(tabs)");
+    // Navigate to the invitation page
+    router.push("/bubble/invitation");
   };
 
   return (
