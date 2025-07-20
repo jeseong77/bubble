@@ -1034,7 +1034,16 @@ function ProfileScreen() {
                   <BubbleTabItem
                     key={bubble.id}
                     bubble={bubble}
-                    onPress={() => console.log(`Bubble ${bubble.name} pressed`)}
+                    onPress={() => {
+                      // 기존 버블을 form.tsx로 이동 (get_bubble RPC 사용)
+                      router.push({
+                        pathname: "/bubble/form",
+                        params: {
+                          groupId: bubble.id,
+                          isExistingBubble: "true", // 기존 버블임을 표시
+                        },
+                      });
+                    }}
                   />
                 ))
               ) : (

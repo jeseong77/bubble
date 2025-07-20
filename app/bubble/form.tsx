@@ -15,48 +15,147 @@ import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { supabase } from "@/lib/supabase"; // supabase 클라이언트 추가
 
+// 멤버 타입 정의
+interface BubbleMember {
+  id: string;
+  first_name: string;
+  last_name: string;
+  avatar_url: string | null;
+  joined_at: string;
+}
+
 export default function BubbleFormScreen() {
   const router = useRouter();
 
   // 이전 화면에서 전달된 파라미터 가져오기
   const {
     groupId, // groupId를 받음
-    bubbleSize: bubbleSizeParam,
-    creatorId,
-    creatorFirstName,
-    creatorImagePath, // 이미지 경로를 받음
+    isExistingBubble, // 기존 버블인지 여부
   } = useLocalSearchParams<{
     groupId: string;
-    bubbleSize: string;
-    creatorId: string;
-    creatorFirstName: string;
-    creatorImagePath?: string;
+    isExistingBubble?: string;
   }>();
 
   // 버블 이름은 이 화면에서 관리
   const [bubbleName, setBubbleName] = useState("");
   const [creatorSignedUrl, setCreatorSignedUrl] = useState<string | null>(null); // 이미지 URL 상태 추가
+  const [bubbleMembers, setBubbleMembers] = useState<BubbleMember[]>([]); // 버블 멤버 정보
+  const [memberSignedUrls, setMemberSignedUrls] = useState<{
+    [key: string]: string;
+  }>({}); // 멤버별 Signed URL
+  const [bubbleInfo, setBubbleInfo] = useState<any>(null); // 전체 버블 정보
 
-  // 전달받은 버블 크기 파라미터를 숫자로 변환
-  const bubbleMemberCount = parseInt(bubbleSizeParam || "2", 10);
-
-  // 이미지 경로를 받아 새로운 Signed URL을 생성하는 로직
+  // get_bubble RPC를 사용하여 버블 정보 가져오기
   useEffect(() => {
-    if (creatorImagePath) {
-      const getSignedUrl = async () => {
-        const { data, error } = await supabase.storage
-          .from("user-images")
-          .createSignedUrl(creatorImagePath, 60); // 60초 유효한 새 URL 생성
+    const fetchBubbleInfo = async () => {
+      if (isExistingBubble === "true" && groupId) {
+        try {
+          const { data, error } = await supabase.rpc("get_bubble", {
+            p_group_id: groupId,
+          });
 
-        if (error) {
-          console.error("Error creating signed URL for creator image:", error);
-        } else {
-          setCreatorSignedUrl(data.signedUrl);
+          if (error) {
+            console.error("Error fetching bubble info:", error);
+          } else if (data && data.length > 0) {
+            const bubbleInfo = data[0];
+            console.log("버블 정보:", bubbleInfo);
+
+            // 버블 이름 설정
+            setBubbleName(bubbleInfo.name || "");
+
+            // 전체 버블 정보 저장
+            setBubbleInfo(bubbleInfo);
+
+            // 멤버 정보 설정 (JSON 파싱)
+            if (bubbleInfo.members) {
+              try {
+                const members = Array.isArray(bubbleInfo.members)
+                  ? bubbleInfo.members
+                  : JSON.parse(bubbleInfo.members);
+                setBubbleMembers(members || []);
+                console.log("멤버 정보:", members);
+              } catch (parseError) {
+                console.error("멤버 정보 파싱 실패:", parseError);
+                setBubbleMembers([]);
+              }
+            } else {
+              setBubbleMembers([]);
+            }
+          }
+        } catch (error) {
+          console.error("Error in fetchBubbleInfo:", error);
         }
-      };
-      getSignedUrl();
-    }
-  }, [creatorImagePath]);
+      }
+    };
+
+    fetchBubbleInfo();
+  }, [isExistingBubble, groupId]);
+
+  // 멤버들의 프로필 이미지 Signed URL 생성
+  useEffect(() => {
+    const generateMemberSignedUrls = async () => {
+      if (bubbleMembers.length === 0) return;
+
+      const urls: { [key: string]: string } = {};
+
+      for (const member of bubbleMembers) {
+        if (member.avatar_url) {
+          try {
+            // Public URL에서 파일 경로 추출
+            const urlParts = member.avatar_url.split("/user-images/");
+            const filePath = urlParts.length > 1 ? urlParts[1] : null;
+
+            if (filePath) {
+              const { data, error } = await supabase.storage
+                .from("user-images")
+                .createSignedUrl(filePath, 60);
+
+              if (!error && data) {
+                urls[member.id] = data.signedUrl;
+              }
+            }
+          } catch (error) {
+            console.error(`멤버 ${member.id}의 Signed URL 생성 실패:`, error);
+          }
+        }
+      }
+
+      setMemberSignedUrls(urls);
+    };
+
+    generateMemberSignedUrls();
+  }, [bubbleMembers]);
+
+  // 버블 크기 계산 (기존 버블의 경우 max_size 사용, 새 버블의 경우 기본값 2)
+  const bubbleMemberCount = bubbleInfo?.max_size || 2;
+
+  // 생성자 이미지 Signed URL 생성 (첫 번째 멤버의 이미지 사용)
+  useEffect(() => {
+    const getCreatorSignedUrl = async () => {
+      if (bubbleMembers.length > 0 && bubbleMembers[0]?.avatar_url) {
+        try {
+          const urlParts = bubbleMembers[0].avatar_url.split("/user-images/");
+          const filePath = urlParts.length > 1 ? urlParts[1] : null;
+
+          if (filePath) {
+            const { data, error } = await supabase.storage
+              .from("user-images")
+              .createSignedUrl(filePath, 60);
+
+            if (!error && data) {
+              setCreatorSignedUrl(data.signedUrl);
+            }
+          }
+        } catch (error) {
+          console.error("Error creating signed URL for creator image:", error);
+        }
+      }
+    };
+
+    getCreatorSignedUrl();
+  }, [bubbleMembers]);
+
+  // 기존 버블의 멤버 정보는 이미 파라미터로 전달받았으므로 별도 RPC 호출 불필요
 
   // ... (기존 bubbleSize 계산 로직)
   const screenWidth = Dimensions.get("window").width;
@@ -74,24 +173,39 @@ export default function BubbleFormScreen() {
     }
 
     try {
-      // 버블 이름을 서버에 업데이트
-      const { error } = await supabase
-        .from("groups")
-        .update({ name: bubbleName })
-        .eq("id", groupId);
+      // 기존 버블인지 새 버블인지 확인
+      const isExisting = isExistingBubble === "true";
 
-      if (error) throw error;
+      if (isExisting) {
+        // 기존 버블의 경우 이름만 업데이트
+        const { error } = await supabase
+          .from("groups")
+          .update({ name: bubbleName })
+          .eq("id", groupId);
 
-      // TODO: 실제 친구 초대 화면 경로로 수정 필요
-      router.push({
-        pathname: "/bubble/form",
-        params: {
-          groupId,
-          bubbleName,
-          bubbleSize: bubbleSizeParam,
-          creatorId,
-        },
-      });
+        if (error) throw error;
+
+        console.log("기존 버블 이름 업데이트 완료:", bubbleName);
+        // TODO: 기존 버블의 경우 멤버 관리 화면으로 이동하거나 다른 처리
+        alert("버블 이름이 업데이트되었습니다.");
+      } else {
+        // 새 버블의 경우 이름 업데이트 후 친구 초대 화면으로 이동
+        const { error } = await supabase
+          .from("groups")
+          .update({ name: bubbleName })
+          .eq("id", groupId);
+
+        if (error) throw error;
+
+        // TODO: 실제 친구 초대 화면 경로로 수정 필요
+        router.push({
+          pathname: "/bubble/form",
+          params: {
+            groupId,
+            bubbleName,
+          },
+        });
+      }
     } catch (error) {
       console.error("Error updating bubble name:", error);
       alert("버블 이름 저장에 실패했습니다. 다시 시도해주세요.");
@@ -131,88 +245,161 @@ export default function BubbleFormScreen() {
             position: "relative",
           }}
         >
-          <View
-            style={[
-              styles.bubbleContainer,
-              {
-                position: "absolute",
-                left: 0,
-                top: 0,
-                zIndex: 2,
-                alignItems: "center",
-              },
-            ]}
-          >
-            {creatorSignedUrl ? (
-              <Image
-                source={{ uri: creatorSignedUrl }}
-                style={[
-                  styles.bubbleImage,
-                  {
-                    width: bubbleSize,
-                    height: bubbleSize,
-                    borderRadius: bubbleSize / 2,
-                    marginBottom: 0,
-                  },
-                ]}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.bubbleImage,
-                  {
-                    width: bubbleSize,
-                    height: bubbleSize,
-                    borderRadius: bubbleSize / 2,
-                    marginBottom: 0,
-                    backgroundColor: "#e0e0e0",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  },
-                ]}
-              >
-                <Feather name="user" size={bubbleSize * 0.4} color="#999" />
-              </View>
-            )}
-            <Text style={[styles.nameText, { marginTop: 12 }]}>
-              {creatorFirstName || "Me"}
-            </Text>
-          </View>
+          {/* 모든 버블 슬롯을 나란히 표시 */}
+          {Array.from({ length: bubbleMemberCount }).map((_, index) => {
+            const isExisting = isExistingBubble === "true";
 
-          {/* 친구 초대 슬롯 (동적 생성) */}
-          {Array.from({ length: bubbleMemberCount - 1 }).map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.bubbleContainer,
-                {
-                  position: "absolute",
-                  left: (index + 1) * overlapOffset,
-                  top: 0,
-                  zIndex: 1 - index, // zIndex를 다르게 주어 겹치게 함
-                  alignItems: "center",
-                },
-              ]}
-            >
+            // 기존 버블의 경우: 멤버 배열에서 해당 인덱스의 멤버를 찾거나 빈 슬롯
+            // 새 버블의 경우: 첫 번째는 생성자, 나머지는 초대 슬롯
+            let member = null;
+            let isCreator = false;
+
+            if (isExisting) {
+              // 기존 버블: 모든 슬롯이 나란히 표시
+              member = bubbleMembers[index];
+            } else {
+              // 새 버블: 첫 번째는 생성자
+              if (index === 0) {
+                isCreator = true;
+              }
+            }
+
+            return (
               <View
+                key={index}
                 style={[
-                  styles.emptyBubble,
+                  styles.bubbleContainer,
                   {
-                    width: bubbleSize,
-                    height: bubbleSize,
-                    borderRadius: bubbleSize / 2,
-                    justifyContent: "center",
+                    position: "absolute",
+                    left: index * overlapOffset,
+                    top: 0,
+                    zIndex: bubbleMemberCount - index, // zIndex를 다르게 주어 겹치게 함
                     alignItems: "center",
                   },
                 ]}
               >
-                <Feather name="plus" size={32} color="#999" />
+                {isCreator ? (
+                  // 생성자 표시 (새 버블의 첫 번째 슬롯)
+                  <>
+                    {creatorSignedUrl ? (
+                      <Image
+                        source={{ uri: creatorSignedUrl }}
+                        style={[
+                          styles.bubbleImage,
+                          {
+                            width: bubbleSize,
+                            height: bubbleSize,
+                            borderRadius: bubbleSize / 2,
+                            marginBottom: 0,
+                          },
+                        ]}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.bubbleImage,
+                          {
+                            width: bubbleSize,
+                            height: bubbleSize,
+                            borderRadius: bubbleSize / 2,
+                            marginBottom: 0,
+                            backgroundColor: "#e0e0e0",
+                            justifyContent: "center",
+                            alignItems: "center",
+                          },
+                        ]}
+                      >
+                        <Feather
+                          name="user"
+                          size={bubbleSize * 0.4}
+                          color="#999"
+                        />
+                      </View>
+                    )}
+                    <Text style={[styles.nameText, { marginTop: 12 }]}>
+                      {bubbleMembers[0]?.first_name || "Me"}
+                    </Text>
+                  </>
+                ) : isExisting && member ? (
+                  // 기존 멤버 표시
+                  <>
+                    <Image
+                      source={{
+                        uri:
+                          memberSignedUrls[member.id] ||
+                          member.avatar_url ||
+                          undefined,
+                      }}
+                      style={[
+                        styles.bubbleImage,
+                        {
+                          width: bubbleSize,
+                          height: bubbleSize,
+                          borderRadius: bubbleSize / 2,
+                          marginBottom: 0,
+                        },
+                      ]}
+                    />
+                    <Text style={[styles.nameText, { marginTop: 12 }]}>
+                      {member.first_name || "Member"}
+                    </Text>
+                  </>
+                ) : isExisting ? (
+                  // 기존 버블의 빈 슬롯 (멤버가 없는 경우)
+                  <>
+                    <View
+                      style={[
+                        styles.emptyBubble,
+                        {
+                          width: bubbleSize,
+                          height: bubbleSize,
+                          borderRadius: bubbleSize / 2,
+                          justifyContent: "center",
+                          alignItems: "center",
+                        },
+                      ]}
+                    >
+                      <Feather name="more-horizontal" size={32} color="#999" />
+                    </View>
+                    <Text
+                      style={[
+                        styles.nameText,
+                        { marginTop: 12, color: "#999" },
+                      ]}
+                    >
+                      ...
+                    </Text>
+                  </>
+                ) : (
+                  // 새 버블의 초대 슬롯
+                  <>
+                    <View
+                      style={[
+                        styles.emptyBubble,
+                        {
+                          width: bubbleSize,
+                          height: bubbleSize,
+                          borderRadius: bubbleSize / 2,
+                          justifyContent: "center",
+                          alignItems: "center",
+                        },
+                      ]}
+                    >
+                      <Feather name="plus" size={32} color="#999" />
+                    </View>
+                    <Text
+                      style={[
+                        styles.nameText,
+                        { marginTop: 12, color: "#999" },
+                      ]}
+                    >
+                      Invite Friend
+                    </Text>
+                  </>
+                )}
               </View>
-              <Text style={[styles.nameText, { marginTop: 12, color: "#999" }]}>
-                Invite Friend
-              </Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         <TouchableOpacity
@@ -220,7 +407,9 @@ export default function BubbleFormScreen() {
           onPress={handleInviteFriend}
           activeOpacity={0.7}
         >
-          <Text style={styles.inviteButtonText}>Invite Friend</Text>
+          <Text style={styles.inviteButtonText}>
+            {isExistingBubble === "true" ? "Update Bubble" : "Invite Friend"}
+          </Text>
         </TouchableOpacity>
       </KeyboardAwareScrollView>
 
