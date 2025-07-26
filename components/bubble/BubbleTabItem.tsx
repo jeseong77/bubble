@@ -28,6 +28,11 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
   const [currentUserSignedUrl, setCurrentUserSignedUrl] = useState<
     string | null
   >(null);
+  const [otherMemberSignedUrl, setOtherMemberSignedUrl] = useState<
+    string | null
+  >(null);
+  const [currentUserImageError, setCurrentUserImageError] = useState(false);
+  const [otherMemberImageError, setOtherMemberImageError] = useState(false);
 
   // members가 배열이 아닐 경우를 대비한 방어 코드
   if (!Array.isArray(members)) {
@@ -39,48 +44,65 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
 
   // 다른 멤버들 (두 번째부터)
   const otherMembers = members.slice(1);
+  const otherMember = otherMembers[0]; // 첫 번째 다른 멤버
 
-  // Public URL을 파일 경로로 변환하고 Signed URL 생성
-  useEffect(() => {
-    const getSignedUrl = async () => {
-      if (!currentUser?.avatar_url) {
-        console.log("[BubbleTabItem] 현재 유저의 avatar_url이 없습니다.");
-        return;
+  // Signed URL을 생성하는 공통 함수
+  const createSignedUrlForMember = async (
+    avatarUrl: string | null | undefined
+  ): Promise<string | null> => {
+    if (!avatarUrl) return null;
+
+    try {
+      // Public URL에서 파일 경로 추출
+      const urlParts = avatarUrl.split("/user-images/");
+      const filePath = urlParts.length > 1 ? urlParts[1] : null;
+
+      if (!filePath) {
+        console.log(
+          "[BubbleTabItem] 파일 경로를 추출할 수 없습니다:",
+          avatarUrl
+        );
+        return null;
       }
 
-      try {
-        // Public URL에서 파일 경로 추출
-        // 예: https://.../user-images/folder/image.jpg -> folder/image.jpg
-        const urlParts = currentUser.avatar_url.split("/user-images/");
-        const filePath = urlParts.length > 1 ? urlParts[1] : null;
+      console.log("[BubbleTabItem] Signed URL 생성 시작:", filePath);
+      const { data, error } = await supabase.storage
+        .from("user-images")
+        .createSignedUrl(filePath, 3600); // 1시간 유효
 
-        if (!filePath) {
-          console.log(
-            "[BubbleTabItem] 파일 경로를 추출할 수 없습니다:",
-            currentUser.avatar_url
-          );
-          return;
-        }
+      if (error) {
+        console.error("[BubbleTabItem] Signed URL 생성 실패:", error);
+        return null;
+      }
 
-        console.log("[BubbleTabItem] Signed URL 생성 시작:", filePath);
-        const { data, error } = await supabase.storage
-          .from("user-images")
-          .createSignedUrl(filePath, 60);
+      console.log("[BubbleTabItem] Signed URL 생성 성공:", data.signedUrl);
+      return data.signedUrl;
+    } catch (error) {
+      console.error("[BubbleTabItem] Signed URL 생성 중 예외:", error);
+      return null;
+    }
+  };
 
-        if (error) {
-          console.error("[BubbleTabItem] Signed URL 생성 실패:", error);
-          return;
-        }
+  // 현재 유저와 다른 멤버의 Signed URL을 가져옵니다.
+  useEffect(() => {
+    const loadSignedUrls = async () => {
+      // 현재 유저의 Signed URL 생성
+      const currentUserUrl = await createSignedUrlForMember(
+        currentUser?.avatar_url
+      );
+      setCurrentUserSignedUrl(currentUserUrl);
 
-        console.log("[BubbleTabItem] Signed URL 생성 성공:", data.signedUrl);
-        setCurrentUserSignedUrl(data.signedUrl);
-      } catch (error) {
-        console.error("[BubbleTabItem] Signed URL 생성 중 예외:", error);
+      // 다른 멤버의 Signed URL 생성
+      if (otherMember) {
+        const otherMemberUrl = await createSignedUrlForMember(
+          otherMember.avatar_url
+        );
+        setOtherMemberSignedUrl(otherMemberUrl);
       }
     };
 
-    getSignedUrl();
-  }, [currentUser?.avatar_url]);
+    loadSignedUrls();
+  }, [currentUser?.avatar_url, otherMember?.avatar_url]);
 
   // 서버에서 받은 데이터 로깅
   console.log("[BubbleTabItem] 🔍 버블 데이터 분석:");
@@ -102,7 +124,7 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
         <View style={styles.avatarContainer}>
           {/* 현재 유저의 이미지 (왼쪽) */}
           <View style={styles.avatarWrapper}>
-            {currentUserSignedUrl ? (
+            {!currentUserImageError && currentUserSignedUrl ? (
               <Image
                 source={{ uri: currentUserSignedUrl }}
                 style={styles.avatar}
@@ -111,28 +133,12 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
                     "BubbleTabItem current user avatar load error:",
                     error.nativeEvent
                   );
+                  setCurrentUserImageError(true);
                 }}
                 onLoad={() => {
                   console.log(
                     "BubbleTabItem current user avatar loaded successfully:",
                     currentUserSignedUrl
-                  );
-                }}
-              />
-            ) : currentUser?.avatar_url ? (
-              <Image
-                source={{ uri: currentUser.avatar_url }}
-                style={styles.avatar}
-                onError={(error) => {
-                  console.error(
-                    "BubbleTabItem current user avatar fallback load error:",
-                    error.nativeEvent
-                  );
-                }}
-                onLoad={() => {
-                  console.log(
-                    "BubbleTabItem current user avatar fallback loaded successfully:",
-                    currentUser.avatar_url
                   );
                 }}
               />
@@ -147,32 +153,31 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
           <View style={[styles.avatarWrapper, { marginLeft: -20, zIndex: 0 }]}>
             {otherMembers.length > 0 ? (
               // 다른 멤버가 있는 경우
-              otherMembers.slice(0, 1).map((member) => (
-                <View key={member.id}>
-                  {member.avatar_url ? (
-                    <Image
-                      source={{ uri: member.avatar_url }}
-                      style={styles.avatar}
-                      onError={(error) => {
-                        console.error(
-                          "BubbleTabItem other member avatar load error:",
-                          error.nativeEvent
-                        );
-                      }}
-                      onLoad={() => {
-                        console.log(
-                          "BubbleTabItem other member avatar loaded successfully:",
-                          member.avatar_url
-                        );
-                      }}
-                    />
-                  ) : (
-                    <View style={[styles.avatar, styles.placeholderAvatar]}>
-                      <Ionicons name="person" size={24} color="#999" />
-                    </View>
-                  )}
-                </View>
-              ))
+              <View>
+                {!otherMemberImageError && otherMemberSignedUrl ? (
+                  <Image
+                    source={{ uri: otherMemberSignedUrl }}
+                    style={styles.avatar}
+                    onError={(error) => {
+                      console.error(
+                        "BubbleTabItem other member avatar load error:",
+                        error.nativeEvent
+                      );
+                      setOtherMemberImageError(true);
+                    }}
+                    onLoad={() => {
+                      console.log(
+                        "BubbleTabItem other member avatar loaded successfully:",
+                        otherMemberSignedUrl
+                      );
+                    }}
+                  />
+                ) : (
+                  <View style={[styles.avatar, styles.placeholderAvatar]}>
+                    <Ionicons name="person" size={24} color="#999" />
+                  </View>
+                )}
+              </View>
             ) : (
               // 다른 멤버가 없거나 초대를 받지 않은 경우 "..." 표시
               <View style={[styles.avatar, styles.invitePlaceholder]}>

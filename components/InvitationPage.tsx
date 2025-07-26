@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/providers/AuthProvider";
@@ -260,14 +261,182 @@ export default function InvitationPage() {
     fetchInvitedBubbles();
   }, [session]);
 
-  const handleAcceptInvitation = (bubbleId: string) => {
-    console.log("Accept invitation for bubble:", bubbleId);
-    // TODO: Implement accept logic
+  const handleAcceptInvitation = async (bubbleId: string) => {
+    console.log("[InvitationPage] 🟢 handleAcceptInvitation 시작");
+    console.log("[InvitationPage] 버블 ID:", bubbleId);
+    console.log("[InvitationPage] 현재 세션 유저 ID:", session?.user?.id);
+
+    if (!session?.user) {
+      console.error("[InvitationPage] ❌ 세션이 없어 초대 수락을 중단합니다.");
+      Alert.alert("Error", "You must be logged in to accept invitations.");
+      return;
+    }
+
+    try {
+      console.log("[InvitationPage] 📡 accept_invitation RPC 호출 시작");
+      console.log("[InvitationPage] RPC 파라미터:", {
+        p_group_id: bubbleId,
+        p_user_id: session.user.id,
+      });
+
+      const { data, error } = await supabase.rpc("accept_invitation", {
+        p_group_id: bubbleId,
+        p_user_id: session.user.id,
+      });
+
+      console.log("[InvitationPage] 📡 RPC 응답 받음");
+      console.log("[InvitationPage] RPC 응답 데이터:", data);
+      console.log("[InvitationPage] RPC 에러:", error);
+
+      if (error) {
+        console.error("[InvitationPage] ❌ RPC 에러 발생:", error);
+        console.error("[InvitationPage] 에러 상세:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      }
+
+      console.log("[InvitationPage] ✅ RPC 호출 성공");
+      console.log("[InvitationPage] 반환된 데이터:", data);
+
+      // Optimistic UI update - Remove from local state immediately
+      console.log("[InvitationPage] 🎨 Optimistic UI 업데이트 시작");
+      console.log(
+        "[InvitationPage] 업데이트 전 초대 목록 개수:",
+        invitedBubbles.length
+      );
+
+      setInvitedBubbles((prev) => {
+        const updated = prev.filter((bubble) => bubble.id !== bubbleId);
+        console.log(
+          "[InvitationPage] 업데이트 후 초대 목록 개수:",
+          updated.length
+        );
+        console.log("[InvitationPage] 제거된 버블 ID:", bubbleId);
+        return updated;
+      });
+
+      console.log("[InvitationPage] 🎉 초대 수락 완료!");
+      Alert.alert("Success", "You have successfully joined the bubble! 🎉", [
+        {
+          text: "OK",
+          onPress: () => {
+            console.log("[InvitationPage] 사용자가 성공 알림을 확인했습니다.");
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error(
+        "[InvitationPage] ❌ handleAcceptInvitation 전체 에러:",
+        error
+      );
+      console.error("[InvitationPage] 에러 타입:", typeof error);
+      console.error(
+        "[InvitationPage] 에러 메시지:",
+        error instanceof Error ? error.message : String(error)
+      );
+
+      Alert.alert("Error", "Failed to accept invitation. Please try again.", [
+        {
+          text: "OK",
+          onPress: () => {
+            console.log("[InvitationPage] 사용자가 에러 알림을 확인했습니다.");
+          },
+        },
+      ]);
+    }
   };
 
-  const handleDeclineInvitation = (bubbleId: string) => {
-    console.log("Decline invitation for bubble:", bubbleId);
-    // TODO: Implement decline logic
+  const handleDeclineInvitation = async (bubbleId: string) => {
+    console.log("[InvitationPage] 🔴 handleDeclineInvitation 시작");
+    console.log("[InvitationPage] 버블 ID:", bubbleId);
+    console.log("[InvitationPage] 현재 세션 유저 ID:", session?.user?.id);
+
+    if (!session?.user) {
+      console.error("[InvitationPage] ❌ 세션이 없어 초대 거절을 중단합니다.");
+      Alert.alert("Error", "You must be logged in to decline invitations.");
+      return;
+    }
+
+    try {
+      console.log("[InvitationPage] 📡 decline_invitation RPC 호출 시작");
+      console.log("[InvitationPage] RPC 파라미터:", {
+        p_group_id: bubbleId,
+        p_user_id: session.user.id,
+      });
+
+      const { data, error } = await supabase.rpc("decline_invitation", {
+        p_group_id: bubbleId,
+        p_user_id: session.user.id,
+      });
+
+      console.log("[InvitationPage] 📡 RPC 응답 받음");
+      console.log("[InvitationPage] RPC 응답 데이터:", data);
+      console.log("[InvitationPage] RPC 에러:", error);
+
+      if (error) {
+        console.error("[InvitationPage] ❌ RPC 에러 발생:", error);
+        console.error("[InvitationPage] 에러 상세:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      }
+
+      console.log("[InvitationPage] ✅ RPC 호출 성공");
+      console.log("[InvitationPage] 반환된 데이터:", data);
+
+      // Optimistic UI update - Remove from local state immediately
+      console.log("[InvitationPage] 🎨 Optimistic UI 업데이트 시작");
+      console.log(
+        "[InvitationPage] 업데이트 전 초대 목록 개수:",
+        invitedBubbles.length
+      );
+
+      setInvitedBubbles((prev) => {
+        const updated = prev.filter((bubble) => bubble.id !== bubbleId);
+        console.log(
+          "[InvitationPage] 업데이트 후 초대 목록 개수:",
+          updated.length
+        );
+        console.log("[InvitationPage] 제거된 버블 ID:", bubbleId);
+        return updated;
+      });
+
+      console.log("[InvitationPage] 🎉 초대 거절 완료!");
+      Alert.alert("Success", "Invitation declined successfully.", [
+        {
+          text: "OK",
+          onPress: () => {
+            console.log("[InvitationPage] 사용자가 성공 알림을 확인했습니다.");
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error(
+        "[InvitationPage] ❌ handleDeclineInvitation 전체 에러:",
+        error
+      );
+      console.error("[InvitationPage] 에러 타입:", typeof error);
+      console.error(
+        "[InvitationPage] 에러 메시지:",
+        error instanceof Error ? error.message : String(error)
+      );
+
+      Alert.alert("Error", "Failed to decline invitation. Please try again.", [
+        {
+          text: "OK",
+          onPress: () => {
+            console.log("[InvitationPage] 사용자가 에러 알림을 확인했습니다.");
+          },
+        },
+      ]);
+    }
   };
 
   const renderInvitationItem = ({ item }: { item: InvitationBubble }) => {
