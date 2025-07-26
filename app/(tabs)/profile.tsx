@@ -745,41 +745,47 @@ function ProfileScreen() {
       return;
     }
 
-    // 로딩 인디케이터를 표시하면 더 좋은 UX를 제공할 수 있습니다.
-    // setCreatingBubble(true);
+    console.log("[ProfileScreen] 🟢 handleCreateBubble 시작");
+    console.log("[ProfileScreen] 버블 크기:", bubbleSize);
+    console.log("[ProfileScreen] 생성자 정보:", {
+      id: session.user.id,
+      gender: profile.gender,
+    });
 
     try {
-      // 1. 'groups' 테이블에 새로운 버블(그룹) 생성
-      const { data: newGroup, error: groupError } = await supabase
-        .from("groups")
-        .insert({
-          creator_id: session.user.id,
-          max_size: parseInt(bubbleSize.split("-")[0]),
-          // 'name'은 form.tsx에서 설정하므로 여기서는 null
-        })
-        .select()
-        .single(); // 생성된 그룹의 ID를 반환받기 위해 .select().single() 사용
+      // 1. 사용자의 성별과 선호도를 기반으로 그룹 생성
+      const { data: newGroup, error: groupError } = await supabase.rpc(
+        "create_group",
+        {
+          p_creator_id: session.user.id,
+          p_max_size: parseInt(bubbleSize.split("-")[0]),
+          p_group_name: null, // form.tsx에서 설정
+          p_preferred_gender: "any", // 기본값으로 "any" 사용
+        }
+      );
 
-      if (groupError) throw groupError;
-      if (!newGroup) throw new Error("Failed to create group.");
+      console.log("[ProfileScreen] 📡 create_group RPC 응답:", {
+        newGroup,
+        groupError,
+      });
 
-      // 2. 생성자를 'group_members' 테이블에 'joined' 상태로 추가
-      const { error: memberError } = await supabase
-        .from("group_members")
-        .insert({
-          group_id: newGroup.id,
-          user_id: session.user.id,
-          status: "joined", // 생성자는 바로 'joined' 상태
-        });
+      if (groupError) {
+        console.error("[ProfileScreen] ❌ 그룹 생성 RPC 에러:", groupError);
+        throw groupError;
+      }
+      if (!newGroup) {
+        console.error("[ProfileScreen] ❌ 그룹 ID가 반환되지 않음");
+        throw new Error("Failed to create group - no group ID returned.");
+      }
 
-      if (memberError) throw memberError;
+      console.log("[ProfileScreen] ✅ 그룹 생성 성공, 그룹 ID:", newGroup);
 
-      // 3. 생성된 group.id와 다른 정보들을 form.tsx로 전달
+      // 2. 생성된 group.id와 다른 정보들을 form.tsx로 전달
       setShowCreateBubbleModal(false);
       router.push({
         pathname: "/bubble/form",
         params: {
-          groupId: newGroup.id, // 새로 생성된 그룹 ID 전달
+          groupId: newGroup, // RPC에서 반환된 그룹 ID 사용
           bubbleSize: bubbleSize.split("-")[0],
           creatorId: profile.userId,
           creatorFirstName: profile.firstName,
@@ -787,11 +793,11 @@ function ProfileScreen() {
           creatorImagePath: currentImages[0]?.path || null,
         },
       });
+
+      console.log("[ProfileScreen] ✅ form.tsx로 네비게이션 완료");
     } catch (error) {
-      console.error("Error creating bubble:", error);
+      console.error("[ProfileScreen] ❌ 버블 생성 중 에러:", error);
       Alert.alert("오류", "버블 생성에 실패했습니다. 다시 시도해주세요.");
-    } finally {
-      // setCreatingBubble(false);
     }
   };
 

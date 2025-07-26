@@ -9,6 +9,8 @@ import {
   Dimensions,
   TextInput,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -284,311 +286,331 @@ export default function BubbleFormScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.contentContainer, { flex: 1 }]}>
-        <View style={styles.topSection}>
-          {isLoading ? (
-            <SkeletonView width={200} height={40} style={styles.titleInput} />
-          ) : (
-            <TextInput
-              style={styles.titleInput}
-              placeholder="Name your bubble"
-              value={bubbleName}
-              onChangeText={setBubbleName}
-              placeholderTextColor="#999"
-              autoFocus={true}
-            />
-          )}
-        </View>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={[styles.contentContainer, { flex: 1 }]}>
+          <View style={styles.topSection}>
+            {isLoading ? (
+              <SkeletonView width={200} height={40} style={styles.titleInput} />
+            ) : (
+              <TextInput
+                style={styles.titleInput}
+                placeholder="Name your bubble"
+                value={bubbleName}
+                onChangeText={setBubbleName}
+                placeholderTextColor="#999"
+                autoFocus={true}
+              />
+            )}
+          </View>
 
-        <View
-          style={{
-            width: totalBubblesWidth,
-            height: bubbleSize * 1.2,
-            alignSelf: "center",
-            marginBottom: 40,
-            position: "relative",
-          }}
-        >
-          {/* 모든 버블 슬롯을 나란히 표시 */}
-          {Array.from({ length: bubbleMemberCount }).map((_, index) => {
-            const isExisting = isExistingBubble === "true";
+          <View
+            style={{
+              width: totalBubblesWidth,
+              height: bubbleSize * 1.2,
+              alignSelf: "center",
+              marginBottom: 40,
+              position: "relative",
+            }}
+          >
+            {/* 모든 버블 슬롯을 나란히 표시 */}
+            {Array.from({ length: bubbleMemberCount }).map((_, index) => {
+              const isExisting = isExistingBubble === "true";
 
-            // 기존 버블의 경우: 멤버 배열에서 해당 인덱스의 멤버를 찾거나 빈 슬롯
-            // 새 버블의 경우: 첫 번째는 생성자, 나머지는 초대 슬롯
-            let member = null;
-            let isCreator = false;
+              // 기존 버블의 경우: 멤버 배열에서 해당 인덱스의 멤버를 찾거나 빈 슬롯
+              // 새 버블의 경우: 첫 번째는 생성자, 나머지는 초대 슬롯
+              let member = null;
+              let isCreator = false;
 
-            if (isExisting) {
-              // 기존 버블: 모든 슬롯이 나란히 표시
-              member = bubbleMembers[index];
-            } else {
-              // 새 버블: 첫 번째는 생성자
-              if (index === 0) {
-                isCreator = true;
+              if (isExisting) {
+                // 기존 버블: 모든 슬롯이 나란히 표시
+                member = bubbleMembers[index];
+              } else {
+                // 새 버블: 첫 번째는 생성자
+                if (index === 0) {
+                  isCreator = true;
+                }
               }
-            }
 
-            return (
-              <View
-                key={index}
-                style={[
-                  styles.bubbleContainer,
-                  {
-                    position: "absolute",
-                    left: index * overlapOffset,
-                    top: 0,
-                    zIndex: bubbleMemberCount - index, // zIndex를 다르게 주어 겹치게 함
-                    alignItems: "center",
-                  },
-                ]}
-              >
-                {isCreator ? (
-                  // 생성자 표시 (새 버블의 첫 번째 슬롯)
-                  <View style={styles.bubbleContent}>
-                    {isLoading || isMembersLoading ? (
-                      <>
-                        <SkeletonText
-                          width={60}
-                          height={20}
-                          style={{ marginBottom: 12 }}
-                        />
-                        <SkeletonCircle
-                          size={bubbleSize}
-                          style={styles.bubbleImage}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Text style={[styles.nameText, { marginBottom: 12 }]}>
-                          {bubbleMembers[0]?.first_name || "Me"}
-                        </Text>
-                        {creatorSignedUrl ? (
-                          <Image
-                            source={{ uri: creatorSignedUrl }}
-                            style={[
-                              styles.bubbleImage,
-                              {
-                                width: bubbleSize,
-                                height: bubbleSize,
-                                borderRadius: bubbleSize / 2,
-                                marginBottom: 0,
-                              },
-                            ]}
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.bubbleContainer,
+                    {
+                      position: "absolute",
+                      left: index * overlapOffset,
+                      top: 0,
+                      zIndex: bubbleMemberCount - index, // zIndex를 다르게 주어 겹치게 함
+                      alignItems: "center",
+                    },
+                  ]}
+                >
+                  {isCreator ? (
+                    // 생성자 표시 (새 버블의 첫 번째 슬롯)
+                    <View style={styles.bubbleContent}>
+                      {isLoading || isMembersLoading ? (
+                        <>
+                          <SkeletonText
+                            width={60}
+                            height={20}
+                            style={{ marginBottom: 12 }}
                           />
-                        ) : (
-                          <View
-                            style={[
-                              styles.bubbleImage,
-                              {
-                                width: bubbleSize,
-                                height: bubbleSize,
-                                borderRadius: bubbleSize / 2,
-                                marginBottom: 0,
-                                backgroundColor: "#e0e0e0",
-                                justifyContent: "center",
-                                alignItems: "center",
-                              },
-                            ]}
-                          >
-                            <Feather
-                              name="user"
-                              size={bubbleSize * 0.4}
-                              color="#999"
+                          <SkeletonCircle
+                            size={bubbleSize}
+                            style={styles.bubbleImage}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Text style={[styles.nameText, { marginBottom: 12 }]}>
+                            {bubbleMembers[0]?.first_name || "Me"}
+                          </Text>
+                          {creatorSignedUrl ? (
+                            <Image
+                              source={{ uri: creatorSignedUrl }}
+                              style={[
+                                styles.bubbleImage,
+                                {
+                                  width: bubbleSize,
+                                  height: bubbleSize,
+                                  borderRadius: bubbleSize / 2,
+                                  marginBottom: 0,
+                                },
+                              ]}
                             />
-                          </View>
-                        )}
-                      </>
-                    )}
-                  </View>
-                ) : isExisting && member ? (
-                  // 기존 멤버 표시
-                  <View style={styles.bubbleContent}>
-                    {isMembersLoading ? (
-                      <>
-                        <SkeletonText
-                          width={60}
-                          height={20}
-                          style={{ marginBottom: 12 }}
-                        />
-                        <SkeletonCircle
-                          size={bubbleSize}
-                          style={styles.bubbleImage}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Text
-                          style={[
-                            styles.nameText,
-                            {
-                              marginBottom: 12,
-                              color:
-                                member.status === "invited"
-                                  ? "#D9D9D9"
-                                  : "#222", // invited면 disabledButton 색
-                            },
-                          ]}
-                        >
-                          {member.first_name || "Member"}
-                        </Text>
-                        <View style={{ position: "relative" }}>
-                          <Image
-                            source={{
-                              uri:
-                                memberSignedUrls[member.id] ||
-                                member.avatar_url ||
-                                undefined,
-                            }}
-                            style={[
-                              styles.bubbleImage,
-                              {
-                                width: bubbleSize,
-                                height: bubbleSize,
-                                borderRadius: bubbleSize / 2,
-                                marginBottom: 0,
-                                opacity: member.status === "invited" ? 0.6 : 1, // invited면 0.6 opacity
-                              },
-                            ]}
-                          />
-                          {member.status === "invited" && (
+                          ) : (
                             <View
-                              style={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                justifyContent: "center",
-                                alignItems: "center",
-                              }}
+                              style={[
+                                styles.bubbleImage,
+                                {
+                                  width: bubbleSize,
+                                  height: bubbleSize,
+                                  borderRadius: bubbleSize / 2,
+                                  marginBottom: 0,
+                                  backgroundColor: "#e0e0e0",
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                },
+                              ]}
                             >
                               <Feather
-                                name="more-horizontal"
-                                size={32}
+                                name="user"
+                                size={bubbleSize * 0.4}
                                 color="#999"
                               />
                             </View>
                           )}
-                        </View>
-                      </>
-                    )}
-                  </View>
-                ) : isExisting ? (
-                  // 기존 버블의 빈 슬롯 (멤버가 없는 경우)
-                  <View style={styles.bubbleContent}>
-                    {isLoading ? (
-                      <>
-                        <SkeletonText
-                          width={80}
-                          height={20}
-                          style={{ marginBottom: 12 }}
-                        />
-                        <SkeletonCircle
-                          size={bubbleSize}
-                          style={styles.emptyBubble}
-                        />
-                      </>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          router.push({
-                            pathname: "/search",
-                            params: {
-                              groupId,
-                            },
-                          });
-                        }}
-                        activeOpacity={0.7}
-                        style={styles.bubbleContent}
-                      >
-                        <Text
-                          style={[
-                            styles.nameText,
-                            { marginBottom: 12, color: "#80B7FF" },
-                          ]}
-                        >
-                          Add Member
-                        </Text>
-                        <View
-                          style={[
-                            styles.emptyBubble,
-                            {
-                              width: bubbleSize,
-                              height: bubbleSize,
-                              borderRadius: bubbleSize / 2,
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "#D9D9D9", // mediumGray
-                            },
-                          ]}
-                        >
-                          <Feather name="plus" size={32} color="#80B7FF" />
-                        </View>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ) : (
-                  // 새 버블의 초대 슬롯
-                  <TouchableOpacity
-                    onPress={() => {
-                      router.push({
-                        pathname: "/search",
-                        params: {
-                          groupId,
-                        },
-                      });
-                    }}
-                    activeOpacity={0.7}
-                    style={styles.bubbleContent}
-                  >
-                    <Text
-                      style={[
-                        styles.nameText,
-                        { marginBottom: 12, color: "#80B7FF" },
-                      ]}
-                    >
-                      Invite Friend
-                    </Text>
-                    <View
-                      style={[
-                        styles.emptyBubble,
-                        {
-                          width: bubbleSize,
-                          height: bubbleSize,
-                          borderRadius: bubbleSize / 2,
-                          justifyContent: "center",
-                          alignItems: "center",
-                          backgroundColor: "#D9D9D9", // mediumGray
-                        },
-                      ]}
-                    >
-                      <Feather name="plus" size={32} color="#80B7FF" />
+                        </>
+                      )}
                     </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })}
+                  ) : isExisting && member ? (
+                    // 기존 멤버 표시
+                    <View style={styles.bubbleContent}>
+                      {isMembersLoading ? (
+                        <>
+                          <SkeletonText
+                            width={60}
+                            height={20}
+                            style={{ marginBottom: 12 }}
+                          />
+                          <SkeletonCircle
+                            size={bubbleSize}
+                            style={styles.bubbleImage}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Text
+                            style={[
+                              styles.nameText,
+                              {
+                                marginBottom: 12,
+                                color:
+                                  member.status === "invited"
+                                    ? "#D9D9D9"
+                                    : "#222", // invited면 disabledButton 색
+                              },
+                            ]}
+                          >
+                            {member.first_name || "Member"}
+                          </Text>
+                          <View style={{ position: "relative" }}>
+                            <Image
+                              source={{
+                                uri:
+                                  memberSignedUrls[member.id] ||
+                                  member.avatar_url ||
+                                  undefined,
+                              }}
+                              style={[
+                                styles.bubbleImage,
+                                {
+                                  width: bubbleSize,
+                                  height: bubbleSize,
+                                  borderRadius: bubbleSize / 2,
+                                  marginBottom: 0,
+                                  opacity:
+                                    member.status === "invited" ? 0.6 : 1, // invited면 0.6 opacity
+                                },
+                              ]}
+                            />
+                            {member.status === "invited" && (
+                              <View
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <Feather
+                                  name="more-horizontal"
+                                  size={32}
+                                  color="#999"
+                                />
+                              </View>
+                            )}
+                          </View>
+                        </>
+                      )}
+                    </View>
+                  ) : isExisting ? (
+                    // 기존 버블의 빈 슬롯 (멤버가 없는 경우)
+                    <View style={styles.bubbleContent}>
+                      {isLoading ? (
+                        <>
+                          <SkeletonText
+                            width={80}
+                            height={20}
+                            style={{ marginBottom: 12 }}
+                          />
+                          <SkeletonCircle
+                            size={bubbleSize}
+                            style={styles.emptyBubble}
+                          />
+                        </>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => {
+                            router.push({
+                              pathname: "/search",
+                              params: {
+                                groupId,
+                              },
+                            });
+                          }}
+                          activeOpacity={0.7}
+                          style={styles.bubbleContent}
+                        >
+                          <Text
+                            style={[
+                              styles.nameText,
+                              { marginBottom: 12, color: "#80B7FF" },
+                            ]}
+                          >
+                            Add Member
+                          </Text>
+                          <View
+                            style={[
+                              styles.emptyBubble,
+                              {
+                                width: bubbleSize,
+                                height: bubbleSize,
+                                borderRadius: bubbleSize / 2,
+                                justifyContent: "center",
+                                alignItems: "center",
+                                backgroundColor: "#D9D9D9", // mediumGray
+                              },
+                            ]}
+                          >
+                            <Feather name="plus" size={32} color="#80B7FF" />
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : (
+                    // 새 버블의 초대 슬롯
+                    <TouchableOpacity
+                      onPress={() => {
+                        router.push({
+                          pathname: "/search",
+                          params: {
+                            groupId,
+                          },
+                        });
+                      }}
+                      activeOpacity={0.7}
+                      style={styles.bubbleContent}
+                    >
+                      <Text
+                        style={[
+                          styles.nameText,
+                          { marginBottom: 12, color: "#80B7FF" },
+                        ]}
+                      >
+                        Invite Friend
+                      </Text>
+                      <View
+                        style={[
+                          styles.emptyBubble,
+                          {
+                            width: bubbleSize,
+                            height: bubbleSize,
+                            borderRadius: bubbleSize / 2,
+                            justifyContent: "center",
+                            alignItems: "center",
+                            backgroundColor: "#D9D9D9", // mediumGray
+                          },
+                        ]}
+                      >
+                        <Feather name="plus" size={32} color="#80B7FF" />
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+
+          {isLoading ? (
+            <SkeletonView width={150} height={50} style={styles.inviteButton} />
+          ) : (
+            <TouchableOpacity
+              style={styles.inviteButton}
+              onPress={handleInviteFriend}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.inviteButtonText}>
+                {isExistingBubble === "true"
+                  ? "Update Bubble"
+                  : "Invite Friend"}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.bottomButtonContainer}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+            >
+              <Text style={styles.cancelButtonText}>✕</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.chevronButton}
+              onPress={() => {
+                // Go back and then replace to clear the stack
+                router.back();
+                router.replace("/(tabs)");
+              }}
+            >
+              <Feather name="chevron-right" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
-
-        {isLoading ? (
-          <SkeletonView width={150} height={50} style={styles.inviteButton} />
-        ) : (
-          <TouchableOpacity
-            style={styles.inviteButton}
-            onPress={handleInviteFriend}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.inviteButtonText}>
-              {isExistingBubble === "true" ? "Update Bubble" : "Invite Friend"}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-        <Text style={styles.cancelButtonText}>✕</Text>
-      </TouchableOpacity>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -615,8 +637,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#222",
     textAlign: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "#5A99E5",
+    borderBottomWidth: 0,
+    borderBottomColor: "transparent",
     paddingVertical: 8,
     width: "100%",
   },
@@ -660,10 +682,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  cancelButton: {
+  bottomButtonContainer: {
     position: "absolute",
     left: 32,
+    right: 32,
     bottom: 48,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#8ec3ff",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  chevronButton: {
     backgroundColor: "#8ec3ff",
     width: 60,
     height: 60,
