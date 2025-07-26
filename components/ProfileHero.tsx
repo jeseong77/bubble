@@ -17,6 +17,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRealtime } from "@/providers/RealtimeProvider";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/providers/AuthProvider";
+import { useFocusEffect } from "@react-navigation/native";
 
 // ProfileHero props 인터페이스
 interface ProfileHeroProps {
@@ -174,11 +176,62 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
   const router = useRouter();
   const { colors } = useAppTheme();
   const { invitations } = useRealtime();
+  const { session } = useAuth();
+
+  // Local state for real-time invitation count
+  const [realTimeInvitationCount, setRealTimeInvitationCount] = useState(0);
+  const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
 
   // 화면 크기나 부모 컨테이너 크기에 따라 동적으로 범위 설정 가능
   const BUBBLE_X_RANGE = 80; // 공이 좌우로 움직일 최대 범위 (중심 기준)
   const BUBBLE_Y_RANGE = 60; // 공이 상하로 움직일 최대 범위 (중심 기준)
   const DURATION_RANGE_MS: [number, number] = [3000, 7000]; // 애니메이션 지속 시간 범위
+
+  // Fetch real-time invitation count from database
+  const fetchRealTimeInvitationCount = async () => {
+    if (!session?.user) return;
+
+    setIsLoadingInvitations(true);
+    try {
+      console.log("[ProfileHero] 🔄 Fetching real-time invitation count...");
+
+      const { data, error } = await supabase.rpc("get_my_bubbles", {
+        p_user_id: session.user.id,
+      });
+
+      if (error) {
+        console.error("[ProfileHero] ❌ Error fetching invitations:", error);
+        return;
+      }
+
+      // Filter only invited status bubbles
+      const invitedCount = (data || []).filter(
+        (bubble: any) => bubble.user_status === "invited"
+      ).length;
+
+      console.log("[ProfileHero] 📊 Real-time invitation count:", invitedCount);
+      setRealTimeInvitationCount(invitedCount);
+    } catch (error) {
+      console.error("[ProfileHero] ❌ Exception fetching invitations:", error);
+    } finally {
+      setIsLoadingInvitations(false);
+    }
+  };
+
+  // Fetch invitations when component mounts
+  useEffect(() => {
+    fetchRealTimeInvitationCount();
+  }, [session]);
+
+  // Refresh invitation count when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log(
+        "[ProfileHero] 🎯 Screen focused, refreshing invitation count..."
+      );
+      fetchRealTimeInvitationCount();
+    }, [session])
+  );
 
   const navigateToInvitations = () => {
     // Navigate to the invitation page
@@ -274,12 +327,12 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         activeOpacity={0.8}
       >
         <Ionicons name="mail-outline" size={30} color={colors.onSecondary} />
-        {invitations.length > 0 && (
+        {realTimeInvitationCount > 0 && (
           <View
             style={[styles.badgeContainer, { backgroundColor: colors.error }]}
           >
             <Text style={[styles.badgeText, { color: colors.white }]}>
-              {invitations.length}
+              {realTimeInvitationCount}
             </Text>
           </View>
         )}
