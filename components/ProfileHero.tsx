@@ -20,11 +20,49 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/providers/AuthProvider";
 import { useFocusEffect } from "@react-navigation/native";
 
+// Skeleton Components
+const SkeletonCircle = ({ size, style }: { size: number; style?: any }) => (
+  <View
+    style={[
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: "#f0f0f0",
+      },
+      style,
+    ]}
+  />
+);
+
+const SkeletonText = ({
+  width,
+  height,
+  style,
+}: {
+  width: number;
+  height: number;
+  style?: any;
+}) => (
+  <View
+    style={[
+      {
+        width,
+        height,
+        backgroundColor: "#f0f0f0",
+        borderRadius: 4,
+      },
+      style,
+    ]}
+  />
+);
+
 // ProfileHero props 인터페이스
 interface ProfileHeroProps {
   firstName?: string;
   lastName?: string;
   imageUrl?: string;
+  skeleton?: boolean; // Add skeleton prop for avatar loading state
 }
 
 interface FloatingBubbleProps {
@@ -172,6 +210,7 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
   firstName,
   lastName,
   imageUrl,
+  skeleton,
 }) => {
   const router = useRouter();
   const { colors } = useAppTheme();
@@ -237,6 +276,70 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
     // Navigate to the invitation page
     router.push("/bubble/invitation");
   };
+
+  if (skeleton) {
+    return (
+      <View style={[styles.container, { paddingTop: 60 }]}>
+        {/* 떠다니는 공들 - 배경 */}
+        {/* 다양한 크기와 초기 위치, 딜레이를 가진 공들을 배치합니다. */}
+        <FloatingBubble
+          size={80}
+          initialX={-100}
+          initialY={-40}
+          delay={0}
+          xRange={BUBBLE_X_RANGE}
+          yRange={BUBBLE_Y_RANGE}
+          durationRange={DURATION_RANGE_MS}
+        />
+        <FloatingBubble
+          size={40}
+          initialX={120}
+          initialY={-80}
+          delay={500}
+          xRange={BUBBLE_X_RANGE * 0.8}
+          yRange={BUBBLE_Y_RANGE * 0.8}
+          durationRange={DURATION_RANGE_MS}
+        />
+        <FloatingBubble
+          size={60}
+          initialX={50}
+          initialY={100}
+          delay={1000}
+          xRange={BUBBLE_X_RANGE * 1.2}
+          yRange={BUBBLE_Y_RANGE * 1.2}
+          durationRange={DURATION_RANGE_MS}
+        />
+        <FloatingBubble
+          size={30}
+          initialX={-80}
+          initialY={120}
+          delay={200}
+          xRange={BUBBLE_X_RANGE * 0.7}
+          yRange={BUBBLE_Y_RANGE * 0.7}
+          durationRange={DURATION_RANGE_MS}
+        />
+        <FloatingBubble
+          size={50}
+          initialX={150}
+          initialY={50}
+          delay={700}
+          xRange={BUBBLE_X_RANGE}
+          yRange={BUBBLE_Y_RANGE}
+          durationRange={DURATION_RANGE_MS}
+        />
+
+        {/* 프로필 이미지 컨테이너 */}
+        <SkeletonCircle size={150} style={styles.profileImageContainer} />
+
+        {/* 사용자 정보 */}
+        <SkeletonText width={200} height={24} style={styles.userNameText} />
+        <SkeletonText width={150} height={16} style={styles.instagramIdText} />
+
+        {/* Message Indicator Button */}
+        <SkeletonCircle size={60} style={styles.messageIndicatorContainer} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: 60 }]}>

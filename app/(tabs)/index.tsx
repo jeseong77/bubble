@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   ViewStyle,
+  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,6 +24,16 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { useMatchmakingContext } from "@/providers/MatchmakingProvider";
+import { MatchCard } from "@/components/matchmaking/MatchCard";
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+  NoGroupState,
+} from "@/components/matchmaking/MatchmakingStates";
+import { GroupMember } from "@/hooks/useMatchmaking";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -35,7 +46,7 @@ const overlapRatio = 0.32;
 const centerBubbleImageSize = centerBubbleDiameter * 0.44;
 const centerBubbleOverlap = centerBubbleImageSize * 0.18;
 
-// Mock data (same as provided)
+// Mock data for user's own bubble (this will be replaced with real data later)
 const userBubble = {
   name: "Chill Bros",
   users: [
@@ -51,93 +62,31 @@ const userBubble = {
     },
   ],
 };
-const oppositeBubbles = [
-  {
-    name: "Chicken lovers",
-    users: [
-      {
-        id: "jenny_001",
-        name: "Jenny",
-        age: 22,
-        mbti: "INFP",
-        height: "5'5",
-        location: "Brooklyn",
-        bio: "Lover of coffee, good books, and spontaneous road trips.",
-        image: {
-          uri: "https://i.namu.wiki/i/GqC6WQ-gLZYh2Tpsfocqoo44Om_lQAWRaGzMbIYjcZ3X5kJUWdC2g6iQ6Ry9oBCWNnsHyFVxnQzcYff6r51R2w.webp",
-        },
-        images: [
-          "https://i.namu.wiki/i/GqC6WQ-gLZYh2Tpsfocqoo44Om_lQAWRaGzMbIYjcZ3X5kJUWdC2g6iQ6Ry9oBCWNnsHyFVxnQzcYff6r51R2w.webp",
-          "https://image.newdaily.co.kr/site/data/img/2018/07/21/2018072100006_0.jpg",
-          "https://img.sportsworldi.com/content/image/2025/04/10/20250410511792.jpg",
-        ],
-      },
-      {
-        id: "joy_002",
-        name: "Joy",
-        age: 23,
-        mbti: "ENFJ",
-        height: "5'4",
-        location: "Manhattan",
-        bio: "Passionate about music, art, and making new friends.",
-        image: {
-          uri: "https://m.sportsworldi.com/content/image/2021/05/23/20210523502455.jpg",
-        },
-        images: [
-          "https://m.sportsworldi.com/content/image/2021/05/23/20210523502455.jpg",
-          "https://spnimage.edaily.co.kr/images/Photo/files/NP/S/2020/05/PS20050100050.jpg",
-          "https://www.kstarfashion.com/news/photo/202406/215725_131576_3937.jpg",
-        ],
-      },
-    ],
-  },
-  {
-    name: "Movie Fans",
-    users: [
-      {
-        id: "lisa_003",
-        name: "Lisa",
-        age: 24,
-        mbti: "ISTP",
-        height: "5'6",
-        location: "Queens",
-        bio: "Film enthusiast and adventure seeker. Always up for trying new things!",
-        image: {
-          uri: "https://i.namu.wiki/i/Uot0tQDfWx3O_1fWe7mshlKfZ5H0eyAiaNbKgSwrWg14lZqQyXTmaHBo0CL0A9oQYiGG9noJFh6jFpb-fA2sAg.webp",
-        },
-        images: [
-          "https://i.namu.wiki/i/Uot0tQDfWx3O_1fWe7mshlKfZ5H0eyAiaNbKgSwrWg14lZqQyXTmaHBo0CL0A9oQYiGG9noJFh6jFpb-fA2sAg.webp",
-          "https://img.etoday.co.kr/pto_db/2023/02/600/20230201171214_1847646_1200_1500.jpg",
-          "https://m.segye.com/content/image/2020/05/14/20200514513380.jpg",
-        ],
-      },
-      {
-        id: "rose_004",
-        name: "Rose",
-        age: 25,
-        mbti: "ESFP",
-        height: "5'3",
-        location: "Bronx",
-        bio: "Life is a party and I'm here to enjoy every moment of it!",
-        image: {
-          uri: "https://cdn.hankooki.com/news/photo/202409/193587_268030_5014.jpg",
-        },
-        images: [
-          "https://cdn.hankooki.com/news/photo/202409/193587_268030_5014.jpg",
-          "https://www.kstarfashion.com/news/photo/202404/214679_129478_1348.jpg",
-          "https://www.news1.kr/_next/image?url=https%3A%2F%2Fi3n.news1.kr%2Fsystem%2Fphotos%2F2025%2F5%2F7%2F7272825%2Fhigh.jpg&w=1920&q=75",
-        ],
-      },
-    ],
-  },
-];
 
 export default function MatchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [bubbleIdx, setBubbleIdx] = useState(0);
-  const [displayedBubble, setDisplayedBubble] = useState(oppositeBubbles[0]);
+
+  // Get real data from context
+  const {
+    matchingGroups,
+    isLoading,
+    isLoadingMore,
+    error,
+    likeGroup,
+    passGroup,
+    currentUserGroup,
+    hasMore,
+    loadMore,
+    refetch,
+  } = useMatchmakingContext();
+
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [recentMatches, setRecentMatches] = useState<string[]>([]); // Track recent matches for better UX
+
+  // Get current group from real data
+  const currentGroup = matchingGroups[currentGroupIndex];
 
   // Unified animation values
   const translateX = useSharedValue(0);
@@ -145,55 +94,144 @@ export default function MatchScreen() {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
+  // Handle different states
+  if (!currentUserGroup) {
+    return (
+      <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
+    );
+  }
+
+  if (isLoading) {
+    return <LoadingState message="Finding your perfect matches..." />;
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        error={error}
+        onRetry={() => {
+          console.log("[MatchScreen] Retrying after error...");
+          refetch();
+        }}
+      />
+    );
+  }
+
+  if (matchingGroups.length === 0 && !isLoading) {
+    return (
+      <EmptyState
+        message="No more matches available right now. Check back later!"
+        onRefresh={() => {
+          console.log("[MatchScreen] Refreshing empty state...");
+          refetch();
+        }}
+      />
+    );
+  }
+
   // Handle user image click
-  const handleUserClick = (user: any) => {
+  const handleUserClick = (user: GroupMember) => {
     router.push({
       pathname: "/bubble/user/[userId]",
       params: {
-        userId: user.id,
-        name: user.name,
-        age: user.age,
+        userId: user.user_id,
+        name: user.first_name,
+        age: user.age.toString(),
         mbti: user.mbti,
         height: user.height,
         location: user.location,
         bio: user.bio,
-        images: JSON.stringify(user.images),
+        images: JSON.stringify([user.avatar_url]), // TODO: Handle multiple images
       },
     });
   };
 
   // Animate and switch bubble data
   const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
-    // 1. Determine next bubble index and data
-    const nextIdx = (bubbleIdx + 1) % oppositeBubbles.length;
-    const nextBubbleData = oppositeBubbles[nextIdx];
+    // Handle real data cycling
+    const nextIndex = (currentGroupIndex + 1) % matchingGroups.length;
+    setCurrentGroupIndex(nextIndex);
 
-    // 2. Update state for the next bubble
-    setBubbleIdx(nextIdx);
-    setDisplayedBubble(nextBubbleData);
+    // Handle empty state when no more groups
+    if (matchingGroups.length === 0) {
+      return;
+    }
 
-    // 3. Instantly move the (now invisible) bubble to the entry position
+    // Optimized animation timing for real data
+    const animationDuration = 350; // Slightly faster for better UX
     const entryX =
       direction === "left" ? screenWidth * 0.5 : -screenWidth * 0.5;
     translateX.value = entryX;
     translateY.value = -screenHeight * 0.3;
     scale.value = 0.6;
 
-    // 4. Animate IN to the center
-    translateX.value = withTiming(0, { duration: 400 });
-    translateY.value = withTiming(0, { duration: 400 });
-    scale.value = withTiming(1, { duration: 400 });
-    opacity.value = withTiming(1, { duration: 400 }, (finished) => {
-      if (finished) {
-        runOnJS(setIsAnimating)(false);
+    // Animate IN to the center with optimized timing
+    translateX.value = withTiming(0, { duration: animationDuration });
+    translateY.value = withTiming(0, { duration: animationDuration });
+    scale.value = withTiming(1, { duration: animationDuration });
+    opacity.value = withTiming(
+      1,
+      { duration: animationDuration },
+      (finished) => {
+        if (finished) {
+          runOnJS(setIsAnimating)(false);
+        }
       }
-    });
+    );
   };
 
   // Handler for X and Heart
-  const handleSwipe = (direction: "left" | "right") => {
-    if (isAnimating) return;
+  const handleSwipe = async (direction: "left" | "right") => {
+    if (isAnimating || !currentGroup) return;
+
+    // Add haptic feedback
+    if (Platform.OS === "ios") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     setIsAnimating(true);
+
+    if (direction === "right") {
+      // Visual feedback for like action
+      console.log(`[MatchScreen] Liking group: ${currentGroup.group_name}`);
+
+      // Call likeGroup RPC
+      const isMatch = await likeGroup(currentGroup.group_id);
+      if (isMatch) {
+        // Enhanced match notification with haptic feedback
+        if (Platform.OS === "ios") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+
+        setRecentMatches((prev) => [...prev, currentGroup.group_id]);
+        Alert.alert(
+          "It's a Match! 🎉",
+          `You and ${currentGroup.group_name} liked each other!`,
+          [
+            {
+              text: "Continue Swiping",
+              style: "default",
+            },
+            {
+              text: "View Matches",
+              style: "default",
+              onPress: () => {
+                // TODO: Navigate to matches screen
+                console.log("Navigate to matches screen");
+              },
+            },
+          ]
+        );
+      } else {
+        console.log(
+          `[MatchScreen] Liked ${currentGroup.group_name} (no match yet)`
+        );
+      }
+    } else {
+      // Visual feedback for pass action
+      console.log(`[MatchScreen] Passing group: ${currentGroup.group_name}`);
+      passGroup(currentGroup.group_id);
+    }
 
     // Animate OUT
     const targetX =
@@ -207,6 +245,29 @@ export default function MatchScreen() {
       }
     });
   };
+
+  // Pre-fetching logic
+  useEffect(() => {
+    if (currentGroupIndex >= matchingGroups.length * 0.7 && hasMore) {
+      loadMore();
+    }
+  }, [currentGroupIndex, matchingGroups.length, hasMore, loadMore]);
+
+  // Enhanced pre-fetching with better UX
+  useEffect(() => {
+    const shouldLoadMore =
+      matchingGroups.length > 0 &&
+      currentGroupIndex >= Math.max(1, matchingGroups.length * 0.6) &&
+      hasMore &&
+      !isLoading;
+
+    if (shouldLoadMore) {
+      console.log(
+        `[MatchScreen] Pre-fetching more groups. Current: ${currentGroupIndex}/${matchingGroups.length}`
+      );
+      loadMore();
+    }
+  }, [currentGroupIndex, matchingGroups.length, hasMore, isLoading, loadMore]);
 
   // Unified animated style for the center bubble
   const animatedBubbleStyle = useAnimatedStyle(() => {
@@ -302,11 +363,11 @@ export default function MatchScreen() {
           intensity={Platform.OS === "ios" ? 60 : 80}
           tint="light"
         >
-          <Text style={styles.centerBubbleName}>{displayedBubble.name}</Text>
+          <Text style={styles.centerBubbleName}>{currentGroup.group_name}</Text>
           <View style={styles.centerBubbleRow}>
-            {displayedBubble.users.map((user, idx) => (
+            {currentGroup.members?.map((user, idx) => (
               <TouchableOpacity
-                key={user.id}
+                key={user.user_id}
                 style={{
                   marginLeft: idx === 1 ? -centerBubbleOverlap : 0,
                   zIndex: idx === 0 ? 2 : 1,
@@ -316,9 +377,12 @@ export default function MatchScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={styles.centerBubbleUserName}>
-                  {user.name} {user.age}
+                  {user.first_name} {user.age}
                 </Text>
-                <Image source={user.image} style={styles.centerBubbleImage} />
+                <Image
+                  source={{ uri: user.avatar_url || undefined }}
+                  style={styles.centerBubbleImage}
+                />
               </TouchableOpacity>
             ))}
           </View>
@@ -338,6 +402,36 @@ export default function MatchScreen() {
       >
         <Feather name="heart" size={36} color="#fff" />
       </TouchableOpacity>
+
+      {/* Loading indicator for more data */}
+      {isLoadingMore && (
+        <View style={styles.loadingMoreContainer}>
+          <View style={styles.loadingMoreIndicator}>
+            <Text style={styles.loadingMoreText}>Loading more...</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Progress indicator */}
+      {matchingGroups.length > 0 && (
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${
+                    ((currentGroupIndex + 1) / matchingGroups.length) * 100
+                  }%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {currentGroupIndex + 1} of {matchingGroups.length}
+          </Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -480,5 +574,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  loadingMoreContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(255,255,255,0.8)",
+    paddingVertical: 10,
+    alignItems: "center",
+    zIndex: 10,
+  },
+  loadingMoreIndicator: {
+    backgroundColor: "#8ec3ff",
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  loadingMoreText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  progressContainer: {
+    position: "absolute",
+    bottom: 100, // Adjust as needed
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 10,
+  },
+  progressBar: {
+    width: "80%",
+    height: 8,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: "#8ec3ff",
+  },
+  progressText: {
+    fontSize: 14,
+    color: "#555",
   },
 });

@@ -49,6 +49,133 @@ const TABS_DATA: TabInfo[] = [
 const NUM_COLUMNS = 3;
 const MAX_IMAGES_DEFAULT = 6;
 
+// Skeleton Components
+const SkeletonView = ({
+  width,
+  height,
+  style,
+}: {
+  width: number | string;
+  height: number | string;
+  style?: any;
+}) => (
+  <View
+    style={[
+      {
+        width: width as any,
+        height: height as any,
+        backgroundColor: "#f0f0f0",
+        borderRadius: 8,
+      },
+      style,
+    ]}
+  />
+);
+
+const SkeletonCircle = ({ size, style }: { size: number; style?: any }) => (
+  <View
+    style={[
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: "#f0f0f0",
+      },
+      style,
+    ]}
+  />
+);
+
+const SkeletonText = ({
+  width,
+  height,
+  style,
+}: {
+  width: number | string;
+  height: number | string;
+  style?: any;
+}) => (
+  <View
+    style={[
+      {
+        width: width as any,
+        height: height as any,
+        backgroundColor: "#f0f0f0",
+        borderRadius: 4,
+      },
+      style,
+    ]}
+  />
+);
+
+// Skeleton Bubble Item Component
+const SkeletonBubbleItem = () => {
+  return (
+    <View style={styles.skeletonBubbleItem}>
+      <View style={styles.skeletonBubbleContent}>
+        <View style={styles.skeletonBubbleAvatars}>
+          <SkeletonCircle size={40} />
+          <SkeletonCircle size={40} style={{ marginLeft: -15 }} />
+        </View>
+        <View style={styles.skeletonBubbleText}>
+          <SkeletonText width={100} height={16} style={{ marginBottom: 4 }} />
+          <SkeletonText width={60} height={12} />
+        </View>
+      </View>
+      <SkeletonView width={24} height={24} />
+    </View>
+  );
+};
+
+// Skeleton Image Grid Component
+const SkeletonImageGrid = () => {
+  const screenWidth = Dimensions.get("window").width;
+  const contentPaddingHorizontal = 20;
+  const itemGap = 10;
+  const totalGapSpace = itemGap * (NUM_COLUMNS - 1);
+  const itemSize =
+    (screenWidth - contentPaddingHorizontal * 2 - totalGapSpace) / NUM_COLUMNS;
+
+  return (
+    <View style={styles.skeletonImageGrid}>
+      {Array.from({ length: MAX_IMAGES_DEFAULT }).map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.skeletonImageSlot,
+            { width: itemSize, height: itemSize },
+          ]}
+        >
+          <SkeletonView
+            width="100%"
+            height="100%"
+            style={{ borderRadius: 12 }}
+          />
+        </View>
+      ))}
+    </View>
+  );
+};
+
+// Skeleton Profile Details Component
+const SkeletonProfileDetails = () => {
+  return (
+    <View style={styles.skeletonProfileDetails}>
+      {Array.from({ length: 7 }).map((_, index) => (
+        <View key={index} style={styles.skeletonDetailItem}>
+          <SkeletonText width={80} height={14} style={{ marginBottom: 8 }} />
+          <SkeletonText width="100%" height={20} />
+        </View>
+      ))}
+      <SkeletonView
+        width="100%"
+        height={50}
+        style={{ marginTop: 30, borderRadius: 25 }}
+      />
+    </View>
+  );
+};
+
 function ProfileScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
@@ -1024,12 +1151,13 @@ function ProfileScreen() {
     } else if (activeTab === "myBubble") {
       return (
         <View style={styles.myBubbleContainer}>
-          {/* 1. 로딩 중 UI */}
+          {/* Show skeleton UI while loading bubbles */}
           {bubblesLoading ? (
-            <ActivityIndicator
-              style={{ marginTop: 20 }}
-              color={colors.primary}
-            />
+            <>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <SkeletonBubbleItem key={index} />
+              ))}
+            </>
           ) : (
             <>
               {/* 2. 버블 목록이 있을 때 */}
@@ -1110,28 +1238,157 @@ function ProfileScreen() {
   // --- 로딩 및 데이터 없음 UI 처리 ---
   if (loading) {
     return (
-      <CustomView
-        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
+      <CustomView style={{ backgroundColor: colors.white }}>
+        <CustomAppBar
+          leftComponent={
+            <Text
+              style={{
+                fontFamily: "Quicksand-Bold",
+                fontSize: 22,
+                color: logoTextColor,
+              }}
+            >
+              Bubble
+            </Text>
+          }
+          rightComponent={
+            <TouchableOpacity
+              onPress={navigateToSettings}
+              style={styles.appBarIconButton}
+            >
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color={iconColorForAppBar}
+              />
+            </TouchableOpacity>
+          }
+          background={true}
+          blurIntensity={70}
+          extendStatusBar
+        />
+        <ScrollView
+          style={[styles.container, { paddingTop: topPadding }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <ProfileHero
+            firstName={profile?.firstName}
+            lastName={profile?.lastName}
+            imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
+            skeleton={loading}
+          />
+          <ProfileTab
+            tabs={TABS_DATA}
+            activeTabId={activeTab}
+            onTabPress={(tabId) => handleTabChange(tabId)}
+          />
+          {activeTab === "bubblePro" && (
+            <View style={styles.tabContentPlaceholder}>
+              <SkeletonText width={200} height={20} />
+            </View>
+          )}
+          {activeTab === "myBubble" && (
+            <View style={styles.myBubbleContainer}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <SkeletonBubbleItem key={index} />
+              ))}
+              <TouchableOpacity
+                style={styles.createBubbleRow}
+                onPress={() => setShowCreateBubbleModal(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.createBubbleContent}>
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={24}
+                    color="#5A99E5"
+                  />
+                  <Text style={styles.createBubbleText}>Create New Bubble</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#C0C0C0" />
+              </TouchableOpacity>
+            </View>
+          )}
+          {activeTab === "myInfo" && (
+            <View style={styles.editProfileTabContent}>
+              <SkeletonImageGrid />
+              <SkeletonProfileDetails />
+            </View>
+          )}
+        </ScrollView>
+
+        <CreateBubbleModal
+          visible={showCreateBubbleModal}
+          onClose={() => setShowCreateBubbleModal(false)}
+          onCreate={(bubbleType) =>
+            handleCreateBubble(bubbleType, "New Bubble")
+          }
+        />
       </CustomView>
     );
   }
 
   if (!profile) {
     return (
-      <CustomView
-        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-      >
+      <CustomView style={{ backgroundColor: colors.white }}>
         <CustomAppBar
-          leftComponent={<Text style={styles.appBarTitle}>Bubble</Text>}
+          leftComponent={
+            <Text
+              style={{
+                fontFamily: "Quicksand-Bold",
+                fontSize: 22,
+                color: logoTextColor,
+              }}
+            >
+              Bubble
+            </Text>
+          }
+          rightComponent={
+            <TouchableOpacity
+              onPress={navigateToSettings}
+              style={styles.appBarIconButton}
+            >
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color={iconColorForAppBar}
+              />
+            </TouchableOpacity>
+          }
           background={true}
           blurIntensity={70}
           extendStatusBar
         />
-        <Text style={{ color: colors.black }}>
-          Could not load profile. Please try again later.
-        </Text>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingTop: topPadding,
+          }}
+        >
+          <Text
+            style={{
+              color: colors.black,
+              fontSize: 16,
+              textAlign: "center",
+              paddingHorizontal: 20,
+            }}
+          >
+            Could not load profile. Please try again later.
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              { backgroundColor: colors.primary, marginTop: 20 },
+            ]}
+            onPress={() => window.location.reload()}
+          >
+            <Text style={[styles.saveButtonText, { color: colors.white }]}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
       </CustomView>
     );
   }
@@ -1175,6 +1432,7 @@ function ProfileScreen() {
           firstName={profile.firstName}
           lastName={profile.lastName}
           imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
+          skeleton={false}
         />
         <ProfileTab
           tabs={TABS_DATA}
@@ -1497,6 +1755,46 @@ const styles = StyleSheet.create({
     fontFamily: "Quicksand-Regular",
     lineHeight: 24,
     textAlign: "center",
+  },
+  skeletonBubbleItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: "#f0f0f0",
+    marginVertical: 5,
+    borderRadius: 10,
+  },
+  skeletonBubbleContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  skeletonBubbleAvatars: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  skeletonBubbleText: {
+    marginLeft: 15,
+  },
+  skeletonImageGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingTop: 20,
+    paddingHorizontal: 10,
+  },
+  skeletonImageSlot: {
+    marginBottom: 10,
+    position: "relative",
+  },
+  skeletonProfileDetails: {
+    paddingTop: 30,
+  },
+  skeletonDetailItem: {
+    marginBottom: 20,
+    paddingBottom: 10,
   },
 });
 
