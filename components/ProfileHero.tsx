@@ -243,6 +243,8 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         return;
       }
 
+      console.log("[ProfileHero] get_my_bubbles 응답:", data);
+      
       // Filter only invited status bubbles
       const invitedCount = (data || []).filter(
         (bubble: any) => bubble.user_status === "invited"

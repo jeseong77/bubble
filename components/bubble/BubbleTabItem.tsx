@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { Colors } from "@/constants/Colors";
 
 // 버블 멤버 타입 정의
 export type BubbleTabMember = {
@@ -21,9 +22,18 @@ export type BubbleTabItemData = {
 interface BubbleTabItemProps {
   bubble: BubbleTabItemData;
   onPress: () => void;
+  isActive?: boolean;
+  onSetActive?: () => void;
+  onLeaveGroup?: () => void;
 }
 
-const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
+const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ 
+  bubble, 
+  onPress, 
+  isActive = false, 
+  onSetActive, 
+  onLeaveGroup 
+}) => {
   const { members, name, status } = bubble;
   const [currentUserSignedUrl, setCurrentUserSignedUrl] = useState<
     string | null
@@ -46,62 +56,26 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
   const otherMembers = members.slice(1);
   const otherMember = otherMembers[0]; // 첫 번째 다른 멤버
 
-  // Signed URL을 생성하는 공통 함수
-  const createSignedUrlForMember = async (
-    avatarUrl: string | null | undefined
-  ): Promise<string | null> => {
+  // 이미 공개 URL이므로 Signed URL 생성이 필요 없습니다
+  const getImageUrl = (avatarUrl: string | null | undefined): string | null => {
     if (!avatarUrl) return null;
-
-    try {
-      // Public URL에서 파일 경로 추출
-      const urlParts = avatarUrl.split("/user-images/");
-      const filePath = urlParts.length > 1 ? urlParts[1] : null;
-
-      if (!filePath) {
-        console.log(
-          "[BubbleTabItem] 파일 경로를 추출할 수 없습니다:",
-          avatarUrl
-        );
-        return null;
-      }
-
-      console.log("[BubbleTabItem] Signed URL 생성 시작:", filePath);
-      const { data, error } = await supabase.storage
-        .from("user-images")
-        .createSignedUrl(filePath, 3600); // 1시간 유효
-
-      if (error) {
-        console.error("[BubbleTabItem] Signed URL 생성 실패:", error);
-        return null;
-      }
-
-      console.log("[BubbleTabItem] Signed URL 생성 성공:", data.signedUrl);
-      return data.signedUrl;
-    } catch (error) {
-      console.error("[BubbleTabItem] Signed URL 생성 중 예외:", error);
-      return null;
-    }
+    
+    // 이미 공개 URL이므로 그대로 사용
+    console.log("[BubbleTabItem] 공개 URL 사용:", avatarUrl);
+    return avatarUrl;
   };
 
-  // 현재 유저와 다른 멤버의 Signed URL을 가져옵니다.
+  // 현재 유저와 다른 멤버의 이미지 URL을 설정합니다.
   useEffect(() => {
-    const loadSignedUrls = async () => {
-      // 현재 유저의 Signed URL 생성
-      const currentUserUrl = await createSignedUrlForMember(
-        currentUser?.avatar_url
-      );
-      setCurrentUserSignedUrl(currentUserUrl);
+    // 현재 유저의 이미지 URL 설정
+    const currentUserUrl = getImageUrl(currentUser?.avatar_url);
+    setCurrentUserSignedUrl(currentUserUrl);
 
-      // 다른 멤버의 Signed URL 생성
-      if (otherMember) {
-        const otherMemberUrl = await createSignedUrlForMember(
-          otherMember.avatar_url
-        );
-        setOtherMemberSignedUrl(otherMemberUrl);
-      }
-    };
-
-    loadSignedUrls();
+    // 다른 멤버의 이미지 URL 설정
+    if (otherMember) {
+      const otherMemberUrl = getImageUrl(otherMember.avatar_url);
+      setOtherMemberSignedUrl(otherMemberUrl);
+    }
   }, [currentUser?.avatar_url, otherMember?.avatar_url]);
 
   // 서버에서 받은 데이터 로깅
@@ -109,6 +83,7 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
   console.log("[BubbleTabItem] - 버블 이름:", name);
   console.log("[BubbleTabItem] - 버블 상태:", status);
   console.log("[BubbleTabItem] - 멤버 수:", members.length);
+  console.log("[BubbleTabItem] - Active 상태:", isActive);
 
   if (currentUser) {
     console.log("[BubbleTabItem] - 현재 유저 ID:", currentUser.id);
@@ -118,8 +93,36 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
     );
   }
 
+  // Long Press 핸들러
+  const handleLongPress = () => {
+    Alert.alert(
+      "버블 옵션",
+      `${name || "Unnamed Bubble"}에 대한 작업을 선택하세요`,
+      [
+        {
+          text: "Active로 설정",
+          onPress: onSetActive,
+          style: "default",
+        },
+        {
+          text: "나가기",
+          onPress: onLeaveGroup,
+          style: "destructive",
+        },
+        {
+          text: "취소",
+          style: "cancel",
+        },
+      ]
+    );
+  };
+
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity 
+      onPress={onPress} 
+      onLongPress={handleLongPress}
+      activeOpacity={0.7}
+    >
       <View style={styles.container}>
         <View style={styles.avatarContainer}>
           {/* 현재 유저의 이미지 (왼쪽) */}
@@ -190,6 +193,9 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({ bubble, onPress }) => {
         {/* 중앙 정렬된 타이틀 */}
         <View style={styles.textContainer}>
           <Text style={styles.title}>{name || "Unnamed Bubble"}</Text>
+          {isActive && (
+            <Text style={styles.activeText}>Active</Text>
+          )}
         </View>
 
         {/* 오른쪽 화살표 아이콘 */}
@@ -256,6 +262,13 @@ const styles = StyleSheet.create({
   chevronContainer: {
     marginLeft: "auto",
     paddingRight: 12,
+  },
+  activeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.light.tint,
+    fontFamily: "Quicksand-Bold",
+    marginTop: 2,
   },
 });
 

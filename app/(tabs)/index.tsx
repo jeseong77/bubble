@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from "react-native-reanimated";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useMatchmakingContext } from "@/providers/MatchmakingProvider";
 import { MatchCard } from "@/components/matchmaking/MatchCard";
@@ -36,7 +36,8 @@ import {
 import { GroupMember } from "@/hooks/useMatchmaking";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
-import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
+
+
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -90,82 +91,96 @@ export default function MatchScreen() {
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
 
-  // 사용자 그룹 정보 가져오기
-  useEffect(() => {
-    const fetchUserBubble = async () => {
-      if (!session?.user) return;
+  // 화면이 포커스될 때마다 데이터 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      console.log("[MatchScreen] 🎯 Screen focused, refreshing data...");
+      
+      // 매칭 데이터 새로고침 (한 번만 호출)
+      if (refetch) {
+        refetch();
+      }
+      
+      // 사용자 그룹 정보 새로고침
+      const fetchUserBubble = async () => {
+        if (!session?.user) return;
 
-      setUserBubbleLoading(true);
-      try {
-        console.log("[MatchScreen] 사용자 그룹 정보 가져오기 시작");
-        
-        // get_my_bubbles RPC를 사용하여 사용자의 버블 정보 가져오기
-        const { data, error } = await supabase.rpc("get_my_bubbles", {
-          p_user_id: session.user.id,
-        });
-
-        if (error) {
-          console.error("[MatchScreen] 사용자 버블 정보 조회 실패:", error);
-          throw error;
-        }
-
-        console.log("[MatchScreen] 사용자 버블 정보 조회 성공:", data);
-
-        // joined 상태인 버블 중 첫 번째 것을 사용
-        const joinedBubble = data?.find((bubble: any) => bubble.user_status === "joined");
-        
-        if (joinedBubble) {
-          console.log("[MatchScreen] 사용자 그룹 발견:", joinedBubble);
+        setUserBubbleLoading(true);
+        try {
+          console.log("[MatchScreen] 사용자 그룹 정보 가져오기 시작");
           
-          // 멤버 정보 파싱
-          let members: Array<{ id: string; first_name: string; last_name: string; avatar_url: string }> = [];
-          if (joinedBubble.members) {
-            try {
-              members = Array.isArray(joinedBubble.members)
-                ? joinedBubble.members
-                : JSON.parse(joinedBubble.members);
-            } catch (parseError) {
-              console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
-              members = [];
-            }
+          // get_my_bubbles RPC를 사용하여 사용자의 버블 정보 가져오기
+          const { data, error } = await supabase.rpc("get_my_bubbles", {
+            p_user_id: session.user.id,
+          });
+
+          if (error) {
+            console.error("[MatchScreen] 사용자 버블 정보 조회 실패:", error);
+            throw error;
           }
 
-          // Signed URL 생성
-          const membersWithSignedUrls = await Promise.all(
-            members.map(async (member) => {
-              let signedUrl = null;
-              if (member.avatar_url) {
-                signedUrl = await createSignedUrlForAvatar(member.avatar_url);
+          console.log("[MatchScreen] 사용자 버블 정보 조회 성공:", data);
+
+          console.log("[MatchScreen] get_my_bubbles 응답:", data);
+          
+          // joined 상태인 버블 중 첫 번째 것을 사용
+          const joinedBubble = data?.find((bubble: any) => bubble.user_status === "joined");
+          
+          if (joinedBubble) {
+            console.log("[MatchScreen] 사용자 그룹 발견:", joinedBubble);
+            
+            // 멤버 정보 파싱 (새로운 구조에 맞게)
+            let members: Array<{ id: string; first_name: string; last_name: string; images: Array<{ image_url: string; position: number }> }> = [];
+            if (joinedBubble.members) {
+              try {
+                members = Array.isArray(joinedBubble.members)
+                  ? joinedBubble.members
+                  : JSON.parse(joinedBubble.members);
+              } catch (parseError) {
+                console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
+                members = [];
               }
+            }
+
+            // 새로운 구조에 맞게 멤버 데이터 변환
+            const membersWithUrls = members.map((member) => {
+              // 첫 번째 이미지를 아바타로 사용
+              const avatarUrl = member.images && member.images.length > 0 
+                ? member.images[0].image_url 
+                : null;
+              
               return {
-                ...member,
-                signedUrl,
+                id: member.id,
+                first_name: member.first_name,
+                last_name: member.last_name,
+                avatar_url: avatarUrl,
+                signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
               };
-            })
-          );
+            });
 
-          const userBubbleData: UserBubble = {
-            id: joinedBubble.id,
-            name: joinedBubble.name,
-            members: membersWithSignedUrls,
-          };
+            const userBubbleData: UserBubble = {
+              id: joinedBubble.id,
+              name: joinedBubble.name,
+              members: membersWithUrls,
+            };
 
-          console.log("[MatchScreen] 사용자 그룹 데이터 설정:", userBubbleData);
-          setUserBubble(userBubbleData);
-        } else {
-          console.log("[MatchScreen] 사용자가 속한 그룹이 없습니다");
+            console.log("[MatchScreen] 사용자 그룹 데이터 설정:", userBubbleData);
+            setUserBubble(userBubbleData);
+          } else {
+            console.log("[MatchScreen] 사용자가 속한 그룹이 없습니다");
+            setUserBubble(null);
+          }
+        } catch (error) {
+          console.error("[MatchScreen] 사용자 그룹 정보 가져오기 실패:", error);
           setUserBubble(null);
+        } finally {
+          setUserBubbleLoading(false);
         }
-      } catch (error) {
-        console.error("[MatchScreen] 사용자 그룹 정보 가져오기 실패:", error);
-        setUserBubble(null);
-      } finally {
-        setUserBubbleLoading(false);
-      }
-    };
+      };
 
-    fetchUserBubble();
-  }, [session?.user]);
+      fetchUserBubble();
+    }, [session?.user]) // refetch 제거
+  );
 
   // 🔍 DEBUG: 매칭 그룹 데이터 로깅
   useEffect(() => {
@@ -221,24 +236,34 @@ export default function MatchScreen() {
   // Handle different states - moved to after all hooks are called
   const renderContent = () => {
     console.log("=== 🎨 RENDER CONTENT DEBUG ===");
-    console.log("currentUserGroup:", currentUserGroup);
+    console.log("userBubble:", userBubble);
+    console.log("userBubbleLoading:", userBubbleLoading);
     console.log("isLoading:", isLoading);
     console.log("error:", error);
     console.log("matchingGroups.length:", matchingGroups.length);
     console.log("currentGroup:", currentGroup);
 
-    if (!currentUserGroup) {
-      console.log("❌ No current user group - showing NoGroupState");
+    // 사용자 버블 로딩 중
+    if (userBubbleLoading) {
+      console.log("⏳ User bubble loading - showing LoadingState");
+      return <LoadingState message="Loading your bubble..." />;
+    }
+
+    // 사용자가 속한 그룹이 없음
+    if (!userBubble) {
+      console.log("❌ No user bubble - showing NoGroupState");
       return (
         <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
       );
     }
 
+    // 매칭 그룹 로딩 중
     if (isLoading) {
-      console.log("⏳ Loading - showing LoadingState");
+      console.log("⏳ Matching groups loading - showing LoadingState");
       return <LoadingState message="Finding your perfect matches..." />;
     }
 
+    // 매칭 에러
     if (error) {
       console.log("❌ Error - showing ErrorState");
       return (
@@ -252,8 +277,9 @@ export default function MatchScreen() {
       );
     }
 
+    // 매칭 그룹이 없음
     if (matchingGroups.length === 0 && !isLoading) {
-      console.log("📭 Empty - showing EmptyState");
+      console.log("📭 No matching groups - showing EmptyState");
       return (
         <EmptyState
           message="No more matches available right now. Check back later!"

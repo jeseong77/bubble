@@ -75,14 +75,12 @@ const SkeletonText = ({
   />
 );
 
-// 멤버 타입 정의
+// 멤버 타입 정의 (간단한 버전)
 interface BubbleMember {
   id: string;
   first_name: string;
   last_name: string;
   avatar_url: string | null;
-  joined_at: string;
-  status: "invited" | "joined" | "declined";
 }
 
 export default function BubbleFormScreen() {
@@ -114,15 +112,36 @@ export default function BubbleFormScreen() {
       if (isExistingBubble === "true" && groupId) {
         setIsLoading(true);
         try {
+          console.log("=== 🔍 FORM.TSX DEBUG ===");
+          console.log("groupId:", groupId);
+          console.log("isExistingBubble:", isExistingBubble);
+          
           const { data, error } = await supabase.rpc("get_bubble", {
             p_group_id: groupId,
           });
 
+          console.log("=== 📡 GET_BUBBLE RPC RESULT ===");
+          console.log("Data:", data);
+          console.log("Error:", error);
+          console.log("Data type:", typeof data);
+          console.log("Data length:", data?.length || 0);
+
           if (error) {
             console.error("Error fetching bubble info:", error);
+            console.error("Error details:", {
+              message: error.message,
+              details: error.details,
+              hint: error.hint,
+              code: error.code
+            });
           } else if (data && data.length > 0) {
             const bubbleInfo = data[0];
-            console.log("버블 정보:", bubbleInfo);
+            console.log("=== ✅ BUBBLE INFO ===");
+            console.log("Bubble Info:", bubbleInfo);
+            console.log("Bubble ID:", bubbleInfo.id);
+            console.log("Bubble Name:", bubbleInfo.name);
+            console.log("Members field:", bubbleInfo.members);
+            console.log("Members field type:", typeof bubbleInfo.members);
 
             // 버블 이름 설정
             setBubbleName(bubbleInfo.name || "");
@@ -137,14 +156,20 @@ export default function BubbleFormScreen() {
                   ? bubbleInfo.members
                   : JSON.parse(bubbleInfo.members);
                 setBubbleMembers(members || []);
-                console.log("멤버 정보:", members);
+                console.log("=== ✅ PARSED MEMBERS ===");
+                console.log("Parsed members:", members);
+                console.log("Members count:", members.length);
               } catch (parseError) {
                 console.error("멤버 정보 파싱 실패:", parseError);
+                console.log("Raw members data:", bubbleInfo.members);
                 setBubbleMembers([]);
               }
             } else {
+              console.log("❌ No members field in bubble info");
               setBubbleMembers([]);
             }
+          } else {
+            console.log("❌ No bubble data or empty array");
           }
         } catch (error) {
           console.error("Error in fetchBubbleInfo:", error);
@@ -157,70 +182,33 @@ export default function BubbleFormScreen() {
     fetchBubbleInfo();
   }, [isExistingBubble, groupId]);
 
-  // 멤버들의 프로필 이미지 Signed URL 생성
+  // 멤버들의 프로필 이미지 URL 설정 (새로운 구조에 맞게)
   useEffect(() => {
-    const generateMemberSignedUrls = async () => {
-      if (bubbleMembers.length === 0) return;
+    if (bubbleMembers.length === 0) return;
 
-      setIsMembersLoading(true);
-      const urls: { [key: string]: string } = {};
+    setIsMembersLoading(true);
+    const urls: { [key: string]: string } = {};
 
-      for (const member of bubbleMembers) {
-        if (member.avatar_url) {
-          try {
-            // Public URL에서 파일 경로 추출
-            const urlParts = member.avatar_url.split("/user-images/");
-            const filePath = urlParts.length > 1 ? urlParts[1] : null;
-
-            if (filePath) {
-              const { data, error } = await supabase.storage
-                .from("user-images")
-                .createSignedUrl(filePath, 60);
-
-              if (!error && data) {
-                urls[member.id] = data.signedUrl;
-              }
-            }
-          } catch (error) {
-            console.error(`멤버 ${member.id}의 Signed URL 생성 실패:`, error);
-          }
-        }
+    for (const member of bubbleMembers) {
+      // 간단한 구조: member.avatar_url을 직접 사용
+      if (member.avatar_url) {
+        urls[member.id] = member.avatar_url;
       }
+    }
 
-      setMemberSignedUrls(urls);
-      setIsMembersLoading(false);
-    };
-
-    generateMemberSignedUrls();
+    setMemberSignedUrls(urls);
+    setIsMembersLoading(false);
   }, [bubbleMembers]);
 
   // 버블 크기 계산 (기존 버블의 경우 max_size 사용, 새 버블의 경우 기본값 2)
   const bubbleMemberCount = bubbleInfo?.max_size || 2;
 
-  // 생성자 이미지 Signed URL 생성 (첫 번째 멤버의 이미지 사용)
+  // 생성자 이미지 URL 설정 (간단한 구조에 맞게)
   useEffect(() => {
-    const getCreatorSignedUrl = async () => {
-      if (bubbleMembers.length > 0 && bubbleMembers[0]?.avatar_url) {
-        try {
-          const urlParts = bubbleMembers[0].avatar_url.split("/user-images/");
-          const filePath = urlParts.length > 1 ? urlParts[1] : null;
-
-          if (filePath) {
-            const { data, error } = await supabase.storage
-              .from("user-images")
-              .createSignedUrl(filePath, 60);
-
-            if (!error && data) {
-              setCreatorSignedUrl(data.signedUrl);
-            }
-          }
-        } catch (error) {
-          console.error("Error creating signed URL for creator image:", error);
-        }
-      }
-    };
-
-    getCreatorSignedUrl();
+    if (bubbleMembers.length > 0 && bubbleMembers[0]?.avatar_url) {
+      // 생성자 이미지 URL 설정
+      setCreatorSignedUrl(bubbleMembers[0].avatar_url);
+    }
   }, [bubbleMembers]);
 
   // 기존 버블의 멤버 정보는 이미 파라미터로 전달받았으므로 별도 RPC 호출 불필요

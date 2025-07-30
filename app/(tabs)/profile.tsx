@@ -197,6 +197,7 @@ function ProfileScreen() {
   const [showCreateBubbleModal, setShowCreateBubbleModal] = useState(false);
   const [myBubbles, setMyBubbles] = useState<Bubble[]>([]);
   const [bubblesLoading, setBubblesLoading] = useState(true);
+  const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
 
   // --- 새로운 상태들 ---
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -270,53 +271,10 @@ function ProfileScreen() {
           images: imagesData,
         });
 
-        // --- 👇 [핵심 수정] Signed URL 생성 로직 추가 ---
-        // 3. 가져온 이미지 경로로 Signed URL 생성
-        console.log("[ProfileScreen] 3단계: 이미지 경로 파싱 시작");
-        const imagePaths = imagesData.map((item) => {
-          // 전체 URL에서 파일 경로만 추출합니다.
-          // 예: https://.../user-images/folder/image.jpg -> folder/image.jpg
-          const urlParts = item.image_url.split("/user-images/");
-          const path = urlParts.length > 1 ? urlParts[1] : null;
-          console.log(
-            `[ProfileScreen] 이미지 URL 파싱: ${item.image_url} -> ${path}`
-          );
-          return {
-            path: path,
-            position: item.position,
-          };
-        });
-
-        // 서명된 URL을 생성할 파일 경로 목록
-        const pathsToSign = imagePaths.filter((p) => p.path).map((p) => p.path);
-        console.log(
-          "[ProfileScreen] Signed URL 생성할 경로 목록:",
-          pathsToSign
-        );
-
-        // 빈 배열 체크 추가
-        if (pathsToSign.length === 0) {
-          console.log(
-            "[ProfileScreen] Signed URL 생성할 경로가 없습니다. 빈 배열로 처리합니다."
-          );
-          // 빈 배열일 때는 Signed URL 생성 없이 진행
-        } else {
-          console.log("[ProfileScreen] 4단계: Signed URL 생성 시작");
-          // 한 번에 여러 개의 Signed URL을 효율적으로 생성합니다. (유효시간: 60초)
-          const { data: signedUrlsData, error: signedUrlError } =
-            await supabase.storage
-              .from("user-images")
-              .createSignedUrls(pathsToSign, 60);
-
-          if (signedUrlError) {
-            console.error(
-              "[ProfileScreen] Signed URL 생성 실패:",
-              signedUrlError
-            );
-            throw signedUrlError;
-          }
-          console.log("[ProfileScreen] Signed URL 생성 성공:", signedUrlsData);
-        }
+        // --- 👇 [핵심 수정] 이제 이미지 URL이 이미 영구적인 공개 URL입니다 ---
+        // 3. 이미지 URL을 그대로 사용 (Signed URL 생성 불필요)
+        console.log("[ProfileScreen] 3단계: 이미지 URL 처리 시작");
+        console.log("[ProfileScreen] 이미지 데이터:", imagesData);
 
         // 4. 데이터 가공 및 상태 업데이트
         console.log("[ProfileScreen] 5단계: 데이터 가공 시작");
@@ -356,53 +314,21 @@ function ProfileScreen() {
         setProfile(fetchedProfile);
         setEditingProfile(JSON.parse(JSON.stringify(fetchedProfile)));
 
-        // 최종적으로 화면에 표시할 이미지 상태를 Signed URL과 path로 업데이트합니다.
+        // 최종적으로 화면에 표시할 이미지 상태를 영구 URL로 업데이트합니다.
         console.log("[ProfileScreen] 6단계: 이미지 상태 업데이트 시작");
         const updatedImages: (ProfileImage | null)[] =
           Array(MAX_IMAGES_DEFAULT).fill(null);
 
-        // Signed URL이 있는 경우에만 처리
-        if (pathsToSign.length > 0) {
-          // signedUrlsData 변수를 조건문 밖에서 선언
-          let signedUrlsData: any[] = [];
-
-          // Signed URL 생성이 성공한 경우에만 처리
-          const { data: signedUrlsDataResult, error: signedUrlError } =
-            await supabase.storage
-              .from("user-images")
-              .createSignedUrls(pathsToSign, 60);
-
-          if (signedUrlError) {
-            console.error(
-              "[ProfileScreen] Signed URL 생성 실패:",
-              signedUrlError
-            );
-            throw signedUrlError;
-          }
-
-          signedUrlsData = signedUrlsDataResult || [];
-          console.log("[ProfileScreen] Signed URL 생성 성공:", signedUrlsData);
-
-          signedUrlsData.forEach((signedUrl) => {
-            const originalImage = imagePaths.find(
-              (p) => p.path === signedUrl.path
-            );
-            if (originalImage) {
-              updatedImages[originalImage.position] = {
-                url: signedUrl.signedUrl,
-                path: originalImage.path, // 👈 path 속성 추가
-              };
-              console.log(
-                `[ProfileScreen] 이미지 ${originalImage.position} 위치에 Signed URL 설정:`,
-                signedUrl.signedUrl
-              );
-            }
-          });
-        } else {
+        // 이미지 URL을 그대로 사용 (Signed URL 생성 불필요)
+        imagesData.forEach((imageData) => {
+          updatedImages[imageData.position] = {
+            url: imageData.image_url, // 영구적인 공개 URL을 그대로 사용
+          };
           console.log(
-            "[ProfileScreen] Signed URL이 없어 이미지 상태를 빈 배열로 설정합니다."
+            `[ProfileScreen] 이미지 ${imageData.position} 위치에 URL 설정:`,
+            imageData.image_url
           );
-        }
+        });
 
         console.log("[ProfileScreen] 최종 이미지 상태:", updatedImages);
         setCurrentImages(updatedImages);
@@ -475,18 +401,61 @@ function ProfileScreen() {
           (bubble: any) => bubble.user_status === "joined"
         );
 
+        console.log("[ProfileScreen] get_my_bubbles 응답:", allBubbles);
+        
         // 데이터 구조를 BubbleTabItem에서 사용하는 형태로 변환
-        const transformedBubbles: Bubble[] = joinedBubbles.map(
-          (bubble: any) => ({
+        const transformedBubbles: Bubble[] = joinedBubbles.map((bubble: any) => {
+          // 멤버 정보 파싱 (새로운 구조에 맞게)
+          let members: Array<{ id: string; first_name: string; last_name: string; images: Array<{ image_url: string; position: number }> }> = [];
+          if (bubble.members) {
+            try {
+              members = Array.isArray(bubble.members)
+                ? bubble.members
+                : JSON.parse(bubble.members);
+            } catch (parseError) {
+              console.error("[ProfileScreen] 멤버 정보 파싱 실패:", parseError);
+              members = [];
+            }
+          }
+
+          // 새로운 구조에 맞게 멤버 데이터 변환
+          const transformedMembers = members.map((member) => {
+            // 첫 번째 이미지를 아바타로 사용
+            const avatarUrl = member.images && member.images.length > 0 
+              ? member.images[0].image_url 
+              : null;
+            
+            return {
+              id: member.id,
+              first_name: member.first_name,
+              last_name: member.last_name,
+              avatar_url: avatarUrl,
+              signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
+            };
+          });
+
+          return {
             id: bubble.id,
             name: bubble.name,
             status: bubble.status,
-            members: bubble.members || [],
-          })
-        );
+            members: transformedMembers,
+          };
+        });
 
         console.log("[ProfileScreen] joined 상태 버블:", transformedBubbles);
         setMyBubbles(transformedBubbles);
+        
+        // Active 버블 ID 가져오기
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("active_group_id")
+          .eq("id", session.user.id)
+          .single();
+          
+        if (!userError && userData) {
+          setActiveBubbleId(userData.active_group_id);
+          console.log("[ProfileScreen] Active 버블 ID:", userData.active_group_id);
+        }
       } catch (error) {
         console.error("Error fetching my bubbles:", error);
         setMyBubbles([]); // 에러 발생 시 빈 배열로 초기화
@@ -862,6 +831,94 @@ function ProfileScreen() {
     setActiveTab(tabId);
   };
 
+  // Active 버블 설정 함수
+  const handleSetActiveBubble = async (bubbleId: string) => {
+    if (!session?.user) return;
+    
+    try {
+      console.log("[ProfileScreen] Active 버블 설정 시작:", bubbleId);
+      
+      const { data, error } = await supabase.rpc("set_user_active_bubble", {
+        p_user_id: session.user.id,
+        p_group_id: bubbleId,
+      });
+      
+      if (error) {
+        console.error("[ProfileScreen] Active 버블 설정 실패:", error);
+        Alert.alert("오류", "Active 버블 설정에 실패했습니다.");
+        return;
+      }
+      
+      if (data) {
+        setActiveBubbleId(bubbleId);
+        console.log("[ProfileScreen] Active 버블 설정 성공:", bubbleId);
+        Alert.alert("성공", "Active 버블이 설정되었습니다.");
+      }
+    } catch (error) {
+      console.error("[ProfileScreen] Active 버블 설정 중 에러:", error);
+      Alert.alert("오류", "Active 버블 설정에 실패했습니다.");
+    }
+  };
+
+  // 그룹에서 나가기 함수
+  const handleLeaveGroup = async (bubbleId: string) => {
+    if (!session?.user) return;
+    
+    Alert.alert(
+      "그룹 나가기",
+      "정말로 이 그룹에서 나가시겠습니까?",
+      [
+        {
+          text: "취소",
+          style: "cancel",
+        },
+        {
+          text: "나가기",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("[ProfileScreen] 그룹 나가기 시작:", bubbleId);
+              
+              const { data, error } = await supabase.rpc("leave_group", {
+                p_user_id: session.user.id,
+                p_group_id: bubbleId,
+              });
+              
+              if (error) {
+                console.error("[ProfileScreen] 그룹 나가기 실패:", error);
+                Alert.alert("오류", "그룹 나가기에 실패했습니다.");
+                return;
+              }
+              
+              if (data) {
+                console.log("[ProfileScreen] 그룹 나가기 성공:", bubbleId);
+                
+                // Active 버블이 삭제된 버블이었다면 Active 상태 제거
+                if (activeBubbleId === bubbleId) {
+                  setActiveBubbleId(null);
+                }
+                
+                // 버블 목록 새로고침
+                if (activeTab === "myBubble") {
+                  // fetchMyBubbles 함수를 다시 호출
+                  const fetchMyBubbles = async () => {
+                    // ... 기존 fetchMyBubbles 로직
+                  };
+                  fetchMyBubbles();
+                }
+                
+                Alert.alert("성공", "그룹에서 나갔습니다.");
+              }
+            } catch (error) {
+              console.error("[ProfileScreen] 그룹 나가기 중 에러:", error);
+              Alert.alert("오류", "그룹 나가기에 실패했습니다.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // handleCreateBubble 함수를 async로 변경하고 로직을 수정합니다.
   const handleCreateBubble = async (
     bubbleSize: "2-2" | "3-3" | "4-4",
@@ -907,21 +964,33 @@ function ProfileScreen() {
 
       console.log("[ProfileScreen] ✅ 그룹 생성 성공, 그룹 ID:", newGroup);
 
-      // 2. 생성된 group.id와 다른 정보들을 form.tsx로 전달
-      setShowCreateBubbleModal(false);
-      router.push({
-        pathname: "/bubble/form",
-        params: {
-          groupId: newGroup, // RPC에서 반환된 그룹 ID 사용
-          bubbleSize: bubbleSize.split("-")[0],
-          creatorId: profile.userId,
-          creatorFirstName: profile.firstName,
-          // 🚨 중요: 만료되는 임시 URL 대신 영구 파일 경로를 전달합니다.
-          creatorImagePath: currentImages[0]?.path || null,
-        },
-      });
-
-      console.log("[ProfileScreen] ✅ form.tsx로 네비게이션 완료");
+      // 성공 메시지 표시
+      Alert.alert(
+        "성공", 
+        "버블이 생성되었습니다! 이제 버블 이름을 설정하고 멤버를 초대할 수 있습니다.",
+        [
+          {
+            text: "확인",
+            onPress: () => {
+              // 2. 생성된 group.id와 다른 정보들을 form.tsx로 전달
+              setShowCreateBubbleModal(false);
+              router.push({
+                pathname: "/bubble/form",
+                params: {
+                  groupId: newGroup, // RPC에서 반환된 그룹 ID 사용
+                  isExistingBubble: "false", // 새로 생성된 버블임을 명시
+                  bubbleSize: bubbleSize.split("-")[0],
+                  creatorId: profile.userId,
+                  creatorFirstName: profile.firstName,
+                  // 🚨 중요: 만료되는 임시 URL 대신 영구 파일 경로를 전달합니다.
+                  creatorImagePath: currentImages[0]?.path || null,
+                },
+              });
+              console.log("[ProfileScreen] ✅ form.tsx로 네비게이션 완료");
+            }
+          }
+        ]
+      );
     } catch (error) {
       console.error("[ProfileScreen] ❌ 버블 생성 중 에러:", error);
       Alert.alert("오류", "버블 생성에 실패했습니다. 다시 시도해주세요.");
@@ -1166,6 +1235,7 @@ function ProfileScreen() {
                   <BubbleTabItem
                     key={bubble.id}
                     bubble={bubble}
+                    isActive={activeBubbleId === bubble.id}
                     onPress={() => {
                       // 기존 버블을 form.tsx로 이동 (get_bubble RPC 사용)
                       router.push({
@@ -1176,6 +1246,8 @@ function ProfileScreen() {
                         },
                       });
                     }}
+                    onSetActive={() => handleSetActiveBubble(bubble.id)}
+                    onLeaveGroup={() => handleLeaveGroup(bubble.id)}
                   />
                 ))
               ) : (

@@ -61,6 +61,8 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
         return;
       }
 
+      console.log("[RealtimeProvider] get_my_bubbles 응답:", data);
+      
       if (data && data.length > 0) {
         // Filter only invited status bubbles
         const invitedBubbles = data.filter(

@@ -13,6 +13,7 @@ import { Platform } from "react-native";
 import { MatchingGroup, GroupMember } from "@/hooks/useMatchmaking";
 import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
 
+
 interface MatchCardProps {
   group: MatchingGroup;
   onUserPress: (user: GroupMember) => void;
@@ -36,13 +37,32 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     {}
   );
 
-  // 🔍 DEBUG: group 데이터 체크
+  // 이제 avatar_url이 이미 영구적인 공개 URL입니다
+  useEffect(() => {
+    if (!group?.members) return; // Use optional chaining for safety
+
+    const urls: { [key: string]: string } = {};
+
+    for (const member of group.members) {
+      if (member.avatar_url) {
+        urls[member.id] = member.avatar_url; // avatar_url을 그대로 사용
+      }
+    }
+
+    setMemberSignedUrls(urls);
+  }, [group?.members]); // Use optional chaining for safety
+
+  const handleImageError = (userId: string) => {
+    setImageErrors((prev) => ({ ...prev, [userId]: true }));
+  };
+
+  // 🔍 DEBUG: group 데이터 체크 (moved after hooks)
   console.log("=== 🎴 MATCHCARD DEBUG ===");
   console.log("Group:", group);
   console.log("Group exists:", !!group);
   console.log("Group members:", group?.members);
 
-  // group이 undefined인 경우 처리
+  // group이 undefined인 경우 처리 (moved after hooks)
   if (!group) {
     console.log("❌ No group data provided to MatchCard");
     return (
@@ -58,63 +78,49 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     );
   }
 
-  // Generate signed URLs for member avatars
-  useEffect(() => {
-    const generateSignedUrls = async () => {
-      if (!group.members) return;
-
-      const urls: { [key: string]: string } = {};
-
-      for (const member of group.members) {
-        if (member.avatar_url) {
-          const signedUrl = await createSignedUrlForAvatar(member.avatar_url);
-          if (signedUrl) {
-            urls[member.id] = signedUrl; // user_id 대신 id 사용
-          }
-        }
-      }
-
-      setMemberSignedUrls(urls);
-    };
-
-    generateSignedUrls();
-  }, [group.members]);
-
-  const handleImageError = (userId: string) => {
-    setImageErrors((prev) => ({ ...prev, [userId]: true }));
-  };
-
   const renderMemberImage = (member: GroupMember, index: number) => {
     const signedUrl = memberSignedUrls[member.id]; // user_id 대신 id 사용
     const hasError = imageErrors[member.id]; // user_id 대신 id 사용
 
+    const handlePress = () => {
+      console.log("=== 🖼️ IMAGE CLICK DEBUG ===");
+      console.log("Member:", member);
+      console.log("Member ID:", member.id);
+      console.log("User ID:", member.id);
+      onUserPress(member);
+    };
+
     return (
-      <TouchableOpacity
+      <View
         key={member.id} // user_id 대신 id 사용
         style={{
           marginLeft: index === 1 ? -memberOverlap : 0,
           zIndex: index === 0 ? 2 : 1,
           alignItems: "center",
         }}
-        onPress={() => onUserPress(member)}
-        activeOpacity={0.7}
       >
         <Text style={styles.memberName}>
-          {member.first_name} {member.age}
+          {member.first_name} {member.age || ""}
         </Text>
 
-        {signedUrl && !hasError ? (
-          <Image
-            source={{ uri: signedUrl }}
-            style={styles.memberImage}
-            onError={() => handleImageError(member.id)} // user_id 대신 id 사용
-          />
-        ) : (
-          <View style={[styles.memberImage, styles.placeholderImage]}>
-            <Feather name="user" size={memberImageSize * 0.4} color="#999" />
-          </View>
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handlePress}
+          activeOpacity={0.7}
+          style={{ alignItems: "center" }}
+        >
+          {signedUrl && !hasError ? (
+            <Image
+              source={{ uri: signedUrl }}
+              style={styles.memberImage}
+              onError={() => handleImageError(member.id)} // user_id 대신 id 사용
+            />
+          ) : (
+            <View style={[styles.memberImage, styles.placeholderImage]}>
+              <Feather name="user" size={memberImageSize * 0.4} color="#999" />
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
     );
   };
 

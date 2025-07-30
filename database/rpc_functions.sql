@@ -1,0 +1,476 @@
+-- =====================================================
+-- BUBBLE DATING APP - RPC FUNCTIONS
+-- =====================================================
+
+-- 사용자가 속한 그룹 조회 (joined 상태 유저만, 디버그 추가)
+CREATE OR REPLACE FUNCTION get_my_bubbles(p_user_id UUID)
+RETURNS TABLE(
+    id UUID,
+    name TEXT,
+    status TEXT,
+    members JSON,
+    user_status TEXT,
+    invited_at TIMESTAMPTZ
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    g.id,
+    g.name,
+    g.status,
+    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 (joined 상태만)
+    COALESCE(
+      (
+        SELECT json_agg(
+          -- 각 멤버 정보를 JSON 객체로 만듭니다.
+          json_build_object(
+            'id', u.id,
+            'first_name', u.first_name,
+            'last_name', u.last_name,
+            'status', gm2.status,
+            -- 각 멤버의 이미지 목록을 다시 JSON 배열로 만듭니다.
+            'images', (
+              SELECT COALESCE(json_agg(
+                json_build_object(
+                  'id', ui.id,
+                  -- 직접 공개 URL 사용 (storage.get_public_url() 제거)
+                  'image_url', ui.image_url,
+                  'position', ui.position
+                ) ORDER BY ui.position
+              ), '[]'::json)
+              FROM user_images ui
+              WHERE ui.user_id = u.id
+            )
+          )
+        )
+        FROM group_members gm2
+        JOIN users u ON gm2.user_id = u.id
+        WHERE gm2.group_id = g.id
+      ),
+      '[]'::json
+    ) as members,
+    gm.status as user_status,
+    gm.invited_at
+  FROM
+    groups g
+  JOIN
+    group_members gm ON g.id = gm.group_id
+  WHERE
+    gm.user_id = p_user_id
+    AND gm.status IN ('joined', 'invited')
+  ORDER BY
+    CASE gm.status
+      WHEN 'joined' THEN 1
+      WHEN 'invited' THEN 2
+    END,
+    g.created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 매칭 그룹 찾기
+CREATE OR REPLACE FUNCTION find_matching_group(p_user_id UUID, p_limit INTEGER DEFAULT 10)
+RETURNS TABLE (
+  id UUID,
+  name TEXT,
+  description TEXT,
+  created_at TIMESTAMPTZ,
+  members JSONB
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    g.id,
+    g.name,
+    g.description,
+    g.created_at,
+    COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', gm.user_id,
+          'name', u.first_name || ' ' || u.last_name,
+          'age', EXTRACT(YEAR FROM AGE(CURRENT_DATE, u.birth_date)),
+          'avatar_url', COALESCE(
+            (SELECT image_url FROM user_images WHERE user_id = gm.user_id ORDER BY position ASC LIMIT 1),
+            'https://wvsgvgbnyjgkyrpoqsjo.supabase.co/storage/v1/object/public/user-images/default-avatar.jpg'
+          ),
+          'mbti', u.mbti,
+          'height', u.height_cm,
+          'location', u.location,
+          'bio', u.about_me
+        )
+      ) FILTER (WHERE gm.user_id IS NOT NULL),
+      '[]'::jsonb
+    ) as members
+  FROM groups g
+  LEFT JOIN group_members gm ON g.id = gm.group_id
+  LEFT JOIN users u ON gm.user_id = u.id
+  WHERE g.id NOT IN (
+    SELECT group_id FROM group_members WHERE user_id = p_user_id
+  )
+  AND g.id NOT IN (
+    SELECT target_group_id FROM group_likes WHERE user_id = p_user_id
+  )
+  AND g.id NOT IN (
+    SELECT target_group_id FROM group_passes WHERE user_id = p_user_id
+  )
+  GROUP BY g.id, g.name, g.description, g.created_at
+  ORDER BY g.created_at DESC
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 특정 그룹 정보 조회 (joined 상태 유저만)
+DROP FUNCTION IF EXISTS get_bubble(uuid);
+
+CREATE OR REPLACE FUNCTION get_bubble(p_group_id UUID)
+RETURNS TABLE (
+  id UUID,
+  name TEXT,
+  members JSONB
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    g.id,
+    g.name,
+    COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', gm.user_id,
+          'first_name', u.first_name,
+          'last_name', u.last_name,
+          'avatar_url', (
+            SELECT ui.image_url
+            FROM user_images ui
+            WHERE ui.user_id = gm.user_id
+            ORDER BY ui.position ASC
+            LIMIT 1
+          )
+        )
+      ) FILTER (WHERE gm.user_id IS NOT NULL),
+      '[]'::jsonb
+    ) as members
+  FROM groups g
+  JOIN group_members gm ON g.id = gm.group_id
+  JOIN users u ON gm.user_id = u.id
+  WHERE g.id = p_group_id
+    AND gm.status = 'joined'
+  GROUP BY g.id, g.name;
+END;
+$$;
+
+-- 사용자 상세 정보 조회
+CREATE OR REPLACE FUNCTION fetch_user(p_user_id UUID)
+RETURNS TABLE (
+  id UUID,
+  first_name TEXT,
+  last_name TEXT,
+  birth_date DATE,
+  height_cm INTEGER,
+  mbti TEXT,
+  gender TEXT,
+  bio TEXT,
+  location TEXT,
+  profile_setup_completed BOOLEAN,
+  images JSONB
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    u.id,
+    u.first_name,
+    u.last_name,
+    u.birth_date,
+    u.height_cm,
+    u.mbti,
+    u.gender,
+    u.about_me as bio,
+    u.location,
+    u.profile_setup_completed,
+    COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'image_url', ui.image_url,
+          'position', ui.position
+        )
+      ) FILTER (WHERE ui.image_url IS NOT NULL),
+      '[]'::jsonb
+    ) as images
+  FROM users u
+  LEFT JOIN user_images ui ON u.id = ui.user_id
+  WHERE u.id = p_user_id
+  GROUP BY u.id, u.first_name, u.last_name, u.birth_date, u.height_cm, u.mbti, u.gender, u.about_me, u.location, u.profile_setup_completed;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 그룹 좋아요
+CREATE OR REPLACE FUNCTION like_group(p_user_id UUID, p_target_group_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  INSERT INTO group_likes (user_id, target_group_id, created_at)
+  VALUES (p_user_id, p_target_group_id, NOW())
+  ON CONFLICT (user_id, target_group_id) DO NOTHING;
+  
+  RETURN TRUE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 초대 수락
+CREATE OR REPLACE FUNCTION accept_invitation(p_group_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  UPDATE group_members 
+  SET status = 'joined', joined_at = NOW()
+  WHERE group_id = p_group_id AND user_id = p_user_id;
+  
+  RETURN TRUE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 초대 거절
+CREATE OR REPLACE FUNCTION decline_invitation(p_group_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  UPDATE group_members 
+  SET status = 'declined', declined_at = NOW()
+  WHERE group_id = p_group_id AND user_id = p_user_id;
+  
+  RETURN TRUE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 초대 전송
+CREATE OR REPLACE FUNCTION send_invitation(p_group_id UUID, p_invited_user_id UUID, p_invited_by_user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  INSERT INTO group_members (group_id, user_id, status, invited_by, invited_at)
+  VALUES (p_group_id, p_invited_user_id, 'invited', p_invited_by_user_id, NOW())
+  ON CONFLICT (group_id, user_id) DO NOTHING;
+  
+  RETURN TRUE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 그룹 생성
+CREATE OR REPLACE FUNCTION create_group(p_creator_id UUID, p_max_size INTEGER, p_group_name TEXT, p_preferred_gender TEXT)
+RETURNS UUID AS $$
+DECLARE
+  new_group_id UUID;
+BEGIN
+  INSERT INTO groups (name, max_size, preferred_gender, created_by)
+  VALUES (p_group_name, p_max_size, p_preferred_gender, p_creator_id)
+  RETURNING id INTO new_group_id;
+  
+  INSERT INTO group_members (group_id, user_id, status, joined_at)
+  VALUES (new_group_id, p_creator_id, 'joined', NOW());
+  
+  RETURN new_group_id;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 사용자 검색
+CREATE OR REPLACE FUNCTION search_users(p_search_term TEXT, p_exclude_user_id UUID, p_exclude_group_id UUID)
+RETURNS TABLE (
+  id UUID,
+  first_name TEXT,
+  last_name TEXT,
+  birth_date DATE,
+  height_cm INTEGER,
+  mbti TEXT,
+  gender TEXT,
+  bio TEXT,
+  location TEXT
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    u.id,
+    u.first_name,
+    u.last_name,
+    u.birth_date,
+    u.height_cm,
+    u.mbti,
+    u.gender,
+    u.about_me as bio,
+    u.location
+  FROM users u
+  WHERE u.id != p_exclude_user_id
+    AND u.profile_setup_completed = TRUE
+    AND (
+      u.first_name ILIKE '%' || p_search_term || '%'
+      OR u.last_name ILIKE '%' || p_search_term || '%'
+      OR (u.first_name || ' ' || u.last_name) ILIKE '%' || p_search_term || '%'
+    )
+    AND (p_exclude_group_id IS NULL OR u.id NOT IN (
+      SELECT user_id FROM group_members WHERE group_id = p_exclude_group_id
+    ));
+END;
+$$ LANGUAGE plpgsql;
+
+-- 그룹 멤버 상태 조회
+CREATE OR REPLACE FUNCTION get_group_member_statuses(p_group_id UUID)
+RETURNS TABLE (
+  user_id UUID,
+  status TEXT
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT gm.user_id, gm.status
+  FROM group_members gm
+  WHERE gm.group_id = p_group_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 테스트용 그룹 생성 (개발용)
+CREATE OR REPLACE FUNCTION test_create_group()
+RETURNS UUID AS $$
+DECLARE
+  test_user_id UUID := '9b87bc6e-5ebc-4745-a0d9-6c223b38f530';
+  new_group_id UUID;
+BEGIN
+  INSERT INTO groups (name, max_size, preferred_gender, created_by)
+  VALUES ('Test Group', 4, 'any', test_user_id)
+  RETURNING id INTO new_group_id;
+  
+  INSERT INTO group_members (group_id, user_id, status, joined_at)
+  VALUES (new_group_id, test_user_id, 'joined', NOW());
+  
+  RETURN new_group_id;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- 활성 그룹 관련 RPC 함수들
+-- =====================================================
+
+-- 사용자의 활성 그룹 조회
+CREATE OR REPLACE FUNCTION get_user_active_bubble(p_user_id UUID)
+RETURNS TABLE(
+    id UUID,
+    name TEXT,
+    status TEXT,
+    members JSON,
+    user_status TEXT,
+    invited_at TIMESTAMPTZ
+) 
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    g.id,
+    g.name,
+    g.status,
+    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 (joined 상태만)
+    COALESCE(
+      (
+        SELECT json_agg(
+          -- 각 멤버 정보를 JSON 객체로 만듭니다.
+          json_build_object(
+            'id', u.id,
+            'first_name', u.first_name,
+            'last_name', u.last_name,
+            'status', gm2.status,
+            -- 각 멤버의 이미지 목록을 다시 JSON 배열로 만듭니다.
+            'images', (
+              SELECT COALESCE(json_agg(
+                json_build_object(
+                  'id', ui.id,
+                  -- 직접 공개 URL 사용 (storage.get_public_url() 제거)
+                  'image_url', ui.image_url,
+                  'position', ui.position
+                ) ORDER BY ui.position
+              ), '[]'::json)
+              FROM user_images ui
+              WHERE ui.user_id = u.id
+            )
+          )
+        )
+        FROM group_members gm2
+        JOIN users u ON gm2.user_id = u.id
+        WHERE gm2.group_id = g.id
+          AND gm2.status = 'joined'
+      ),
+      '[]'::json
+    ) as members,
+    gm.status as user_status,
+    gm.invited_at
+  FROM
+    groups g
+  JOIN
+    group_members gm ON g.id = gm.group_id
+  JOIN
+    users u ON u.id = p_user_id
+  WHERE
+    gm.user_id = p_user_id
+    AND gm.status = 'joined'
+    AND g.id = u.active_group_id;
+END;
+$$;
+
+-- 사용자의 활성 그룹 설정
+CREATE OR REPLACE FUNCTION set_user_active_bubble(p_user_id UUID, p_group_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  user_exists BOOLEAN;
+  group_exists BOOLEAN;
+  user_in_group BOOLEAN;
+BEGIN
+  -- 사용자가 존재하는지 확인
+  SELECT EXISTS(SELECT 1 FROM users WHERE id = p_user_id) INTO user_exists;
+  IF NOT user_exists THEN
+    RETURN FALSE;
+  END IF;
+
+  -- 그룹이 존재하는지 확인
+  SELECT EXISTS(SELECT 1 FROM groups WHERE id = p_group_id) INTO group_exists;
+  IF NOT group_exists THEN
+    RETURN FALSE;
+  END IF;
+
+  -- 사용자가 해당 그룹에 속해있는지 확인
+  SELECT EXISTS(
+    SELECT 1 FROM group_members 
+    WHERE user_id = p_user_id 
+    AND group_id = p_group_id 
+    AND status = 'joined'
+  ) INTO user_in_group;
+  
+  IF NOT user_in_group THEN
+    RETURN FALSE;
+  END IF;
+
+  -- 활성 그룹 설정
+  UPDATE users 
+  SET active_group_id = p_group_id, 
+      updated_at = NOW()
+  WHERE id = p_user_id;
+
+  RETURN TRUE;
+END;
+$$; 

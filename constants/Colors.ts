@@ -31,6 +31,7 @@ export const Colors = {
     bubbleFont: "#303030",
     disableButton: "#D9D9D9",
     onDisableButton: "#7A7A7A",
+    tint: "#80B7FF", // Active 상태 표시용 색상
 
     // Background colors
     background: "#FFFFFF",
@@ -73,6 +74,7 @@ export const Colors = {
     bubbleFont: "#303030",
     disableButton: "#D9D9D9",
     onDisableButton: "#7A7A7A",
+    tint: "#80B7FF", // Active 상태 표시용 색상
 
     // Background colors
     background: "#FFFFFF",

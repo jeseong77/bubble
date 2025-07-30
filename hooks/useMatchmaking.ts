@@ -47,13 +47,19 @@ export const useMatchmaking = () => {
 
       if (error) throw error;
 
-      // Find the first 'full' group (ready for matching)
-      const fullGroup = data?.find((bubble: any) => bubble.status === "full");
-      if (fullGroup) {
-        setCurrentUserGroup(fullGroup.id);
-        return fullGroup.id;
+      console.log("=== 🔍 GET_MY_BUBBLES RPC RESULT ===");
+      console.log("Data:", data);
+      console.log("Data length:", data?.length || 0);
+
+      // Find the first 'joined' group (user is a member)
+      const joinedGroup = data?.find((bubble: any) => bubble.user_status === "joined");
+      if (joinedGroup) {
+        console.log("Found joined group:", joinedGroup);
+        setCurrentUserGroup(joinedGroup.id);
+        return joinedGroup.id;
       }
 
+      console.log("No joined group found");
       return null;
     } catch (err) {
       console.error("Error fetching current user group:", err);
