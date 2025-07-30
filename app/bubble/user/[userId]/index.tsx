@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  StyleSheet,
   View,
   Text,
   Image,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
+import styled from "@emotion/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -112,48 +112,53 @@ export default function UserDetailScreen() {
   // 나이 계산 함수
   const calculateAge = (birthDate?: string) => {
     if (!birthDate) return null;
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
+    try {
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      return age;
+    } catch (error) {
+      console.error("Error calculating age:", error);
+      return null;
     }
-    
-    return age;
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.headerBar}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+      <SafeAreaContainer>
+        <HeaderBar>
+          <BackButton onPress={handleBack}>
             <Ionicons name="chevron-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Loading...</Text>
-        </View>
-        <View style={[styles.container, styles.loadingContainer]}>
+          </BackButton>
+          <HeaderTitle>Loading...</HeaderTitle>
+        </HeaderBar>
+        <LoadingContainer>
           <ActivityIndicator size="large" color="#8ec3ff" />
-          <Text style={styles.loadingText}>Loading user profile...</Text>
-        </View>
-      </SafeAreaView>
+          <LoadingText>Loading user profile...</LoadingText>
+        </LoadingContainer>
+      </SafeAreaContainer>
     );
   }
 
   if (error || !userData) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.headerBar}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+      <SafeAreaContainer>
+        <HeaderBar>
+          <BackButton onPress={handleBack}>
             <Ionicons name="chevron-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>User Not Found</Text>
-        </View>
-        <View style={styles.container}>
-          <Text style={styles.errorText}>{error || "User data not available"}</Text>
-        </View>
-      </SafeAreaView>
+          </BackButton>
+          <HeaderTitle>User Not Found</HeaderTitle>
+        </HeaderBar>
+        <Container>
+          <ErrorText>{error || "User data not available"}</ErrorText>
+        </Container>
+      </SafeAreaContainer>
     );
   }
 
@@ -161,140 +166,190 @@ export default function UserDetailScreen() {
   const mainImage = userData.images && userData.images.length > 0 ? userData.images[0].image_url : null;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+    <SafeAreaContainer>
+      <HeaderBar>
+        <BackButton onPress={handleBack}>
           <Ionicons name="chevron-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {userData.first_name} {age}
-        </Text>
-      </View>
+        </BackButton>
+        <HeaderTitle>
+          {userData.first_name} {age || "N/A"}
+        </HeaderTitle>
+      </HeaderBar>
 
-      <ScrollView contentContainerStyle={styles.container}>
-        {mainImage && (
-          <Image source={{ uri: mainImage }} style={styles.profileImage} />
+      <ScrollView contentContainerStyle={{ alignItems: "center", paddingBottom: 20, paddingHorizontal: 15 }}>
+        {mainImage ? (
+          <Image 
+            source={{ uri: mainImage }} 
+            style={{
+              width: width - 30,
+              height: width - 30,
+              borderRadius: 12,
+              marginTop: 20,
+              backgroundColor: "#f0f0f0",
+            }}
+          />
+        ) : (
+          <NoImageContainer>
+            <NoImageText>No profile image available</NoImageText>
+          </NoImageContainer>
         )}
 
-        <View style={styles.infoRow}>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>{userData.height_cm ? `${userData.height_cm}cm` : "N/A"}</Text>
-          </View>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>{userData.mbti || "N/A"}</Text>
-          </View>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>{userData.location || "N/A"}</Text>
-          </View>
-        </View>
+        <InfoRow>
+          <InfoBox>
+            <InfoText>{userData.height_cm ? `${userData.height_cm}cm` : "N/A"}</InfoText>
+          </InfoBox>
+          <InfoBox>
+            <InfoText>{userData.mbti || "N/A"}</InfoText>
+          </InfoBox>
+          <InfoBox>
+            <InfoText>{userData.location || "N/A"}</InfoText>
+          </InfoBox>
+        </InfoRow>
 
-        <View style={styles.bioContainer}>
-          <Text style={styles.bioText}>"{userData.bio || "No bio available"}"</Text>
-        </View>
-
-        {/* 추가 이미지들 */}
+        {/* 두 번째 이미지 - 자기소개 위에 배치 */}
         {userData.images && userData.images.length > 1 && (
-          <View style={styles.additionalImagesContainer}>
-            {userData.images.slice(1).map((image, index) => (
+          <SecondImageContainer>
+            <Image 
+              source={{ uri: userData.images[1].image_url }} 
+              style={{
+                width: width - 30,
+                height: width - 30,
+                borderRadius: 12,
+                marginTop: 20,
+                backgroundColor: "#f0f0f0",
+              }}
+            />
+          </SecondImageContainer>
+        )}
+
+        <BioContainer>
+          <BioText>"{userData.bio || "No bio available"}"</BioText>
+        </BioContainer>
+
+        {/* 세 번째 이미지부터 - 자기소개 아래에 배치 */}
+        {userData.images && userData.images.length > 2 && (
+          <AdditionalImagesContainer>
+            {userData.images.slice(2).map((image, index) => (
               <Image 
                 key={image.id} 
                 source={{ uri: image.image_url }} 
-                style={styles.additionalImage} 
+                style={{
+                  width: width - 30,
+                  height: width - 30,
+                  borderRadius: 12,
+                  marginTop: 20,
+                  backgroundColor: "#f0f0f0",
+                }}
               />
             ))}
-          </View>
+          </AdditionalImagesContainer>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingTop: Platform.OS === "android" ? 25 : 0,
-  },
-  headerBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  backButton: {
-    padding: 5,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginLeft: 10,
-    color: "#333",
-  },
-  container: {
-    alignItems: "center",
-    paddingBottom: 20,
-    paddingHorizontal: 15,
-  },
-  profileImage: {
-    width: width - 30,
-    height: width - 30,
-    borderRadius: 12,
-    marginTop: 20,
-    backgroundColor: "#f0f0f0",
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    width: "100%",
-    marginVertical: 20,
-    gap: 50,
-  },
-  infoBox: {},
-  infoText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333",
-  },
-  bioContainer: {
-    width: "100%",
-    maxWidth: 600,
-    marginVertical: 20,
-  },
-  bioText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#555",
-    textAlign: "center",
-  },
-  loadingContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 50,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#888",
-  },
-  errorText: {
-    fontSize: 16,
-    color: "#ff6b6b",
-    textAlign: "center",
-    paddingVertical: 20,
-  },
-  additionalImagesContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    marginTop: 20,
-    gap: 10,
-  },
-  additionalImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: "#f0f0f0",
-  },
-});
+// Styled Components
+const SafeAreaContainer = styled.SafeAreaView`
+  flex: 1;
+  background-color: #fff;
+  padding-top: ${Platform.OS === "android" ? 25 : 0}px;
+`;
+
+const HeaderBar = styled.View`
+  flex-direction: row;
+  align-items: center;
+  padding-horizontal: 15px;
+  padding-vertical: 10px;
+  border-bottom-width: 1px;
+  border-bottom-color: #eee;
+`;
+
+const BackButton = styled.TouchableOpacity`
+  padding: 5px;
+`;
+
+const HeaderTitle = styled.Text`
+  font-size: 18px;
+  font-weight: 600;
+  margin-left: 10px;
+  color: #333;
+`;
+
+const Container = styled.View`
+  align-items: center;
+  padding-bottom: 20px;
+  padding-horizontal: 15px;
+`;
+
+const InfoRow = styled.View`
+  flex-direction: row;
+  justify-content: center;
+  width: 100%;
+  margin-top: 20px;
+  gap: 50px;
+`;
+
+const InfoBox = styled.View``;
+
+const InfoText = styled.Text`
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+`;
+
+const BioContainer = styled.View`
+  width: 100%;
+  max-width: 600px;
+  margin-top: 20px;
+`;
+
+const BioText = styled.Text`
+  font-size: 15px;
+  line-height: 22px;
+  color: #555;
+  text-align: center;
+`;
+
+const LoadingContainer = styled.View`
+  justify-content: center;
+  align-items: center;
+  padding-vertical: 50px;
+`;
+
+const LoadingText = styled.Text`
+  font-size: 16px;
+  color: #888;
+`;
+
+const ErrorText = styled.Text`
+  font-size: 16px;
+  color: #ff6b6b;
+  text-align: center;
+  padding-vertical: 20px;
+`;
+
+const AdditionalImagesContainer = styled.View`
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 16px;
+  gap: 10px;
+`;
+
+const SecondImageContainer = styled.View``;
+
+const NoImageContainer = styled.View`
+  width: ${width - 30}px;
+  height: ${width - 30}px;
+  border-radius: 12px;
+  margin-top: 20px;
+  background-color: #f0f0f0;
+  justify-content: center;
+  align-items: center;
+`;
+
+const NoImageText = styled.Text`
+  font-size: 14px;
+  color: #888;
+`;

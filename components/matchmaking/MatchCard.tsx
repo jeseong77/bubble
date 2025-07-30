@@ -87,7 +87,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       console.log("Member:", member);
       console.log("Member ID:", member.id);
       console.log("User ID:", member.id);
+      console.log("onUserPress function:", typeof onUserPress);
+      console.log("Calling onUserPress...");
       onUserPress(member);
+      console.log("onUserPress called successfully");
     };
 
     return (

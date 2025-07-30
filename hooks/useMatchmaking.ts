@@ -41,6 +41,32 @@ export const useMatchmaking = () => {
     if (!session?.user) return null;
 
     try {
+      // 먼저 Active 버블을 확인
+      console.log("=== 🔍 TRYING GET_USER_ACTIVE_BUBBLE ===");
+      console.log("User ID:", session.user.id);
+      
+      const { data: activeBubbleData, error: activeBubbleError } = await supabase.rpc("get_user_active_bubble", {
+        p_user_id: session.user.id,
+      });
+
+      console.log("=== 🔍 GET_USER_ACTIVE_BUBBLE RPC RESULT ===");
+      console.log("Active Bubble Data:", activeBubbleData);
+      console.log("Active Bubble Error:", activeBubbleError);
+      console.log("Active Bubble Data Type:", typeof activeBubbleData);
+      console.log("Active Bubble Data Length:", activeBubbleData?.length || 0);
+
+      if (!activeBubbleError && activeBubbleData && activeBubbleData.length > 0) {
+        const activeBubble = activeBubbleData[0];
+        console.log("✅ Found active bubble:", activeBubble);
+        setCurrentUserGroup(activeBubble.id);
+        return activeBubble.id;
+      } else {
+        console.log("❌ No active bubble found or error occurred");
+        console.log("Error details:", activeBubbleError);
+      }
+
+      // Active 버블이 없으면 기존 로직 사용
+      console.log("=== 🔍 FALLBACK TO GET_MY_BUBBLES ===");
       const { data, error } = await supabase.rpc("get_my_bubbles", {
         p_user_id: session.user.id,
       });
@@ -91,13 +117,17 @@ export const useMatchmaking = () => {
 
         if (error) throw error;
 
+        console.log("=== 🔍 FIND_MATCHING_GROUP RPC RESULT ===");
+        console.log("Data:", data);
+        console.log("Data length:", data?.length || 0);
+
         // Check if we have more data
         const hasMoreData = data && data.length === batchSize;
         setHasMore(hasMoreData);
 
         // Fetch members for each matching group
         const groupsWithMembers = await Promise.all(
-          data.map(async (group: MatchingGroup) => {
+          data.map(async (group: any) => {
             console.log(`=== 🎯 PROCESSING GROUP: ${group.group_name} ===`);
             console.log("Group ID:", group.group_id);
             
@@ -119,7 +149,14 @@ export const useMatchmaking = () => {
                   group.group_id,
                   bubbleError
                 );
-                return { ...group, members: [] };
+                return { 
+                  group_id: group.group_id,
+                  group_name: group.group_name,
+                  group_gender: group.group_gender,
+                  preferred_gender: group.preferred_gender,
+                  match_score: group.match_score,
+                  members: [] 
+                };
               }
 
               // Extract members from bubble data
@@ -152,7 +189,14 @@ export const useMatchmaking = () => {
                 console.log("❌ No bubble data or empty array");
               }
 
-              const result = { ...group, members };
+              const result = { 
+                group_id: group.group_id,
+                group_name: group.group_name,
+                group_gender: group.group_gender,
+                preferred_gender: group.preferred_gender,
+                match_score: group.match_score,
+                members 
+              };
               console.log(`=== ✅ FINAL GROUP RESULT ===`);
               console.log("Final group:", result);
               console.log("Members count:", result.members?.length || 0);
@@ -160,7 +204,14 @@ export const useMatchmaking = () => {
               return result;
             } catch (err) {
               console.error("Error fetching bubble info:", err);
-              return { ...group, members: [] };
+              return { 
+                group_id: group.group_id,
+                group_name: group.group_name,
+                group_gender: group.group_gender,
+                preferred_gender: group.preferred_gender,
+                match_score: group.match_score,
+                members: [] 
+              };
             }
           })
         );

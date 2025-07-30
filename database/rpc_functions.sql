@@ -68,56 +68,100 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 매칭 그룹 찾기
-CREATE OR REPLACE FUNCTION find_matching_group(p_user_id UUID, p_limit INTEGER DEFAULT 10)
+CREATE OR REPLACE FUNCTION find_matching_group(
+  p_group_id UUID, 
+  p_limit INTEGER DEFAULT 10,
+  p_offset INTEGER DEFAULT 0
+)
 RETURNS TABLE (
-  id UUID,
-  name TEXT,
-  description TEXT,
-  created_at TIMESTAMPTZ,
-  members JSONB
+  group_id UUID,
+  group_name TEXT,
+  group_gender TEXT,
+  preferred_gender TEXT,
+  match_score INTEGER
 ) AS $$
+DECLARE
+  v_current_group record;
+  v_total_groups INTEGER;
+  v_matching_groups INTEGER;
 BEGIN
+  -- Get current group info
+  SELECT * INTO v_current_group 
+  FROM groups WHERE id = p_group_id;
+  
+  -- Debug: Log current group info
+  RAISE NOTICE 'Current group: id=%, name=%, group_gender=%, preferred_gender=%, status=%', 
+    v_current_group.id, v_current_group.name, v_current_group.group_gender, 
+    v_current_group.preferred_gender, v_current_group.status;
+  
+  -- Debug: Count total available groups
+  SELECT COUNT(*) INTO v_total_groups
+  FROM groups g
+  WHERE g.id != p_group_id
+    AND g.status IN ('forming', 'full');
+  
+  RAISE NOTICE 'Total available groups (excluding current): %', v_total_groups;
+  
+  -- Debug: Count groups that match gender preferences
+  SELECT COUNT(*) INTO v_matching_groups
+  FROM groups g
+  WHERE g.id != p_group_id
+    AND g.status IN ('forming', 'full')
+    AND (
+      -- Exact match
+      (g.group_gender = v_current_group.preferred_gender 
+       AND v_current_group.group_gender = g.preferred_gender)
+      OR
+      -- Any preference matches
+      (g.preferred_gender = 'any' 
+       AND v_current_group.group_gender = g.group_gender)
+      OR
+      (v_current_group.preferred_gender = 'any' 
+       AND g.group_gender = v_current_group.group_gender)
+    );
+  
+  RAISE NOTICE 'Groups matching gender preferences: %', v_matching_groups;
+  
+  -- Return matching groups based on rules
   RETURN QUERY
   SELECT 
-    g.id,
-    g.name,
-    g.description,
-    g.created_at,
-    COALESCE(
-      jsonb_agg(
-        jsonb_build_object(
-          'id', gm.user_id,
-          'name', u.first_name || ' ' || u.last_name,
-          'age', EXTRACT(YEAR FROM AGE(CURRENT_DATE, u.birth_date)),
-          'avatar_url', COALESCE(
-            (SELECT image_url FROM user_images WHERE user_id = gm.user_id ORDER BY position ASC LIMIT 1),
-            'https://wvsgvgbnyjgkyrpoqsjo.supabase.co/storage/v1/object/public/user-images/default-avatar.jpg'
-          ),
-          'mbti', u.mbti,
-          'height', u.height_cm,
-          'location', u.location,
-          'bio', u.about_me
-        )
-      ) FILTER (WHERE gm.user_id IS NOT NULL),
-      '[]'::jsonb
-    ) as members
+    g.id as group_id,
+    g.name as group_name,
+    g.group_gender,
+    g.preferred_gender,
+    CASE 
+      WHEN g.group_gender = v_current_group.preferred_gender 
+        AND v_current_group.group_gender = g.preferred_gender THEN 100
+      WHEN g.preferred_gender = 'any' 
+        AND v_current_group.group_gender = g.group_gender THEN 80
+      WHEN v_current_group.preferred_gender = 'any' 
+        AND g.group_gender = v_current_group.group_gender THEN 80
+      ELSE 0
+    END as match_score
   FROM groups g
-  LEFT JOIN group_members gm ON g.id = gm.group_id
-  LEFT JOIN users u ON gm.user_id = u.id
-  WHERE g.id NOT IN (
-    SELECT group_id FROM group_members WHERE user_id = p_user_id
-  )
-  AND g.id NOT IN (
-    SELECT target_group_id FROM group_likes WHERE user_id = p_user_id
-  )
-  AND g.id NOT IN (
-    SELECT target_group_id FROM group_passes WHERE user_id = p_user_id
-  )
-  GROUP BY g.id, g.name, g.description, g.created_at
-  ORDER BY g.created_at DESC
-  LIMIT p_limit;
+  WHERE g.id != p_group_id
+    AND g.status IN ('forming', 'full')  -- 'forming'과 'full' 모두 포함
+    AND g.id NOT IN (
+      SELECT DISTINCT group_1_id FROM matches WHERE group_2_id = p_group_id
+      UNION
+      SELECT DISTINCT group_2_id FROM matches WHERE group_1_id = p_group_id
+    )
+    AND (
+      -- Exact match
+      (g.group_gender = v_current_group.preferred_gender 
+       AND v_current_group.group_gender = g.preferred_gender)
+      OR
+      -- Any preference matches
+      (g.preferred_gender = 'any' 
+       AND v_current_group.group_gender = g.group_gender)
+      OR
+      (v_current_group.preferred_gender = 'any' 
+       AND g.group_gender = v_current_group.group_gender)
+    )
+  ORDER BY match_score DESC, g.created_at ASC
+  LIMIT p_limit OFFSET p_offset;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 특정 그룹 정보 조회 (joined 상태 유저만)
 DROP FUNCTION IF EXISTS get_bubble(uuid);

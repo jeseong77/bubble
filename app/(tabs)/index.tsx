@@ -91,25 +91,36 @@ export default function MatchScreen() {
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
 
-  // 화면이 포커스될 때마다 데이터 새로고침
-  useFocusEffect(
-    useCallback(() => {
-      console.log("[MatchScreen] 🎯 Screen focused, refreshing data...");
-      
-      // 매칭 데이터 새로고침 (한 번만 호출)
-      if (refetch) {
-        refetch();
-      }
-      
-      // 사용자 그룹 정보 새로고침
-      const fetchUserBubble = async () => {
-        if (!session?.user) return;
+  // 초기 로딩 시에만 데이터 가져오기 (useFocusEffect 제거)
+  useEffect(() => {
+    console.log("[MatchScreen] 🎯 Initial data loading...");
+    
+    // 사용자 그룹 정보 가져오기
+    const fetchUserBubble = async () => {
+      if (!session?.user) return;
 
-        setUserBubbleLoading(true);
-        try {
-          console.log("[MatchScreen] 사용자 그룹 정보 가져오기 시작");
-          
-          // get_my_bubbles RPC를 사용하여 사용자의 버블 정보 가져오기
+      setUserBubbleLoading(true);
+      try {
+        console.log("[MatchScreen] 사용자 그룹 정보 가져오기 시작");
+        
+        // 먼저 Active 버블을 확인
+        console.log("[MatchScreen] Active 버블 확인 중...");
+        const { data: activeBubbleData, error: activeBubbleError } = await supabase.rpc("get_user_active_bubble", {
+          p_user_id: session.user.id,
+        });
+
+        console.log("[MatchScreen] Active 버블 조회 결과:", activeBubbleData);
+        console.log("[MatchScreen] Active 버블 에러:", activeBubbleError);
+
+        let targetBubble: any = null;
+
+        if (!activeBubbleError && activeBubbleData && activeBubbleData.length > 0) {
+          // Active 버블이 있으면 사용
+          targetBubble = activeBubbleData[0];
+          console.log("[MatchScreen] Active 버블 사용:", targetBubble);
+        } else {
+          // Active 버블이 없으면 get_my_bubbles에서 첫 번째 joined 그룹 사용
+          console.log("[MatchScreen] Active 버블 없음, get_my_bubbles 사용");
           const { data, error } = await supabase.rpc("get_my_bubbles", {
             p_user_id: session.user.id,
           });
@@ -119,68 +130,66 @@ export default function MatchScreen() {
             throw error;
           }
 
-          console.log("[MatchScreen] 사용자 버블 정보 조회 성공:", data);
-
           console.log("[MatchScreen] get_my_bubbles 응답:", data);
           
           // joined 상태인 버블 중 첫 번째 것을 사용
-          const joinedBubble = data?.find((bubble: any) => bubble.user_status === "joined");
-          
-          if (joinedBubble) {
-            console.log("[MatchScreen] 사용자 그룹 발견:", joinedBubble);
-            
-            // 멤버 정보 파싱 (새로운 구조에 맞게)
-            let members: Array<{ id: string; first_name: string; last_name: string; images: Array<{ image_url: string; position: number }> }> = [];
-            if (joinedBubble.members) {
-              try {
-                members = Array.isArray(joinedBubble.members)
-                  ? joinedBubble.members
-                  : JSON.parse(joinedBubble.members);
-              } catch (parseError) {
-                console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
-                members = [];
-              }
-            }
-
-            // 새로운 구조에 맞게 멤버 데이터 변환
-            const membersWithUrls = members.map((member) => {
-              // 첫 번째 이미지를 아바타로 사용
-              const avatarUrl = member.images && member.images.length > 0 
-                ? member.images[0].image_url 
-                : null;
-              
-              return {
-                id: member.id,
-                first_name: member.first_name,
-                last_name: member.last_name,
-                avatar_url: avatarUrl,
-                signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
-              };
-            });
-
-            const userBubbleData: UserBubble = {
-              id: joinedBubble.id,
-              name: joinedBubble.name,
-              members: membersWithUrls,
-            };
-
-            console.log("[MatchScreen] 사용자 그룹 데이터 설정:", userBubbleData);
-            setUserBubble(userBubbleData);
-          } else {
-            console.log("[MatchScreen] 사용자가 속한 그룹이 없습니다");
-            setUserBubble(null);
-          }
-        } catch (error) {
-          console.error("[MatchScreen] 사용자 그룹 정보 가져오기 실패:", error);
-          setUserBubble(null);
-        } finally {
-          setUserBubbleLoading(false);
+          targetBubble = data?.find((bubble: any) => bubble.user_status === "joined");
         }
-      };
+        
+        if (targetBubble) {
+          console.log("[MatchScreen] 사용자 그룹 발견:", targetBubble);
+          
+          // 멤버 정보 파싱 (새로운 구조에 맞게)
+          let members: Array<{ id: string; first_name: string; last_name: string; images: Array<{ image_url: string; position: number }> }> = [];
+          if (targetBubble.members) {
+            try {
+              members = Array.isArray(targetBubble.members)
+                ? targetBubble.members
+                : JSON.parse(targetBubble.members);
+            } catch (parseError) {
+              console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
+              members = [];
+            }
+          }
 
-      fetchUserBubble();
-    }, [session?.user]) // refetch 제거
-  );
+          // 새로운 구조에 맞게 멤버 데이터 변환
+          const membersWithUrls = members.map((member) => {
+            // 첫 번째 이미지를 아바타로 사용
+            const avatarUrl = member.images && member.images.length > 0 
+              ? member.images[0].image_url 
+              : null;
+            
+            return {
+              id: member.id,
+              first_name: member.first_name,
+              last_name: member.last_name,
+              avatar_url: avatarUrl,
+              signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
+            };
+          });
+
+          const userBubbleData: UserBubble = {
+            id: targetBubble.id,
+            name: targetBubble.name,
+            members: membersWithUrls,
+          };
+
+          console.log("[MatchScreen] 사용자 그룹 데이터 설정:", userBubbleData);
+          setUserBubble(userBubbleData);
+        } else {
+          console.log("[MatchScreen] 사용자가 속한 그룹이 없습니다");
+          setUserBubble(null);
+        }
+      } catch (error) {
+        console.error("[MatchScreen] 사용자 그룹 정보 가져오기 실패:", error);
+        setUserBubble(null);
+      } finally {
+        setUserBubbleLoading(false);
+      }
+    };
+
+    fetchUserBubble();
+  }, [session?.user]); // session?.user가 변경될 때만 실행
 
   // 🔍 DEBUG: 매칭 그룹 데이터 로깅
   useEffect(() => {
@@ -420,21 +429,19 @@ export default function MatchScreen() {
   };
 
   // Handle user image click
-  const handleUserClick = (user: GroupMember) => {
+  const handleUserClick = useCallback((user: GroupMember) => {
+    console.log("=== 🖼️ USER CLICK HANDLER ===");
+    console.log("User clicked:", user);
+    console.log("User ID:", user.id);
+    console.log("User name:", user.first_name);
+    
     router.push({
       pathname: "/bubble/user/[userId]",
       params: {
-        userId: user.user_id,
-        name: user.first_name,
-        age: user.age.toString(),
-        mbti: user.mbti,
-        height: user.height,
-        location: user.location,
-        bio: user.bio,
-        images: JSON.stringify([user.avatar_url]), // TODO: Handle multiple images
+        userId: user.id, // user_id 대신 id 사용
       },
     });
-  };
+  }, [router]);
 
   // Animate and switch bubble data
   const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
