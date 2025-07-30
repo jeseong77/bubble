@@ -36,6 +36,28 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     {}
   );
 
+  // 🔍 DEBUG: group 데이터 체크
+  console.log("=== 🎴 MATCHCARD DEBUG ===");
+  console.log("Group:", group);
+  console.log("Group exists:", !!group);
+  console.log("Group members:", group?.members);
+
+  // group이 undefined인 경우 처리
+  if (!group) {
+    console.log("❌ No group data provided to MatchCard");
+    return (
+      <View style={[styles.container, style]}>
+        <BlurView
+          style={styles.blurContainer}
+          intensity={Platform.OS === "ios" ? 60 : 80}
+          tint="light"
+        >
+          <Text style={styles.groupName}>Loading...</Text>
+        </BlurView>
+      </View>
+    );
+  }
+
   // Generate signed URLs for member avatars
   useEffect(() => {
     const generateSignedUrls = async () => {
@@ -47,7 +69,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         if (member.avatar_url) {
           const signedUrl = await createSignedUrlForAvatar(member.avatar_url);
           if (signedUrl) {
-            urls[member.user_id] = signedUrl;
+            urls[member.id] = signedUrl; // user_id 대신 id 사용
           }
         }
       }
@@ -63,12 +85,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   };
 
   const renderMemberImage = (member: GroupMember, index: number) => {
-    const signedUrl = memberSignedUrls[member.user_id];
-    const hasError = imageErrors[member.user_id];
+    const signedUrl = memberSignedUrls[member.id]; // user_id 대신 id 사용
+    const hasError = imageErrors[member.id]; // user_id 대신 id 사용
 
     return (
       <TouchableOpacity
-        key={member.user_id}
+        key={member.id} // user_id 대신 id 사용
         style={{
           marginLeft: index === 1 ? -memberOverlap : 0,
           zIndex: index === 0 ? 2 : 1,
@@ -85,7 +107,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <Image
             source={{ uri: signedUrl }}
             style={styles.memberImage}
-            onError={() => handleImageError(member.user_id)}
+            onError={() => handleImageError(member.id)} // user_id 대신 id 사용
           />
         ) : (
           <View style={[styles.memberImage, styles.placeholderImage]}>

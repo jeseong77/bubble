@@ -12,6 +12,7 @@ export interface MatchingGroup {
 }
 
 export interface GroupMember {
+  id: string; // 실제 데이터에 있는 id 필드 추가
   user_id: string;
   first_name: string;
   last_name: string;
@@ -91,24 +92,68 @@ export const useMatchmaking = () => {
         // Fetch members for each matching group
         const groupsWithMembers = await Promise.all(
           data.map(async (group: MatchingGroup) => {
+            console.log(`=== 🎯 PROCESSING GROUP: ${group.group_name} ===`);
+            console.log("Group ID:", group.group_id);
+            
             try {
-              const { data: membersData, error: membersError } =
-                await supabase.rpc("get_group_members_with_avatars", {
+              const { data: bubbleData, error: bubbleError } =
+                await supabase.rpc("get_bubble", {
                   p_group_id: group.group_id,
                 });
 
-              if (membersError) {
+              console.log(`=== 📦 GET_BUBBLE RPC RESULT ===`);
+              console.log("Bubble Data:", bubbleData);
+              console.log("Bubble Error:", bubbleError);
+              console.log("Bubble Data Type:", typeof bubbleData);
+              console.log("Bubble Data Length:", bubbleData?.length || 0);
+
+              if (bubbleError) {
                 console.error(
-                  "Error fetching members for group:",
+                  "Error fetching bubble info for group:",
                   group.group_id,
-                  membersError
+                  bubbleError
                 );
                 return { ...group, members: [] };
               }
 
-              return { ...group, members: membersData || [] };
+              // Extract members from bubble data
+              let members: GroupMember[] = [];
+              if (bubbleData && bubbleData.length > 0) {
+                const bubbleInfo = bubbleData[0];
+                console.log("=== 📋 BUBBLE INFO ===");
+                console.log("Bubble Info:", bubbleInfo);
+                console.log("Members field:", bubbleInfo.members);
+                console.log("Members field type:", typeof bubbleInfo.members);
+                
+                if (bubbleInfo.members) {
+                  try {
+                    members = Array.isArray(bubbleInfo.members)
+                      ? bubbleInfo.members
+                      : JSON.parse(bubbleInfo.members);
+                    
+                    console.log("=== ✅ PARSED MEMBERS ===");
+                    console.log("Parsed members:", members);
+                    console.log("Members count:", members.length);
+                  } catch (parseError) {
+                    console.error("Error parsing members:", parseError);
+                    console.log("Raw members data:", bubbleInfo.members);
+                    members = [];
+                  }
+                } else {
+                  console.log("❌ No members field in bubble info");
+                }
+              } else {
+                console.log("❌ No bubble data or empty array");
+              }
+
+              const result = { ...group, members };
+              console.log(`=== ✅ FINAL GROUP RESULT ===`);
+              console.log("Final group:", result);
+              console.log("Members count:", result.members?.length || 0);
+              
+              return result;
             } catch (err) {
-              console.error("Error fetching members:", err);
+              console.error("Error fetching bubble info:", err);
               return { ...group, members: [] };
             }
           })

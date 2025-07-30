@@ -34,6 +34,9 @@ import {
   NoGroupState,
 } from "@/components/matchmaking/MatchmakingStates";
 import { GroupMember } from "@/hooks/useMatchmaking";
+import { useAuth } from "@/providers/AuthProvider";
+import { supabase } from "@/lib/supabase";
+import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -46,26 +49,23 @@ const overlapRatio = 0.32;
 const centerBubbleImageSize = centerBubbleDiameter * 0.44;
 const centerBubbleOverlap = centerBubbleImageSize * 0.18;
 
-// Mock data for user's own bubble (this will be replaced with real data later)
-const userBubble = {
-  name: "Chill Bros",
-  users: [
-    {
-      name: "John",
-      age: 25,
-      image: { uri: "https://picsum.photos/seed/john_01/200/200" },
-    },
-    {
-      name: "Mike",
-      age: 26,
-      image: { uri: "https://picsum.photos/seed/mike_02/200/200" },
-    },
-  ],
-};
+// 사용자 그룹 정보 타입
+interface UserBubble {
+  id: string;
+  name: string;
+  members: Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url: string;
+    signedUrl?: string;
+  }>;
+}
 
 export default function MatchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { session } = useAuth();
 
   // Get real data from context
   const {
@@ -83,10 +83,134 @@ export default function MatchScreen() {
 
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [recentMatches, setRecentMatches] = useState<string[]>([]); // Track recent matches for better UX
+  const [recentMatches, setRecentMatches] = useState<string[]>([]);
+  const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
+  const [userBubbleLoading, setUserBubbleLoading] = useState(true);
 
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
+
+  // 사용자 그룹 정보 가져오기
+  useEffect(() => {
+    const fetchUserBubble = async () => {
+      if (!session?.user) return;
+
+      setUserBubbleLoading(true);
+      try {
+        console.log("[MatchScreen] 사용자 그룹 정보 가져오기 시작");
+        
+        // get_my_bubbles RPC를 사용하여 사용자의 버블 정보 가져오기
+        const { data, error } = await supabase.rpc("get_my_bubbles", {
+          p_user_id: session.user.id,
+        });
+
+        if (error) {
+          console.error("[MatchScreen] 사용자 버블 정보 조회 실패:", error);
+          throw error;
+        }
+
+        console.log("[MatchScreen] 사용자 버블 정보 조회 성공:", data);
+
+        // joined 상태인 버블 중 첫 번째 것을 사용
+        const joinedBubble = data?.find((bubble: any) => bubble.user_status === "joined");
+        
+        if (joinedBubble) {
+          console.log("[MatchScreen] 사용자 그룹 발견:", joinedBubble);
+          
+          // 멤버 정보 파싱
+          let members: Array<{ id: string; first_name: string; last_name: string; avatar_url: string }> = [];
+          if (joinedBubble.members) {
+            try {
+              members = Array.isArray(joinedBubble.members)
+                ? joinedBubble.members
+                : JSON.parse(joinedBubble.members);
+            } catch (parseError) {
+              console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
+              members = [];
+            }
+          }
+
+          // Signed URL 생성
+          const membersWithSignedUrls = await Promise.all(
+            members.map(async (member) => {
+              let signedUrl = null;
+              if (member.avatar_url) {
+                signedUrl = await createSignedUrlForAvatar(member.avatar_url);
+              }
+              return {
+                ...member,
+                signedUrl,
+              };
+            })
+          );
+
+          const userBubbleData: UserBubble = {
+            id: joinedBubble.id,
+            name: joinedBubble.name,
+            members: membersWithSignedUrls,
+          };
+
+          console.log("[MatchScreen] 사용자 그룹 데이터 설정:", userBubbleData);
+          setUserBubble(userBubbleData);
+        } else {
+          console.log("[MatchScreen] 사용자가 속한 그룹이 없습니다");
+          setUserBubble(null);
+        }
+      } catch (error) {
+        console.error("[MatchScreen] 사용자 그룹 정보 가져오기 실패:", error);
+        setUserBubble(null);
+      } finally {
+        setUserBubbleLoading(false);
+      }
+    };
+
+    fetchUserBubble();
+  }, [session?.user]);
+
+  // 🔍 DEBUG: 매칭 그룹 데이터 로깅
+  useEffect(() => {
+    console.log("=== 🔍 MATCHING GROUPS IN INDEX ===");
+    console.log("Total matching groups:", matchingGroups.length);
+    console.log("Current group index:", currentGroupIndex);
+    console.log("Current group:", currentGroup);
+    
+    if (currentGroup) {
+      console.log("=== 📋 CURRENT GROUP DETAILS ===");
+      console.log("Group ID:", currentGroup.group_id);
+      console.log("Group Name:", currentGroup.group_name);
+      console.log("Group Gender:", currentGroup.group_gender);
+      console.log("Preferred Gender:", currentGroup.preferred_gender);
+      console.log("Match Score:", currentGroup.match_score);
+      console.log("Members Count:", currentGroup.members?.length || 0);
+      
+      if (currentGroup.members && currentGroup.members.length > 0) {
+        console.log("=== 👥 MEMBERS DETAILS ===");
+        currentGroup.members.forEach((member, index) => {
+          console.log(`Member ${index + 1}:`);
+          console.log("  - Name:", member.first_name, member.last_name);
+          console.log("  - Age:", member.age);
+          console.log("  - MBTI:", member.mbti);
+          console.log("  - Avatar:", member.avatar_url);
+        });
+      } else {
+        console.log("❌ No members data in current group!");
+      }
+    } else {
+      console.log("❌ No current group available");
+    }
+  }, [currentGroup, currentGroupIndex, matchingGroups.length]);
+
+  // 🔍 DEBUG: 매칭 컨텍스트 상태 로깅
+  useEffect(() => {
+    console.log("=== 🔍 MATCHMAKING CONTEXT STATE ===");
+    console.log("isLoading:", isLoading);
+    console.log("error:", error);
+    console.log("currentUserGroup:", currentUserGroup);
+    console.log("matchingGroups length:", matchingGroups.length);
+    console.log("currentGroupIndex:", currentGroupIndex);
+    console.log("hasMore:", hasMore);
+    console.log("isLoadingMore:", isLoadingMore);
+  }, [isLoading, error, currentUserGroup, matchingGroups.length, currentGroupIndex, hasMore, isLoadingMore]);
 
   // Unified animation values
   const translateX = useSharedValue(0);
@@ -94,40 +218,180 @@ export default function MatchScreen() {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
-  // Handle different states
-  if (!currentUserGroup) {
-    return (
-      <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
-    );
-  }
+  // Handle different states - moved to after all hooks are called
+  const renderContent = () => {
+    console.log("=== 🎨 RENDER CONTENT DEBUG ===");
+    console.log("currentUserGroup:", currentUserGroup);
+    console.log("isLoading:", isLoading);
+    console.log("error:", error);
+    console.log("matchingGroups.length:", matchingGroups.length);
+    console.log("currentGroup:", currentGroup);
 
-  if (isLoading) {
-    return <LoadingState message="Finding your perfect matches..." />;
-  }
+    if (!currentUserGroup) {
+      console.log("❌ No current user group - showing NoGroupState");
+      return (
+        <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
+      );
+    }
 
-  if (error) {
-    return (
-      <ErrorState
-        error={error}
-        onRetry={() => {
-          console.log("[MatchScreen] Retrying after error...");
-          refetch();
-        }}
-      />
-    );
-  }
+    if (isLoading) {
+      console.log("⏳ Loading - showing LoadingState");
+      return <LoadingState message="Finding your perfect matches..." />;
+    }
 
-  if (matchingGroups.length === 0 && !isLoading) {
+    if (error) {
+      console.log("❌ Error - showing ErrorState");
+      return (
+        <ErrorState
+          error={error}
+          onRetry={() => {
+            console.log("[MatchScreen] Retrying after error...");
+            refetch();
+          }}
+        />
+      );
+    }
+
+    if (matchingGroups.length === 0 && !isLoading) {
+      console.log("📭 Empty - showing EmptyState");
+      return (
+        <EmptyState
+          message="No more matches available right now. Check back later!"
+          onRefresh={() => {
+            console.log("[MatchScreen] Refreshing empty state...");
+            refetch();
+          }}
+        />
+      );
+    }
+
+    console.log("✅ Showing main content with MatchCard");
+    // Main content when we have data
     return (
-      <EmptyState
-        message="No more matches available right now. Check back later!"
-        onRefresh={() => {
-          console.log("[MatchScreen] Refreshing empty state...");
-          refetch();
-        }}
-      />
+      <SafeAreaView
+        style={[styles.safeArea, { paddingTop: insets.top }]}
+        edges={["top"]}
+      >
+        <LinearGradient
+          colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* User's bubble at top left */}
+        {userBubble && (
+          <View
+            style={[
+              styles.userBubbleContainer,
+              {
+                left: Math.max(
+                  0,
+                  (screenWidth - centerBubbleDiameter) / 2 -
+                    userBubbleDiameter * 0.18
+                ),
+                top: insets.top + 24,
+                width: userBubbleDiameter,
+                height: userBubbleDiameter + 24,
+              },
+            ]}
+          >
+            <BlurView
+              style={styles.userBubbleBlur}
+              intensity={Platform.OS === "ios" ? 60 : 80}
+              tint="light"
+            >
+              <Text style={styles.userBubbleName}>{userBubble.name}</Text>
+              <View style={styles.userBubbleRow}>
+                {userBubble.members.map((user, idx) => (
+                  <View
+                    key={user.id}
+                    style={{
+                      marginLeft:
+                        idx === 1 ? -userBubbleImageSize * overlapRatio : 0,
+                      zIndex: idx === 0 ? 2 : 1,
+                    }}
+                  >
+                    <Image
+                      source={{ uri: user.signedUrl || user.avatar_url }}
+                      style={{
+                        width: userBubbleImageSize,
+                        height: userBubbleImageSize,
+                        borderRadius: userBubbleImageSize / 2,
+                        borderWidth: 2,
+                        borderColor: "#fff",
+                      }}
+                    />
+                  </View>
+                ))}
+              </View>
+            </BlurView>
+            <View style={styles.pinIconWrap}>
+              <View style={styles.pinCircle}>
+                <Feather name="feather" size={18} color="#fff" />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* MatchCard for the current group */}
+        <Animated.View
+          style={[
+            styles.centerBubbleWrap,
+            {
+              top: screenHeight * 0.17 + insets.top,
+              left: (screenWidth - centerBubbleDiameter) / 2,
+              width: centerBubbleDiameter,
+              height: centerBubbleDiameter,
+            },
+            animatedBubbleStyle,
+          ]}
+        >
+          {/* 🔍 DEBUG: MatchCard에 전달되는 데이터 로깅 */}
+          {(() => {
+            console.log("=== 🎯 PASSING TO MATCHCARD ===");
+            console.log("Current Group:", currentGroup);
+            console.log("Has Members:", !!currentGroup?.members);
+            console.log("Members Length:", currentGroup?.members?.length || 0);
+            return null;
+          })()}
+          
+          <MatchCard
+            group={currentGroup}
+            onUserPress={handleUserClick}
+          />
+        </Animated.View>
+
+        {/* Swipe Controls */}
+        <View style={styles.swipeControls}>
+          <TouchableOpacity
+            style={styles.xButton}
+            onPress={() => handleSwipe("left")}
+            disabled={isAnimating}
+          >
+            <Feather name="x" size={32} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.checkButton}
+            onPress={() => handleSwipe("right")}
+            disabled={isAnimating}
+          >
+            <Feather name="heart" size={32} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+
+
+        {/* Loading More Indicator */}
+        {isLoadingMore && (
+          <View style={styles.loadingMoreContainer}>
+            <View style={styles.loadingMoreIndicator}>
+              <Text style={styles.loadingMoreText}>Loading more...</Text>
+            </View>
+          </View>
+        )}
+      </SafeAreaView>
     );
-  }
+  };
 
   // Handle user image click
   const handleUserClick = (user: GroupMember) => {
@@ -154,6 +418,20 @@ export default function MatchScreen() {
 
     // Handle empty state when no more groups
     if (matchingGroups.length === 0) {
+      return;
+    }
+
+    // 🔍 DEBUG: 배열 범위 체크
+    console.log("=== 🔄 CHANGE BUBBLE DEBUG ===");
+    console.log("Current Index:", currentGroupIndex);
+    console.log("Next Index:", nextIndex);
+    console.log("Groups Length:", matchingGroups.length);
+    console.log("Next Group:", matchingGroups[nextIndex]);
+
+    // 배열 범위 체크 추가
+    if (nextIndex >= matchingGroups.length) {
+      console.log("❌ Index out of bounds, resetting to 0");
+      setCurrentGroupIndex(0);
       return;
     }
 
@@ -281,159 +559,8 @@ export default function MatchScreen() {
     } as ViewStyle;
   });
 
-  return (
-    <SafeAreaView
-      style={[styles.safeArea, { paddingTop: insets.top }]}
-      edges={["top"]}
-    >
-      <LinearGradient
-        colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* User's bubble at top left */}
-      <View
-        style={[
-          styles.userBubbleContainer,
-          {
-            left: Math.max(
-              0,
-              (screenWidth - centerBubbleDiameter) / 2 -
-                userBubbleDiameter * 0.18
-            ),
-            top: insets.top + 24,
-            width: userBubbleDiameter,
-            height: userBubbleDiameter + 24,
-          },
-        ]}
-      >
-        <BlurView
-          style={styles.userBubbleBlur}
-          intensity={Platform.OS === "ios" ? 60 : 80}
-          tint="light"
-        >
-          <Text style={styles.userBubbleName}>{userBubble.name}</Text>
-          <View style={styles.userBubbleRow}>
-            {userBubble.users.map((user, idx) => (
-              <View
-                key={user.name}
-                style={{
-                  marginLeft:
-                    idx === 1 ? -userBubbleImageSize * overlapRatio : 0,
-                  zIndex: idx === 0 ? 2 : 1,
-                }}
-              >
-                <Image
-                  source={user.image}
-                  style={{
-                    width: userBubbleImageSize,
-                    height: userBubbleImageSize,
-                    borderRadius: userBubbleImageSize / 2,
-                    borderWidth: 2,
-                    borderColor: "#fff",
-                  }}
-                />
-              </View>
-            ))}
-          </View>
-        </BlurView>
-        <View style={styles.pinIconWrap}>
-          <View style={styles.pinCircle}>
-            <Feather name="feather" size={18} color="#fff" />
-          </View>
-        </View>
-      </View>
-
-      {/* Single, Unified Center Bubble */}
-      <Animated.View
-        style={[
-          styles.centerBubbleWrap,
-          {
-            top: screenHeight * 0.17 + insets.top,
-            left: (screenWidth - centerBubbleDiameter) / 2,
-            width: centerBubbleDiameter,
-            height: centerBubbleDiameter,
-          },
-          animatedBubbleStyle,
-        ]}
-      >
-        <BlurView
-          style={styles.centerBubbleBlur}
-          intensity={Platform.OS === "ios" ? 60 : 80}
-          tint="light"
-        >
-          <Text style={styles.centerBubbleName}>{currentGroup.group_name}</Text>
-          <View style={styles.centerBubbleRow}>
-            {currentGroup.members?.map((user, idx) => (
-              <TouchableOpacity
-                key={user.user_id}
-                style={{
-                  marginLeft: idx === 1 ? -centerBubbleOverlap : 0,
-                  zIndex: idx === 0 ? 2 : 1,
-                  alignItems: "center",
-                }}
-                onPress={() => handleUserClick(user)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.centerBubbleUserName}>
-                  {user.first_name} {user.age}
-                </Text>
-                <Image
-                  source={{ uri: user.avatar_url || undefined }}
-                  style={styles.centerBubbleImage}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </BlurView>
-      </Animated.View>
-
-      {/* X and Check buttons */}
-      <TouchableOpacity
-        style={styles.xButton}
-        onPress={() => handleSwipe("left")}
-      >
-        <Feather name="x" size={36} color="#fff" />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.checkButton}
-        onPress={() => handleSwipe("right")}
-      >
-        <Feather name="heart" size={36} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Loading indicator for more data */}
-      {isLoadingMore && (
-        <View style={styles.loadingMoreContainer}>
-          <View style={styles.loadingMoreIndicator}>
-            <Text style={styles.loadingMoreText}>Loading more...</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Progress indicator */}
-      {matchingGroups.length > 0 && (
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${
-                    ((currentGroupIndex + 1) / matchingGroups.length) * 100
-                  }%`,
-                },
-              ]}
-            />
-          </View>
-          <Text style={styles.progressText}>
-            {currentGroupIndex + 1} of {matchingGroups.length}
-          </Text>
-        </View>
-      )}
-    </SafeAreaView>
-  );
+  // Main return - call renderContent to handle all conditional rendering
+  return renderContent();
 }
 
 // Styles (unchanged from original)
@@ -596,28 +723,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-  progressContainer: {
+
+  swipeControls: {
     position: "absolute",
-    bottom: 100, // Adjust as needed
+    bottom: 48,
     left: 0,
     right: 0,
-    alignItems: "center",
-    zIndex: 10,
-  },
-  progressBar: {
-    width: "80%",
-    height: 8,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 4,
-    backgroundColor: "#8ec3ff",
-  },
-  progressText: {
-    fontSize: 14,
-    color: "#555",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 32,
   },
 });
