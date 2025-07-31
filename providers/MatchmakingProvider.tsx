@@ -1,5 +1,10 @@
 import React, { createContext, useContext, ReactNode } from "react";
-import { useMatchmaking, MatchingGroup } from "@/hooks/useMatchmaking";
+// [수정 1] useMatchmaking 훅에서 LikeResponse 타입을 함께 import 합니다.
+import {
+  useMatchmaking,
+  MatchingGroup,
+  LikeResponse,
+} from "@/hooks/useMatchmaking";
 
 interface MatchmakingContextType {
   matchingGroups: MatchingGroup[];
@@ -8,7 +13,8 @@ interface MatchmakingContextType {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
-  likeGroup: (targetGroupId: string) => Promise<boolean>;
+  // [수정 2] likeGroup 함수의 반환 타입을 boolean에서 새로운 응답 타입으로 변경합니다.
+  likeGroup: (targetGroupId: string) => Promise<LikeResponse | null>;
   passGroup: (targetGroupId: string) => void;
   loadMore: () => Promise<void>;
   refetch: () => void;

@@ -37,8 +37,6 @@ import { GroupMember } from "@/hooks/useMatchmaking";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
-
-
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
 
@@ -94,7 +92,7 @@ export default function MatchScreen() {
   // 초기 로딩 시에만 데이터 가져오기 (useFocusEffect 제거)
   useEffect(() => {
     console.log("[MatchScreen] 🎯 Initial data loading...");
-    
+
     // 사용자 그룹 정보 가져오기
     const fetchUserBubble = async () => {
       if (!session?.user) return;
@@ -102,19 +100,24 @@ export default function MatchScreen() {
       setUserBubbleLoading(true);
       try {
         console.log("[MatchScreen] 사용자 그룹 정보 가져오기 시작");
-        
+
         // 먼저 Active 버블을 확인
         console.log("[MatchScreen] Active 버블 확인 중...");
-        const { data: activeBubbleData, error: activeBubbleError } = await supabase.rpc("get_user_active_bubble", {
-          p_user_id: session.user.id,
-        });
+        const { data: activeBubbleData, error: activeBubbleError } =
+          await supabase.rpc("get_user_active_bubble", {
+            p_user_id: session.user.id,
+          });
 
         console.log("[MatchScreen] Active 버블 조회 결과:", activeBubbleData);
         console.log("[MatchScreen] Active 버블 에러:", activeBubbleError);
 
         let targetBubble: any = null;
 
-        if (!activeBubbleError && activeBubbleData && activeBubbleData.length > 0) {
+        if (
+          !activeBubbleError &&
+          activeBubbleData &&
+          activeBubbleData.length > 0
+        ) {
           // Active 버블이 있으면 사용
           targetBubble = activeBubbleData[0];
           console.log("[MatchScreen] Active 버블 사용:", targetBubble);
@@ -131,16 +134,23 @@ export default function MatchScreen() {
           }
 
           console.log("[MatchScreen] get_my_bubbles 응답:", data);
-          
+
           // joined 상태인 버블 중 첫 번째 것을 사용
-          targetBubble = data?.find((bubble: any) => bubble.user_status === "joined");
+          targetBubble = data?.find(
+            (bubble: any) => bubble.user_status === "joined"
+          );
         }
-        
+
         if (targetBubble) {
           console.log("[MatchScreen] 사용자 그룹 발견:", targetBubble);
-          
+
           // 멤버 정보 파싱 (새로운 구조에 맞게)
-          let members: Array<{ id: string; first_name: string; last_name: string; images: Array<{ image_url: string; position: number }> }> = [];
+          let members: Array<{
+            id: string;
+            first_name: string;
+            last_name: string;
+            images: Array<{ image_url: string; position: number }>;
+          }> = [];
           if (targetBubble.members) {
             try {
               members = Array.isArray(targetBubble.members)
@@ -155,10 +165,11 @@ export default function MatchScreen() {
           // 새로운 구조에 맞게 멤버 데이터 변환
           const membersWithUrls = members.map((member) => {
             // 첫 번째 이미지를 아바타로 사용
-            const avatarUrl = member.images && member.images.length > 0 
-              ? member.images[0].image_url 
-              : null;
-            
+            const avatarUrl =
+              member.images && member.images.length > 0
+                ? member.images[0].image_url
+                : null;
+
             return {
               id: member.id,
               first_name: member.first_name,
@@ -197,7 +208,7 @@ export default function MatchScreen() {
     console.log("Total matching groups:", matchingGroups.length);
     console.log("Current group index:", currentGroupIndex);
     console.log("Current group:", currentGroup);
-    
+
     if (currentGroup) {
       console.log("=== 📋 CURRENT GROUP DETAILS ===");
       console.log("Group ID:", currentGroup.group_id);
@@ -206,7 +217,7 @@ export default function MatchScreen() {
       console.log("Preferred Gender:", currentGroup.preferred_gender);
       console.log("Match Score:", currentGroup.match_score);
       console.log("Members Count:", currentGroup.members?.length || 0);
-      
+
       if (currentGroup.members && currentGroup.members.length > 0) {
         console.log("=== 👥 MEMBERS DETAILS ===");
         currentGroup.members.forEach((member, index) => {
@@ -234,7 +245,15 @@ export default function MatchScreen() {
     console.log("currentGroupIndex:", currentGroupIndex);
     console.log("hasMore:", hasMore);
     console.log("isLoadingMore:", isLoadingMore);
-  }, [isLoading, error, currentUserGroup, matchingGroups.length, currentGroupIndex, hasMore, isLoadingMore]);
+  }, [
+    isLoading,
+    error,
+    currentUserGroup,
+    matchingGroups.length,
+    currentGroupIndex,
+    hasMore,
+    isLoadingMore,
+  ]);
 
   // Unified animation values
   const translateX = useSharedValue(0);
@@ -389,11 +408,8 @@ export default function MatchScreen() {
             console.log("Members Length:", currentGroup?.members?.length || 0);
             return null;
           })()}
-          
-          <MatchCard
-            group={currentGroup}
-            onUserPress={handleUserClick}
-          />
+
+          <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
         {/* Swipe Controls */}
@@ -414,8 +430,6 @@ export default function MatchScreen() {
           </TouchableOpacity>
         </View>
 
-
-
         {/* Loading More Indicator */}
         {isLoadingMore && (
           <View style={styles.loadingMoreContainer}>
@@ -429,19 +443,22 @@ export default function MatchScreen() {
   };
 
   // Handle user image click
-  const handleUserClick = useCallback((user: GroupMember) => {
-    console.log("=== 🖼️ USER CLICK HANDLER ===");
-    console.log("User clicked:", user);
-    console.log("User ID:", user.id);
-    console.log("User name:", user.first_name);
-    
-    router.push({
-      pathname: "/bubble/user/[userId]",
-      params: {
-        userId: user.id, // user_id 대신 id 사용
-      },
-    });
-  }, [router]);
+  const handleUserClick = useCallback(
+    (user: GroupMember) => {
+      console.log("=== 🖼️ USER CLICK HANDLER ===");
+      console.log("User clicked:", user);
+      console.log("User ID:", user.id);
+      console.log("User name:", user.first_name);
+
+      router.push({
+        pathname: "/bubble/user/[userId]",
+        params: {
+          userId: user.id, // user_id 대신 id 사용
+        },
+      });
+    },
+    [router]
+  );
 
   // Animate and switch bubble data
   const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
@@ -492,6 +509,7 @@ export default function MatchScreen() {
   };
 
   // Handler for X and Heart
+  // Handler for X and Heart
   const handleSwipe = async (direction: "left" | "right") => {
     if (isAnimating || !currentGroup) return;
 
@@ -506,9 +524,11 @@ export default function MatchScreen() {
       // Visual feedback for like action
       console.log(`[MatchScreen] Liking group: ${currentGroup.group_name}`);
 
-      // Call likeGroup RPC
-      const isMatch = await likeGroup(currentGroup.group_id);
-      if (isMatch) {
+      // [수정 1] 새로운 likeGroup 함수를 호출하고 그 결과를 response 변수에 저장합니다.
+      const response = await likeGroup(currentGroup.group_id);
+
+      // [수정 2] 반환된 객체의 status 값으로 매칭 성공 여부를 확인합니다.
+      if (response?.status === "matched") {
         // Enhanced match notification with haptic feedback
         if (Platform.OS === "ios") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -527,13 +547,18 @@ export default function MatchScreen() {
               text: "View Matches",
               style: "default",
               onPress: () => {
-                // TODO: Navigate to matches screen
-                console.log("Navigate to matches screen");
+                // [수정 3] 채팅 목록 화면으로 이동하는 로직을 추가할 수 있습니다.
+                // 예: router.push('/(tabs)/chats');
+                console.log(
+                  "Navigate to matches/chats screen. Chat Room ID:",
+                  response.chat_room_id
+                );
               },
             },
           ]
         );
       } else {
+        // 'liked' 상태이거나 null일 경우 (매칭 안됨)
         console.log(
           `[MatchScreen] Liked ${currentGroup.group_name} (no match yet)`
         );
