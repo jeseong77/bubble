@@ -84,7 +84,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="message" // 예: app/(tabs)/message.tsx
+        name="chat" // 예: app/(tabs)/chats.tsx
         options={{
           title: "",
           animation: "none",
