@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/providers/AuthProvider";
 
+// --- TypeScript Interfaces ---
+
 export interface MatchingGroup {
   group_id: string;
   group_name: string;
@@ -11,8 +13,9 @@ export interface MatchingGroup {
   members?: GroupMember[];
 }
 
+// GroupMember 인터페이스의 모든 필드를 포함합니다.
 export interface GroupMember {
-  id: string; // 실제 데이터에 있는 id 필드 추가
+  id: string;
   user_id: string;
   first_name: string;
   last_name: string;
@@ -25,6 +28,13 @@ export interface GroupMember {
   joined_at: string;
 }
 
+// [수정 1] like_group RPC의 새로운 응답 타입을 정의합니다.
+export interface LikeResponse {
+  status: "liked" | "matched";
+  chat_room_id?: string; // 'matched' 상태일 때만 존재합니다.
+}
+
+// --- The Hook ---
 export const useMatchmaking = () => {
   const { session } = useAuth();
   const [matchingGroups, setMatchingGroups] = useState<MatchingGroup[]>([]);
@@ -34,58 +44,39 @@ export const useMatchmaking = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [currentOffset, setCurrentOffset] = useState(0);
-  const [batchSize] = useState(5); // Start with 5 for early stage
+  const [batchSize] = useState(5);
 
-  // Get current user's group
   const fetchCurrentUserGroup = useCallback(async () => {
     if (!session?.user) return null;
-
     try {
-      // 먼저 Active 버블을 확인
-      console.log("=== 🔍 TRYING GET_USER_ACTIVE_BUBBLE ===");
-      console.log("User ID:", session.user.id);
-      
-      const { data: activeBubbleData, error: activeBubbleError } = await supabase.rpc("get_user_active_bubble", {
-        p_user_id: session.user.id,
-      });
+      const { data: activeBubbleData, error: activeBubbleError } =
+        await supabase.rpc("get_user_active_bubble", {
+          p_user_id: session.user.id,
+        });
 
-      console.log("=== 🔍 GET_USER_ACTIVE_BUBBLE RPC RESULT ===");
-      console.log("Active Bubble Data:", activeBubbleData);
-      console.log("Active Bubble Error:", activeBubbleError);
-      console.log("Active Bubble Data Type:", typeof activeBubbleData);
-      console.log("Active Bubble Data Length:", activeBubbleData?.length || 0);
-
-      if (!activeBubbleError && activeBubbleData && activeBubbleData.length > 0) {
+      if (
+        !activeBubbleError &&
+        activeBubbleData &&
+        activeBubbleData.length > 0
+      ) {
         const activeBubble = activeBubbleData[0];
-        console.log("✅ Found active bubble:", activeBubble);
         setCurrentUserGroup(activeBubble.id);
         return activeBubble.id;
-      } else {
-        console.log("❌ No active bubble found or error occurred");
-        console.log("Error details:", activeBubbleError);
       }
 
-      // Active 버블이 없으면 기존 로직 사용
-      console.log("=== 🔍 FALLBACK TO GET_MY_BUBBLES ===");
       const { data, error } = await supabase.rpc("get_my_bubbles", {
         p_user_id: session.user.id,
       });
 
       if (error) throw error;
 
-      console.log("=== 🔍 GET_MY_BUBBLES RPC RESULT ===");
-      console.log("Data:", data);
-      console.log("Data length:", data?.length || 0);
-
-      // Find the first 'joined' group (user is a member)
-      const joinedGroup = data?.find((bubble: any) => bubble.user_status === "joined");
+      const joinedGroup = data?.find(
+        (bubble: any) => bubble.user_status === "joined"
+      );
       if (joinedGroup) {
-        console.log("Found joined group:", joinedGroup);
         setCurrentUserGroup(joinedGroup.id);
         return joinedGroup.id;
       }
-
-      console.log("No joined group found");
       return null;
     } catch (err) {
       console.error("Error fetching current user group:", err);
@@ -94,7 +85,6 @@ export const useMatchmaking = () => {
     }
   }, [session?.user]);
 
-  // Fetch matching groups with pagination
   const fetchMatchingGroups = useCallback(
     async (
       groupId: string,
@@ -117,102 +107,32 @@ export const useMatchmaking = () => {
 
         if (error) throw error;
 
-        console.log("=== 🔍 FIND_MATCHING_GROUP RPC RESULT ===");
-        console.log("Data:", data);
-        console.log("Data length:", data?.length || 0);
-
-        // Check if we have more data
         const hasMoreData = data && data.length === batchSize;
         setHasMore(hasMoreData);
 
-        // Fetch members for each matching group
         const groupsWithMembers = await Promise.all(
           data.map(async (group: any) => {
-            console.log(`=== 🎯 PROCESSING GROUP: ${group.group_name} ===`);
-            console.log("Group ID:", group.group_id);
-            
-            try {
-              const { data: bubbleData, error: bubbleError } =
-                await supabase.rpc("get_bubble", {
-                  p_group_id: group.group_id,
-                });
-
-              console.log(`=== 📦 GET_BUBBLE RPC RESULT ===`);
-              console.log("Bubble Data:", bubbleData);
-              console.log("Bubble Error:", bubbleError);
-              console.log("Bubble Data Type:", typeof bubbleData);
-              console.log("Bubble Data Length:", bubbleData?.length || 0);
-
-              if (bubbleError) {
-                console.error(
-                  "Error fetching bubble info for group:",
-                  group.group_id,
-                  bubbleError
-                );
-                return { 
-                  group_id: group.group_id,
-                  group_name: group.group_name,
-                  group_gender: group.group_gender,
-                  preferred_gender: group.preferred_gender,
-                  match_score: group.match_score,
-                  members: [] 
-                };
+            const { data: bubbleData, error: bubbleError } = await supabase.rpc(
+              "get_bubble",
+              {
+                p_group_id: group.group_id,
               }
+            );
 
-              // Extract members from bubble data
-              let members: GroupMember[] = [];
-              if (bubbleData && bubbleData.length > 0) {
-                const bubbleInfo = bubbleData[0];
-                console.log("=== 📋 BUBBLE INFO ===");
-                console.log("Bubble Info:", bubbleInfo);
-                console.log("Members field:", bubbleInfo.members);
-                console.log("Members field type:", typeof bubbleInfo.members);
-                
-                if (bubbleInfo.members) {
-                  try {
-                    members = Array.isArray(bubbleInfo.members)
-                      ? bubbleInfo.members
-                      : JSON.parse(bubbleInfo.members);
-                    
-                    console.log("=== ✅ PARSED MEMBERS ===");
-                    console.log("Parsed members:", members);
-                    console.log("Members count:", members.length);
-                  } catch (parseError) {
-                    console.error("Error parsing members:", parseError);
-                    console.log("Raw members data:", bubbleInfo.members);
-                    members = [];
-                  }
-                } else {
-                  console.log("❌ No members field in bubble info");
-                }
-              } else {
-                console.log("❌ No bubble data or empty array");
-              }
-
-              const result = { 
-                group_id: group.group_id,
-                group_name: group.group_name,
-                group_gender: group.group_gender,
-                preferred_gender: group.preferred_gender,
-                match_score: group.match_score,
-                members 
-              };
-              console.log(`=== ✅ FINAL GROUP RESULT ===`);
-              console.log("Final group:", result);
-              console.log("Members count:", result.members?.length || 0);
-              
-              return result;
-            } catch (err) {
-              console.error("Error fetching bubble info:", err);
-              return { 
-                group_id: group.group_id,
-                group_name: group.group_name,
-                group_gender: group.group_gender,
-                preferred_gender: group.preferred_gender,
-                match_score: group.match_score,
-                members: [] 
-              };
+            if (bubbleError) {
+              console.error(
+                "Error fetching bubble info for group:",
+                group.group_id,
+                bubbleError
+              );
+              return { ...group, members: [] };
             }
+
+            const members =
+              bubbleData && bubbleData.length > 0
+                ? bubbleData[0].members || []
+                : [];
+            return { ...group, members };
           })
         );
 
@@ -234,10 +154,8 @@ export const useMatchmaking = () => {
     [batchSize]
   );
 
-  // Load more groups
   const loadMore = useCallback(async () => {
     if (!currentUserGroup || isLoadingMore || !hasMore) return;
-
     await fetchMatchingGroups(currentUserGroup, currentOffset, true);
   }, [
     currentUserGroup,
@@ -247,10 +165,10 @@ export const useMatchmaking = () => {
     fetchMatchingGroups,
   ]);
 
-  // Like a group
+  // [수정 2] likeGroup 함수의 반환 타입을 새로운 응답 타입에 맞게 변경합니다.
   const likeGroup = useCallback(
-    async (targetGroupId: string) => {
-      if (!currentUserGroup) return false;
+    async (targetGroupId: string): Promise<LikeResponse | null> => {
+      if (!currentUserGroup) return null;
 
       try {
         const { data, error } = await supabase.rpc("like_group", {
@@ -260,33 +178,30 @@ export const useMatchmaking = () => {
 
         if (error) throw error;
 
-        // Remove the liked group from the list
         setMatchingGroups((prev) =>
           prev.filter((group) => group.group_id !== targetGroupId)
         );
 
-        // Check if we need to load more
         if (matchingGroups.length <= 3 && hasMore) {
           await loadMore();
         }
 
-        return data; // Returns true if mutual match was created
+        // [수정 3] RPC 결과를 명시적 타입으로 변환하여 반환합니다.
+        return data as LikeResponse;
       } catch (err) {
         console.error("Error liking group:", err);
-        return false;
+        return null;
       }
     },
     [currentUserGroup, matchingGroups.length, hasMore, loadMore]
   );
 
-  // Pass a group (just remove from list)
   const passGroup = useCallback(
     (targetGroupId: string) => {
       setMatchingGroups((prev) =>
         prev.filter((group) => group.group_id !== targetGroupId)
       );
 
-      // Check if we need to load more
       if (matchingGroups.length <= 3 && hasMore) {
         loadMore();
       }
@@ -294,7 +209,6 @@ export const useMatchmaking = () => {
     [matchingGroups.length, hasMore, loadMore]
   );
 
-  // Initialize
   useEffect(() => {
     const initialize = async () => {
       const groupId = await fetchCurrentUserGroup();
