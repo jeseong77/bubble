@@ -1,3 +1,48 @@
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+
+export default function ChatRoomScreen() {
+  console.log('🚀 [ChatRoomScreen] Component mounted!');
+  
+  const params = useLocalSearchParams();
+  const { chatRoomId } = params;
+  
+  console.log('💬 [ChatRoomScreen] Chat room entered with ID:', chatRoomId);
+  console.log('📋 [ChatRoomScreen] All params received:', params);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>🎉 Chat Room Screen</Text>
+      <Text style={styles.text}>Chat Room ID: {chatRoomId || 'No ID received'}</Text>
+      <Text style={styles.text}>All Params: {JSON.stringify(params, null, 2)}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  text: {
+    fontSize: 16,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+});
+
+// Commented out full implementation - causes navigation to fail
+/*
 import React, { useState, useEffect, useCallback } from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
@@ -5,7 +50,6 @@ import { GiftedChat, IMessage } from "react-native-gifted-chat";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
-// [수정 1] 자동 생성 타입 대신 필요한 타입을 직접 정의합니다.
 interface ChatMessage {
   id: number;
   room_id: string;
@@ -15,31 +59,31 @@ interface ChatMessage {
 }
 
 export default function ChatRoomScreen() {
-  // 1. 라우터 파라미터에서 채팅방 ID와 상대 그룹 이름을 가져옵니다.
-  const { chatRoomId, otherGroupName } = useLocalSearchParams<{
+  console.log('🚀 [ChatRoomScreen] Component mounted!');
+  
+  // Get chat room ID from params
+  const { chatRoomId } = useLocalSearchParams<{
     chatRoomId: string;
-    otherGroupName: string;
   }>();
   
-  console.log('[ChatRoomScreen] Loaded with params:', { chatRoomId, otherGroupName });
+  console.log('💬 [ChatRoomScreen] Chat room entered with ID:', chatRoomId);
+  console.log('📋 [ChatRoomScreen] All params received:', useLocalSearchParams());
+  
   const { session } = useAuth();
   const [messages, setMessages] = useState<IMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Gifted Chat 메시지 형식으로 변환하는 함수
+  // Convert to Gifted Chat message format
   const formatMessage = (message: ChatMessage): IMessage => ({
     _id: message.id,
     text: message.content,
     createdAt: new Date(message.created_at),
     user: {
       _id: message.sender_id,
-      // 이름이나 아바타가 필요하면 여기서 추가로 설정할 수 있습니다.
-      // name: 'User Name',
-      // avatar: 'https://...
     },
   });
 
-  // 2. 과거 메시지 불러오기
+  // Fetch past messages
   useEffect(() => {
     const fetchMessages = async () => {
       if (!chatRoomId) return;
@@ -64,13 +108,13 @@ export default function ChatRoomScreen() {
     fetchMessages();
   }, [chatRoomId]);
 
-  // 3. 실시간 메시지 구독 설정
+  // Real-time message subscription
   useEffect(() => {
     if (!chatRoomId) return;
 
     const channel = supabase
       .channel(`chat_room:${chatRoomId}`)
-      .on<ChatMessage>( // [수정 2] 직접 정의한 타입을 사용합니다.
+      .on<ChatMessage>(
         "postgres_changes",
         {
           event: "INSERT",
@@ -79,8 +123,8 @@ export default function ChatRoomScreen() {
           filter: `room_id=eq.${chatRoomId}`,
         },
         (payload) => {
-          const newMessage = formatMessage(payload.new as ChatMessage); // 타입 단언 추가
-          // 내가 보낸 메시지가 중복으로 표시되지 않도록 확인
+          const newMessage = formatMessage(payload.new as ChatMessage);
+          // Prevent duplicate messages
           if (messages.findIndex((msg) => msg._id === newMessage._id) === -1) {
             setMessages((previousMessages) =>
               GiftedChat.append(previousMessages, [newMessage])
@@ -90,13 +134,13 @@ export default function ChatRoomScreen() {
       )
       .subscribe();
 
-    // 컴포넌트가 사라질 때 구독 해제
+    // Cleanup subscription
     return () => {
       supabase.removeChannel(channel);
     };
   }, [chatRoomId, messages]);
 
-  // 4. 메시지 전송 처리
+  // Send message handler
   const onSend = useCallback(
     async (newMessages: IMessage[] = []) => {
       if (!session?.user || !chatRoomId) return;
@@ -104,12 +148,12 @@ export default function ChatRoomScreen() {
       const messageToSend = newMessages[0];
       const { text } = messageToSend;
 
-      // 화면에 먼저 낙관적으로 업데이트
+      // Optimistic update
       setMessages((previousMessages) =>
         GiftedChat.append(previousMessages, newMessages)
       );
 
-      // Supabase에 메시지 저장
+      // Save to Supabase
       const { error } = await supabase.from("chat_messages").insert({
         room_id: chatRoomId,
         content: text,
@@ -118,7 +162,6 @@ export default function ChatRoomScreen() {
 
       if (error) {
         console.error("Failed to send message:", error);
-        // 에러 발생 시 보냈던 메시지를 다시 지우는 등의 처리를 할 수 있습니다.
       }
     },
     [chatRoomId, session?.user]
@@ -126,8 +169,7 @@ export default function ChatRoomScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 헤더 제목을 상대 그룹 이름으로 설정 */}
-      <Stack.Screen options={{ title: otherGroupName || "Chat" }} />
+      <Stack.Screen options={{ title: "Chat" }} />
       {isLoading ? (
         <ActivityIndicator style={styles.loader} size="large" />
       ) : (
@@ -159,3 +201,4 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
 });
+*/

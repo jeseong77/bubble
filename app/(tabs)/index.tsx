@@ -157,7 +157,6 @@ export default function MatchScreen() {
                 ? targetBubble.members
                 : JSON.parse(targetBubble.members);
             } catch (parseError) {
-              console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
               members = [];
             }
           }

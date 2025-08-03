@@ -54,13 +54,6 @@ function AppInitializer() {
           animation: "flip",
         }}
       />
-      <Stack.Screen
-        name="chats"
-        options={{
-          headerShown: false,
-          animation: "slide_from_right",
-        }}
-      />
     </Stack>
   );
 }
