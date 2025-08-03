@@ -26,16 +26,42 @@ export default function MessageListScreen() {
         setIsLoading(true);
         setError(null);
         try {
-          // get_my_matches RPC를 호출하여 채팅 목록 데이터를 가져옵니다.
-          const { data, error: rpcError } = await supabase.rpc(
-            "get_my_matches"
+          console.log('🔍 [ChatsScreen] Fetching matches...');
+          
+          // Debug: Check current user
+          const { data: { user } } = await supabase.auth.getUser();
+          console.log('👤 [ChatsScreen] Current user:', user?.id);
+          
+          // Debug: Check user's groups
+          const { data: userGroups, error: groupError } = await supabase
+            .from('group_members')
+            .select('*, groups(name)')
+            .eq('user_id', user?.id);
+          console.log('👥 [ChatsScreen] User groups:', userGroups);
+          
+          // Debug: Try both functions
+          console.log('🔧 [ChatsScreen] Testing debug function first...');
+          const { data: debugData, error: debugError } = await supabase.rpc(
+            "get_my_matches_debug",
+            { p_debug_user_id: user?.id }
           );
+          console.log('🔧 [ChatsScreen] Debug RPC result:', { debugData, debugError });
+          
+          // get_my_matches_enhanced RPC를 호출하여 채팅 목록 데이터를 가져옵니다.
+          const { data, error: rpcError } = await supabase.rpc(
+            "get_my_matches_enhanced"
+          );
+
+          console.log('📊 [ChatsScreen] Enhanced RPC result:', { data, error: rpcError });
+          
+          // Use debug data if available, otherwise use regular data
+          const finalData = debugData && debugData.length > 0 ? debugData : data;
 
           if (rpcError) {
             throw rpcError;
           }
 
-          setMatches(data || []);
+          setMatches(finalData || []);
         } catch (err: any) {
           console.error("Failed to fetch matches:", err);
           setError("채팅 목록을 불러오는 데 실패했습니다.");

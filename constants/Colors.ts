@@ -36,11 +36,13 @@ export const Colors = {
     // Background colors
     background: "#FFFFFF",
     surface: "#FFFFFF",
+    surfaceVariant: "#F4F4F4",
 
     // Text colors
     onBackground: "#000000",
     onSurface: "#303030",
     onSurfaceVariant: "#7A7A7A",
+    inverseOnSurface: "#FFFFFF",
 
     // Border colors
     outline: "#D9D9D9",
@@ -79,11 +81,13 @@ export const Colors = {
     // Background colors
     background: "#FFFFFF",
     surface: "#FFFFFF",
+    surfaceVariant: "#F4F4F4",
 
     // Text colors
     onBackground: "#000000",
     onSurface: "#303030",
     onSurfaceVariant: "#7A7A7A",
+    inverseOnSurface: "#FFFFFF",
 
     // Border colors
     outline: "#D9D9D9",

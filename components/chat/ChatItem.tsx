@@ -6,16 +6,19 @@ import relativeTime from "dayjs/plugin/relativeTime";
 // dayjs 플러그인 활성화
 dayjs.extend(relativeTime);
 
-// get_my_matches RPC의 반환 데이터 타입 정의
+// get_my_matches_enhanced RPC의 반환 데이터 타입 정의
 export interface MatchData {
   match_id: string;
   chat_room_id: string;
   other_group_id: string;
   other_group_name: string;
   other_group_avatar_urls: string[] | null;
+  my_group_name: string;
   last_message_content: string | null;
   last_message_created_at: string | null;
-  unread_count?: number;
+  last_message_sender_name: string | null;
+  unread_count: number;
+  created_at: string;
 }
 
 interface ChatItemProps {
@@ -68,9 +71,11 @@ export const ChatItem: React.FC<ChatItemProps> = ({ match, onPress }) => {
         <Text style={styles.timestamp}>
           {formatTimestamp(match.last_message_created_at)}
         </Text>
-        {match.unread_count && match.unread_count > 0 ? (
+        {match.unread_count > 0 ? (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{match.unread_count}</Text>
+            <Text style={styles.badgeText}>
+              {match.unread_count > 99 ? '99+' : match.unread_count}
+            </Text>
           </View>
         ) : (
           // 뱃지가 없을 때도 레이아웃 유지를 위한 빈 공간
