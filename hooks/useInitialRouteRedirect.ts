@@ -33,6 +33,7 @@ const ALLOWED_FIRST_SEGMENTS_WHEN_FULLY_SETUP = [
   "search", // 검색 페이지
   "bubble", // 버블 폼 페이지 허용
   "match", // 매칭 페이지 허용
+  "chats", // 채팅 페이지 허용
 ];
 
 export function useInitialRouteRedirect() {

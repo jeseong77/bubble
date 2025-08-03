@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
+import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
 
 interface HeightInputStepProps {
   onHeightChange: (heightInCm: number) => void;

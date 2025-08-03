@@ -8,7 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
+import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
 
 interface AgeInputStepProps {
   day: string;

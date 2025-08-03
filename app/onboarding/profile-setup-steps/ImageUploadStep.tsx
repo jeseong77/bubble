@@ -13,7 +13,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
+import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
 
 export interface ProfileImage {
   uri?: string;

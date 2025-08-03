@@ -20,6 +20,8 @@ export default function ChatRoomScreen() {
     chatRoomId: string;
     otherGroupName: string;
   }>();
+  
+  console.log('[ChatRoomScreen] Loaded with params:', { chatRoomId, otherGroupName });
   const { session } = useAuth();
   const [messages, setMessages] = useState<IMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);

@@ -9,7 +9,16 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "db:inspect": "node ./scripts/inspect-db.js",
+    "db:rpc": "node ./scripts/manage-rpc.js",
+    "db:schema": "node ./scripts/manage-schema.js",
+    "test:chat": "node ./scripts/test-chat-flow.js",
+    "test:existing": "node ./scripts/test-existing-chat.js",
+    "test:matching": "node ./scripts/test-full-matching-flow.js",
+    "setup:likes": "node ./scripts/setup-test-likes.js",
+    "test:fix": "node ./scripts/test-chat-fix.js",
+    "create:match": "node ./scripts/create-test-match.js"
   },
   "jest": {
     "preset": "jest-expo"
@@ -29,6 +38,7 @@
     "base64-arraybuffer": "^1.0.2",
     "core-js": "^3.44.0",
     "dayjs": "^1.11.13",
+    "dotenv": "^17.2.1",
     "expo": "53.0.9",
     "expo-apple-authentication": "~7.2.4",
     "expo-auth-session": "~6.2.1",

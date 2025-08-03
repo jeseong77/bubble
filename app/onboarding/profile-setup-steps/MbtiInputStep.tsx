@@ -10,7 +10,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { inputFieldContainerStyles } from "./inputFieldContainer.styles";
+import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
 
 interface MbtiInputStepProps {
   currentMbti: string | null;

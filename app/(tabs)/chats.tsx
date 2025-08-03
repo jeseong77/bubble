@@ -49,10 +49,33 @@ export default function MessageListScreen() {
   );
 
   const handleChatItemPress = (chatRoomId: string, otherGroupName: string) => {
-    router.push({
-      pathname: `/chats/[chatRoomId]`,
-      params: { otherGroupName: otherGroupName },
-    });
+    console.log('[ChatsScreen] 🚀 Starting chat navigation...');
+    console.log('[ChatsScreen] Navigation params:', { chatRoomId, otherGroupName });
+    console.log('[ChatsScreen] Current router state before navigation');
+    
+    try {
+      // Navigate directly to the chat room file path
+      console.log('[ChatsScreen] 📍 Attempting direct navigation to chat room...');
+      router.push({
+        pathname: "/chats/[chatRoomId]/index",
+        params: {
+          chatRoomId: chatRoomId,
+          otherGroupName: otherGroupName,
+        },
+      });
+      console.log('[ChatsScreen] ✅ Navigation call completed successfully');
+    } catch (error) {
+      console.error('[ChatsScreen] ❌ Navigation error:', error);
+      
+      // Fallback to string method
+      console.log('[ChatsScreen] 🔄 Trying fallback string navigation...');
+      try {
+        router.push(`/chats/${chatRoomId}/index?otherGroupName=${encodeURIComponent(otherGroupName)}`);
+        console.log('[ChatsScreen] ✅ Fallback navigation completed');
+      } catch (fallbackError) {
+        console.error('[ChatsScreen] ❌ Fallback navigation also failed:', fallbackError);
+      }
+    }
   };
 
   // 로딩 중일 때 표시할 컴포넌트
