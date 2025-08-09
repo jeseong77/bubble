@@ -233,18 +233,16 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
         console.log("[RealtimeProvider] 채널 구독 해제 시도...");
         console.log(`[RealtimeProvider] 해제할 채널: ${channel.topic}`);
 
-        supabase
-          .removeChannel(channel)
-          .then(() => {
-            console.log("[RealtimeProvider] 채널 구독 해제 완료");
-            channel = undefined;
-            setConnectionStatus("DISCONNECTED");
-          })
-          .catch((error) => {
-            console.error("[RealtimeProvider] 채널 해제 중 에러:", error);
-            channel = undefined;
-            setConnectionStatus("DISCONNECTED");
-          });
+        try {
+          supabase.removeChannel(channel);
+          console.log("[RealtimeProvider] 채널 구독 해제 완료");
+          channel = undefined;
+          setConnectionStatus("DISCONNECTED");
+        } catch (error) {
+          console.error("[RealtimeProvider] 채널 해제 중 에러:", error);
+          channel = undefined;
+          setConnectionStatus("DISCONNECTED");
+        }
       } else {
         console.log("[RealtimeProvider] 해제할 채널이 없습니다.");
       }

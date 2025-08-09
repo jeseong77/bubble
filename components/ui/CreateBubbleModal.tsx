@@ -41,14 +41,6 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
 
   const handleCreate = () => {
     if (selectedType) {
-      // 3:3 버튼을 누르면 테스트 RPC 함수 실행
-      if (selectedType === "3-3") {
-        handleTestRpc();
-        setSelectedType(null);
-        onClose();
-        return;
-      }
-
       onCreate(selectedType);
       setSelectedType(null);
     }
