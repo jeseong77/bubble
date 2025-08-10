@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import CustomAppBar from "@/components/CustomAppBar";
 import CustomView from "@/components/CustomView";
 import { Ionicons } from "@expo/vector-icons";
 import { ProfileFormData, ProfileImage } from "@/types/profile";
@@ -23,7 +22,6 @@ import ProfileHero from "@/components/ProfileHero";
 import ProfileTab, { TabInfo } from "@/components/ProfileTab";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BubbleTabItem from "@/components/bubble/BubbleTabItem";
 import CreateBubbleModal from "@/components/ui/CreateBubbleModal";
 import * as Camera from "expo-camera";
@@ -180,7 +178,6 @@ function ProfileScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const bottomHeight = useBottomTabBarHeight();
-  const topPadding = useSafeAreaInsets().top + 56;
 
   // --- 상태 관리 ---
   const { session } = useAuth();
@@ -193,7 +190,7 @@ function ProfileScreen() {
   const [currentImages, setCurrentImages] = useState<(ProfileImage | null)[]>(
     Array(MAX_IMAGES_DEFAULT).fill(null)
   );
-  const [activeTab, setActiveTab] = useState<string>(TABS_DATA[0].id);
+  const [activeTab, setActiveTab] = useState<string>("bubblePro");
   const [showCreateBubbleModal, setShowCreateBubbleModal] = useState(false);
   const [myBubbles, setMyBubbles] = useState<Bubble[]>([]);
   const [bubblesLoading, setBubblesLoading] = useState(true);
@@ -824,9 +821,6 @@ function ProfileScreen() {
     router.push("/settings");
   };
 
-  const iconColorForAppBar = colors.black;
-  const logoTextColor = colors.black;
-
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
   };
@@ -1254,8 +1248,8 @@ function ProfileScreen() {
   const renderTabContent = () => {
     if (activeTab === "bubblePro") {
       return (
-        <View style={styles.tabContentPlaceholder}>
-          <Text style={{ color: colors.black }}>Bubble Pro Content</Text>
+        <View style={styles.emptyTabContainer}>
+          {/* Empty state - no content to match target design */}
         </View>
       );
     } else if (activeTab === "myBubble") {
@@ -1292,35 +1286,22 @@ function ProfileScreen() {
                   />
                 ))
               ) : (
-                // 3. 버블 목록이 없을 때
-                <View style={styles.emptyBubbleContainer}>
-                  <Text
-                    style={[styles.emptyBubbleText, { color: colors.darkGray }]}
-                  >
-                    You haven't joined any bubbles yet.
+                // 3. 버블 목록이 없을 때 - "Make new bubble" UI 표시
+                <View style={styles.makeNewBubbleContainer}>
+                  <Text style={[styles.makeNewBubbleText, { color: colors.black }]}>
+                    Make new bubble !
                   </Text>
-                  <Text
-                    style={[styles.emptyBubbleText, { color: colors.darkGray }]}
+                  <TouchableOpacity
+                    style={[styles.makeNewBubbleButton, { backgroundColor: colors.primary }]}
+                    onPress={() => setShowCreateBubbleModal(true)}
+                    activeOpacity={0.8}
                   >
-                    Create a new bubble to start meeting people!
-                  </Text>
+                    <Ionicons name="add" size={40} color={colors.white} />
+                  </TouchableOpacity>
                 </View>
               )}
             </>
           )}
-
-          {/* 4. 'Create New Bubble' 버튼 (항상 표시) */}
-          <TouchableOpacity
-            style={styles.createBubbleRow}
-            onPress={() => setShowCreateBubbleModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.createBubbleContent}>
-              <Ionicons name="add-circle-outline" size={24} color="#5A99E5" />
-              <Text style={styles.createBubbleText}>Create New Bubble</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#C0C0C0" />
-          </TouchableOpacity>
 
           <CreateBubbleModal
             visible={showCreateBubbleModal}
@@ -1352,36 +1333,8 @@ function ProfileScreen() {
   if (loading) {
     return (
       <CustomView style={{ backgroundColor: colors.white }}>
-        <CustomAppBar
-          leftComponent={
-            <Text
-              style={{
-                fontFamily: "Quicksand-Bold",
-                fontSize: 22,
-                color: logoTextColor,
-              }}
-            >
-              Bubble
-            </Text>
-          }
-          rightComponent={
-            <TouchableOpacity
-              onPress={navigateToSettings}
-              style={styles.appBarIconButton}
-            >
-              <Ionicons
-                name="settings-outline"
-                size={24}
-                color={iconColorForAppBar}
-              />
-            </TouchableOpacity>
-          }
-          background={true}
-          blurIntensity={70}
-          extendStatusBar
-        />
         <ScrollView
-          style={[styles.container, { paddingTop: topPadding }]}
+          style={styles.container}
           showsVerticalScrollIndicator={false}
         >
           <ProfileHero
@@ -1396,8 +1349,8 @@ function ProfileScreen() {
             onTabPress={(tabId) => handleTabChange(tabId)}
           />
           {activeTab === "bubblePro" && (
-            <View style={styles.tabContentPlaceholder}>
-              <SkeletonText width={200} height={20} />
+            <View style={styles.emptyTabContainer}>
+              {/* Empty state during loading */}
             </View>
           )}
           {activeTab === "myBubble" && (
@@ -1444,40 +1397,11 @@ function ProfileScreen() {
   if (!profile) {
     return (
       <CustomView style={{ backgroundColor: colors.white }}>
-        <CustomAppBar
-          leftComponent={
-            <Text
-              style={{
-                fontFamily: "Quicksand-Bold",
-                fontSize: 22,
-                color: logoTextColor,
-              }}
-            >
-              Bubble
-            </Text>
-          }
-          rightComponent={
-            <TouchableOpacity
-              onPress={navigateToSettings}
-              style={styles.appBarIconButton}
-            >
-              <Ionicons
-                name="settings-outline"
-                size={24}
-                color={iconColorForAppBar}
-              />
-            </TouchableOpacity>
-          }
-          background={true}
-          blurIntensity={70}
-          extendStatusBar
-        />
         <View
           style={{
             flex: 1,
             justifyContent: "center",
             alignItems: "center",
-            paddingTop: topPadding,
           }}
         >
           <Text
@@ -1508,36 +1432,8 @@ function ProfileScreen() {
 
   return (
     <CustomView style={{ backgroundColor: colors.white }}>
-      <CustomAppBar
-        leftComponent={
-          <Text
-            style={{
-              fontFamily: "Quicksand-Bold",
-              fontSize: 22,
-              color: logoTextColor,
-            }}
-          >
-            Bubble
-          </Text>
-        }
-        rightComponent={
-          <TouchableOpacity
-            onPress={navigateToSettings}
-            style={styles.appBarIconButton}
-          >
-            <Ionicons
-              name="settings-outline"
-              size={24}
-              color={iconColorForAppBar}
-            />
-          </TouchableOpacity>
-        }
-        background={true}
-        blurIntensity={70}
-        extendStatusBar
-      />
       <ScrollView
-        style={[styles.container, { paddingTop: topPadding }]}
+        style={styles.container}
         showsVerticalScrollIndicator={false}
       >
         {/* ProfileHero에 실제 데이터 전달 */}
@@ -1663,13 +1559,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  appBarTitle: {
-    fontFamily: "Quicksand-Bold",
-    fontSize: 22,
-  },
-  appBarIconButton: {
-    padding: 10,
-  },
   editProfileTabContent: {
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === "ios" ? 30 : 100,
@@ -1792,6 +1681,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 200,
   },
+  emptyTabContainer: {
+    flex: 1,
+    minHeight: 300,
+  },
   myBubbleContainer: {
     paddingVertical: 10,
   },
@@ -1868,6 +1761,34 @@ const styles = StyleSheet.create({
     fontFamily: "Quicksand-Regular",
     lineHeight: 24,
     textAlign: "center",
+  },
+  makeNewBubbleContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  makeNewBubbleText: {
+    fontSize: 20,
+    fontFamily: "Quicksand-Bold",
+    textAlign: "center",
+    marginBottom: 30,
+  },
+  makeNewBubbleButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   skeletonBubbleItem: {
     flexDirection: "row",
