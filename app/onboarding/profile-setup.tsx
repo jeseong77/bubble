@@ -212,11 +212,17 @@ export default function ProfileSetupScreen() {
 
   const handleLocationSkip = useCallback(() => {
     updateProfileField("location", null);
-  }, [updateProfileField]);
+    if (currentStep < TOTAL_STEPS - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [updateProfileField, currentStep]);
 
   const handleHeightSkip = useCallback(() => {
     updateProfileField("height", null);
-  }, [updateProfileField]);
+    if (currentStep < TOTAL_STEPS - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [updateProfileField, currentStep]);
 
   const handlePreferredGenderChange = useCallback(
     (value: string) => {

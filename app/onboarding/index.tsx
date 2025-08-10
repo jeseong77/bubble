@@ -56,6 +56,11 @@ export default function OnboardingScreen() {
     }
   };
 
+  // Skip intro pages and go directly to profile setup
+  React.useEffect(() => {
+    handleCompleteOnboarding();
+  }, []);
+
   const renderPhaseContent = () => {
     if (currentPhase === 0) {
       return (

@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
 
@@ -33,68 +34,87 @@ const PreferredGenderInputStep = ({
         { backgroundColor: colors.white },
       ]}
     >
-      <View style={styles.questionTextBox}>
-        <Text style={[styles.questionText, { color: colors.black }]}>
-          Who would you like to meet ?
+      <View style={styles.titleContainer}>
+        <Text style={[styles.title, { color: colors.black }]}>
+          Who would you like to meet?
         </Text>
       </View>
 
       <View style={styles.optionsContainer}>
-        {genderOptions.map((option) => (
-          <TouchableOpacity
-            key={option.value}
-            style={styles.optionRow}
-            onPress={() => onPreferredGenderChange(option.value)}
-          >
-            <Text style={[styles.optionText, { color: colors.darkGray }]}>
-              {option.label}
-            </Text>
-            <View
-              style={[
-                styles.radioButton,
-                {
-                  backgroundColor:
-                    preferredGender === option.value
+        {genderOptions.map((option) => {
+          const isSelected = preferredGender === option.value;
+          return (
+            <TouchableOpacity
+              key={option.value}
+              style={styles.optionButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onPreferredGenderChange(option.value);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.optionText,
+                  { color: isSelected ? colors.black : colors.darkGray },
+                  isSelected && styles.selectedOptionText,
+                ]}
+              >
+                {option.label}
+              </Text>
+              <View
+                style={[
+                  styles.radioCircle,
+                  {
+                    borderColor: isSelected
                       ? colors.primary
-                      : colors.lightGray,
-                },
-              ]}
-            />
-          </TouchableOpacity>
-        ))}
+                      : colors.mediumGray,
+                    backgroundColor: isSelected
+                      ? colors.primary
+                      : "transparent",
+                  },
+                ]}
+              />
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  questionTextBox: {
-    marginBottom: 40,
+  titleContainer: {
     alignItems: "center",
+    marginBottom: 40,
   },
-  questionText: {
+  title: {
     fontFamily: "Quicksand-Bold",
     fontSize: 32,
+    lineHeight: 40,
     textAlign: "center",
   },
   optionsContainer: {
-    flex: 1,
+    marginBottom: 30,
   },
-  optionRow: {
+  optionButton: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingVertical: 18,
   },
   optionText: {
     fontFamily: "Quicksand-Regular",
-    fontSize: 18,
+    fontSize: 22,
   },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  selectedOptionText: {
+    fontFamily: "Quicksand-Bold",
+  },
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
   },
 });
 
