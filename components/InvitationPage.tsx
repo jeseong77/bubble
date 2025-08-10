@@ -144,25 +144,39 @@ export default function InvitationPage() {
 
         console.log("[InvitationPage] Raw RPC data:", JSON.stringify(data, null, 2));
         console.log("[InvitationPage] User ID:", session.user.id);
+        console.log("[InvitationPage] RPC returned", data?.length || 0, "bubbles");
         
         // Filter only invited status bubbles and extract creator info
         const invited = (data || [])
           .filter((bubble: any) => {
-            console.log(`[InvitationPage] Bubble ${bubble.id} has user_status: ${bubble.user_status}`);
-            return bubble.user_status === "invited";
+            console.log(`[InvitationPage] Processing bubble ${bubble.id}:`);
+            console.log(`  - user_status: ${bubble.user_status}`);
+            console.log(`  - status: ${bubble.status}`);
+            console.log(`  - name: ${bubble.name}`);
+            console.log(`  - creator from RPC:`, JSON.stringify(bubble.creator, null, 2));
+            
+            const isInvited = bubble.user_status === "invited";
+            console.log(`  - Is invited: ${isInvited}`);
+            return isInvited;
           })
-          .map((bubble: any) => {
-            // Extract creator info from members array (first member is usually the creator)
+          .map((bubble: any, index: number) => {
+            console.log(`[InvitationPage] Processing invited bubble ${index + 1}/${bubble.id}:`);
+            
             const members = Array.isArray(bubble.members) 
               ? bubble.members 
               : (bubble.members ? JSON.parse(bubble.members) : []);
             
-            const creator = members.find((member: any) => member.status === 'joined') || members[0];
+            console.log(`  - Members array:`, JSON.stringify(members, null, 2));
+            
+            // Use creator info directly from RPC response instead of guessing from members
+            const creator = bubble.creator;
+            console.log(`  - Creator from RPC:`, creator ? `${creator.first_name} (${creator.id})` : 'None');
             
             // Determine group size based on member count or group status
             const maxSize = members.length <= 2 ? "2:2" : "3:3";
+            console.log(`  - Group size determined: ${maxSize} (based on ${members.length} members)`);
             
-            return {
+            const result = {
               id: bubble.id,
               name: bubble.name,
               status: bubble.status,
@@ -174,9 +188,12 @@ export default function InvitationPage() {
                 id: creator.id,
                 first_name: creator.first_name,
                 last_name: creator.last_name,
-                avatar_url: creator.images && creator.images[0] ? creator.images[0].image_url : null
+                avatar_url: creator.avatar_url
               } : null
             };
+            
+            console.log(`  - Final invitation object:`, JSON.stringify(result, null, 2));
+            return result;
           });
 
         console.log("[InvitationPage] Total filtered invited bubbles:", invited.length);

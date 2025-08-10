@@ -10,15 +10,30 @@ RETURNS TABLE(
     status TEXT,
     members JSON,
     user_status TEXT,
-    invited_at TIMESTAMPTZ
+    invited_at TIMESTAMPTZ,
+    creator JSON
 ) AS $$
+DECLARE
+  v_group_count INTEGER;
+  v_member_count INTEGER;
 BEGIN
+  -- Debug logging
+  RAISE NOTICE '[get_my_bubbles] Called for user: %', p_user_id;
+  
+  -- Count total groups for this user
+  SELECT COUNT(*) INTO v_group_count
+  FROM groups g
+  JOIN group_members gm ON g.id = gm.group_id
+  WHERE gm.user_id = p_user_id AND gm.status IN ('joined', 'invited');
+  
+  RAISE NOTICE '[get_my_bubbles] Found % groups for user', v_group_count;
+  
   RETURN QUERY
   SELECT
     g.id,
     g.name,
     g.status,
-    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 (joined 상태만)
+    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 - ALL members including joined and invited
     COALESCE(
       (
         SELECT json_agg(
@@ -46,11 +61,32 @@ BEGIN
         FROM group_members gm2
         JOIN users u ON gm2.user_id = u.id
         WHERE gm2.group_id = g.id
+          AND gm2.status IN ('joined', 'invited')  -- Include both joined and invited members
       ),
       '[]'::json
     ) as members,
     gm.status as user_status,
-    gm.invited_at
+    gm.invited_at,
+    -- 그룹 생성자 정보 추가
+    COALESCE(
+      (
+        SELECT json_build_object(
+          'id', creator_user.id,
+          'first_name', creator_user.first_name,
+          'last_name', creator_user.last_name,
+          'avatar_url', (
+            SELECT ui.image_url
+            FROM user_images ui
+            WHERE ui.user_id = creator_user.id
+            ORDER BY ui.position ASC
+            LIMIT 1
+          )
+        )
+        FROM users creator_user
+        WHERE creator_user.id = g.creator_id
+      ),
+      '{}'::json
+    ) as creator
   FROM
     groups g
   JOIN
@@ -64,6 +100,10 @@ BEGIN
       WHEN 'invited' THEN 2
     END,
     g.created_at DESC;
+    
+  -- Debug: Log what we're returning
+  GET DIAGNOSTICS v_member_count = ROW_COUNT;
+  RAISE NOTICE '[get_my_bubbles] Returning % rows', v_member_count;
 END;
 $$ LANGUAGE plpgsql;
 
