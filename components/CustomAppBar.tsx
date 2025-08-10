@@ -56,7 +56,7 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
 
   const defaultContentColor = background
     ? colors.black
-    : colors.white;
+    : "#666666";
 
   const finalBackIconColor = backIconColorProp || defaultContentColor;
 
