@@ -914,124 +914,6 @@ function ProfileScreen() {
     );
   };
 
-  // handleCreateBubble 함수를 async로 변경하고 로직을 수정합니다.
-  const handleCreateBubble = async (
-    bubbleSize: "2-2" | "3-3" | "4-4",
-    bubbleName: string // 이 인자는 이제 bubble/form.tsx에서 사용되므로 여기서는 무시됩니다.
-  ) => {
-    if (!profile || !session?.user) {
-      Alert.alert("오류", "프로필 정보가 로드되지 않았습니다.");
-      return;
-    }
-
-    console.log("[ProfileScreen] 🟢 handleCreateBubble 시작");
-    console.log("[ProfileScreen] 버블 크기:", bubbleSize);
-    console.log("[ProfileScreen] 생성자 정보:", {
-      id: session.user.id,
-      gender: profile.gender,
-    });
-
-    try {
-      // Debug: Check if user exists in users table first
-      console.log("[ProfileScreen] 🔍 Checking user existence in database");
-      const { data: userCheck, error: userCheckError } = await supabase
-        .from("users")
-        .select("id, gender, first_name, last_name")
-        .eq("id", session.user.id)
-        .single();
-      
-      console.log("[ProfileScreen] 👤 User check result:", {
-        userCheck,
-        userCheckError,
-        sessionUserId: session.user.id
-      });
-
-      if (userCheckError || !userCheck) {
-        console.error("[ProfileScreen] ❌ User not found in users table!");
-        Alert.alert("오류", "사용자 정보를 찾을 수 없습니다. 프로필 설정을 완료해주세요.");
-        return;
-      }
-
-      if (!userCheck.gender) {
-        console.error("[ProfileScreen] ❌ User has no gender set!");
-        Alert.alert("오류", "성별 정보가 없습니다. 프로필을 완성해주세요.");
-        return;
-      }
-
-      // 1. 사용자의 성별과 선호도를 기반으로 그룹 생성
-      console.log("[ProfileScreen] 🛠 Creating group with parameters:", {
-        p_creator_id: session.user.id,
-        p_max_size: parseInt(bubbleSize.split("-")[0]),
-        p_group_name: null,
-        p_preferred_gender: "any"
-      });
-      
-      const { data: newGroup, error: groupError } = await supabase.rpc(
-        "create_group",
-        {
-          p_creator_id: session.user.id,
-          p_max_size: parseInt(bubbleSize.split("-")[0]),
-          p_group_name: null, // form.tsx에서 설정
-          p_preferred_gender: "any", // 기본값으로 "any" 사용
-        }
-      );
-
-      console.log("[ProfileScreen] 📡 create_group RPC 응답:", {
-        newGroup,
-        groupError,
-      });
-
-      if (groupError) {
-        console.error("[ProfileScreen] ❌ 그룹 생성 RPC 에러:", {
-          error: groupError,
-          message: groupError.message,
-          details: groupError.details,
-          hint: groupError.hint,
-          code: groupError.code
-        });
-        Alert.alert("RPC 에러", `Database error: ${groupError.message || groupError}`);
-        return;
-      }
-      if (!newGroup) {
-        console.error("[ProfileScreen] ❌ 그룹 ID가 반환되지 않음 (newGroup is null/undefined)");
-        Alert.alert("그룹 생성 실패", "그룹이 생성되지 않았습니다. 데이터베이스 함수를 확인해주세요.");
-        return;
-      }
-
-      console.log("[ProfileScreen] ✅ 그룹 생성 성공, 그룹 ID:", newGroup);
-
-      // 성공 메시지 표시
-      Alert.alert(
-        "성공", 
-        "버블이 생성되었습니다! 이제 버블 이름을 설정하고 멤버를 초대할 수 있습니다.",
-        [
-          {
-            text: "확인",
-            onPress: () => {
-              // 2. 생성된 group.id와 다른 정보들을 form.tsx로 전달
-              setShowCreateBubbleModal(false);
-              router.push({
-                pathname: "/bubble/form",
-                params: {
-                  groupId: newGroup, // RPC에서 반환된 그룹 ID 사용
-                  isExistingBubble: "false", // 새로 생성된 버블임을 명시
-                  bubbleSize: bubbleSize.split("-")[0],
-                  creatorId: profile.userId,
-                  creatorFirstName: profile.firstName,
-                  // 🚨 중요: 만료되는 임시 URL 대신 영구 파일 경로를 전달합니다.
-                  creatorImageUrl: currentImages[0]?.url || currentImages[0]?.uri || null,
-                },
-              });
-              console.log("[ProfileScreen] ✅ form.tsx로 네비게이션 완료");
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error("[ProfileScreen] ❌ 버블 생성 중 에러:", error);
-      Alert.alert("오류", "버블 생성에 실패했습니다. 다시 시도해주세요.");
-    }
-  };
 
   // 이미지 그리드 레이아웃 계산
   const screenWidth = Dimensions.get("window").width;
@@ -1311,9 +1193,6 @@ function ProfileScreen() {
           <CreateBubbleModal
             visible={showCreateBubbleModal}
             onClose={() => setShowCreateBubbleModal(false)}
-            onCreate={(bubbleType) =>
-              handleCreateBubble(bubbleType, "New Bubble")
-            }
           />
         </View>
       );
@@ -1393,9 +1272,6 @@ function ProfileScreen() {
         <CreateBubbleModal
           visible={showCreateBubbleModal}
           onClose={() => setShowCreateBubbleModal(false)}
-          onCreate={(bubbleType) =>
-            handleCreateBubble(bubbleType, "New Bubble")
-          }
         />
       </CustomView>
     );
