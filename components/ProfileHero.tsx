@@ -61,6 +61,8 @@ const SkeletonText = ({
 interface ProfileHeroProps {
   firstName?: string;
   lastName?: string;
+  username?: string;
+  userId?: string;
   imageUrl?: string;
   skeleton?: boolean; // Add skeleton prop for avatar loading state
 }
@@ -209,6 +211,8 @@ const withDelay = (delayMs: number, animation: any) => {
 const ProfileHero: React.FC<ProfileHeroProps> = ({
   firstName,
   lastName,
+  username,
+  userId,
   imageUrl,
   skeleton,
 }) => {
@@ -416,22 +420,21 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         {firstName && lastName ? `${firstName} ${lastName}` : "User"}
       </Text>
       <Text
-        style={[styles.instagramIdText, { color: colors.onSurfaceVariant }]}
+        style={[styles.instagramIdText, { color: colors.primary }]}
       >
-        @{firstName?.toLowerCase() || "user"}
-        {lastName?.toLowerCase() || ""}
+        @{username || "user"}
       </Text>
 
       {/* Message Indicator Button */}
       <TouchableOpacity
         style={[
           styles.messageIndicatorContainer,
-          { backgroundColor: colors.secondary },
+          { backgroundColor: '#CEE3FF' },
         ]}
         onPress={navigateToInvitations}
         activeOpacity={0.8}
       >
-        <Ionicons name="mail-outline" size={30} color={colors.onSecondary} />
+        <Ionicons name="mail-outline" size={30} color="white" />
         {realTimeInvitationCount > 0 && (
           <View
             style={[styles.badgeContainer, { backgroundColor: colors.error }]}
@@ -494,7 +497,7 @@ const styles = StyleSheet.create({
     bottom: 16,
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 9999,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",

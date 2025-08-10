@@ -296,6 +296,7 @@ function ProfileScreen() {
           userId: profileData.id,
           firstName: profileData.first_name,
           lastName: profileData.last_name,
+          username: profileData.username,
           age: age,
           birthDay: birthDay,
           birthMonth: birthMonth,
@@ -1296,7 +1297,11 @@ function ProfileScreen() {
                     onPress={() => setShowCreateBubbleModal(true)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="add" size={40} color={colors.white} />
+                    <Ionicons
+                      name="add"
+                      size={40}
+                      color="white"
+                    />
                   </TouchableOpacity>
                 </View>
               )}
@@ -1340,6 +1345,8 @@ function ProfileScreen() {
           <ProfileHero
             firstName={profile?.firstName}
             lastName={profile?.lastName}
+            username={profile?.username}
+            userId={profile?.userId}
             imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
             skeleton={loading}
           />
@@ -1440,6 +1447,8 @@ function ProfileScreen() {
         <ProfileHero
           firstName={profile.firstName}
           lastName={profile.lastName}
+          username={profile.username}
+          userId={profile.userId}
           imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
           skeleton={false}
         />
@@ -1704,9 +1713,10 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   createBubbleText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#5A99E5",
+    color: 'black', 
+    fontSize: 16, 
+    fontFamily: 'Quicksand', 
+    fontWeight: '700',
     marginLeft: 10,
   },
   imageGridContainer: {
@@ -1770,8 +1780,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   makeNewBubbleText: {
-    fontSize: 20,
-    fontFamily: "Quicksand-Bold",
+    color: 'black', 
+    fontSize: 16, 
+    fontFamily: 'Quicksand', 
+    fontWeight: '700', 
     textAlign: "center",
     marginBottom: 30,
   },

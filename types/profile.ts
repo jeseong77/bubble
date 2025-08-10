@@ -14,6 +14,7 @@ export interface ProfileFormData {
   userId: string; // ✨ [추가] 각 사용자를 위한 고유 식별자
   firstName: string;
   lastName: string;
+  username?: string; // 사용자 고유 이름
   age: number | null; // 생년월일로부터 계산될 수 있으므로, 저장 방식 고려
   birthDay: string; // 예: "01", "15"
   birthMonth: string; // 예: "01", "12"
