@@ -253,12 +253,11 @@ export default function BubbleFormScreen() {
 
         if (error) throw error;
 
-        // TODO: 실제 친구 초대 화면 경로로 수정 필요
+        // Navigate to friend search screen for invitations
         router.push({
-          pathname: "/bubble/form",
+          pathname: "/search",
           params: {
             groupId,
-            bubbleName,
           },
         });
       }

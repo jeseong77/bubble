@@ -10,15 +10,30 @@ RETURNS TABLE(
     status TEXT,
     members JSON,
     user_status TEXT,
-    invited_at TIMESTAMPTZ
+    invited_at TIMESTAMPTZ,
+    creator JSON
 ) AS $$
+DECLARE
+  v_group_count INTEGER;
+  v_member_count INTEGER;
 BEGIN
+  -- Debug logging
+  RAISE NOTICE '[get_my_bubbles] Called for user: %', p_user_id;
+  
+  -- Count total groups for this user
+  SELECT COUNT(*) INTO v_group_count
+  FROM groups g
+  JOIN group_members gm ON g.id = gm.group_id
+  WHERE gm.user_id = p_user_id AND gm.status IN ('joined', 'invited');
+  
+  RAISE NOTICE '[get_my_bubbles] Found % groups for user', v_group_count;
+  
   RETURN QUERY
   SELECT
     g.id,
     g.name,
     g.status,
-    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 (joined 상태만)
+    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 - ALL members including joined and invited
     COALESCE(
       (
         SELECT json_agg(
@@ -46,11 +61,32 @@ BEGIN
         FROM group_members gm2
         JOIN users u ON gm2.user_id = u.id
         WHERE gm2.group_id = g.id
+          AND gm2.status IN ('joined', 'invited')  -- Include both joined and invited members
       ),
       '[]'::json
     ) as members,
     gm.status as user_status,
-    gm.invited_at
+    gm.invited_at,
+    -- 그룹 생성자 정보 추가
+    COALESCE(
+      (
+        SELECT json_build_object(
+          'id', creator_user.id,
+          'first_name', creator_user.first_name,
+          'last_name', creator_user.last_name,
+          'avatar_url', (
+            SELECT ui.image_url
+            FROM user_images ui
+            WHERE ui.user_id = creator_user.id
+            ORDER BY ui.position ASC
+            LIMIT 1
+          )
+        )
+        FROM users creator_user
+        WHERE creator_user.id = g.creator_id
+      ),
+      '{}'::json
+    ) as creator
   FROM
     groups g
   JOIN
@@ -64,6 +100,10 @@ BEGIN
       WHEN 'invited' THEN 2
     END,
     g.created_at DESC;
+    
+  -- Debug: Log what we're returning
+  GET DIAGNOSTICS v_member_count = ROW_COUNT;
+  RAISE NOTICE '[get_my_bubbles] Returning % rows', v_member_count;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -268,10 +308,30 @@ $$ LANGUAGE plpgsql;
 -- 초대 수락
 CREATE OR REPLACE FUNCTION accept_invitation(p_group_id UUID, p_user_id UUID)
 RETURNS BOOLEAN AS $$
+DECLARE
+  joined_count INTEGER;
+  max_group_size INTEGER;
 BEGIN
+  -- Update member status to joined
   UPDATE group_members 
   SET status = 'joined', joined_at = NOW()
   WHERE group_id = p_group_id AND user_id = p_user_id;
+  
+  -- Check if group is now full
+  SELECT COUNT(*) INTO joined_count
+  FROM group_members 
+  WHERE group_id = p_group_id AND status = 'joined';
+  
+  SELECT max_size INTO max_group_size
+  FROM groups
+  WHERE id = p_group_id;
+  
+  -- If group is full, update status to 'full'
+  IF joined_count >= max_group_size THEN
+    UPDATE groups 
+    SET status = 'full', updated_at = NOW()
+    WHERE id = p_group_id;
+  END IF;
   
   RETURN TRUE;
 EXCEPTION
@@ -315,18 +375,41 @@ CREATE OR REPLACE FUNCTION create_group(p_creator_id UUID, p_max_size INTEGER, p
 RETURNS UUID AS $$
 DECLARE
   new_group_id UUID;
+  creator_gender TEXT;
+  mapped_group_gender TEXT;
 BEGIN
-  INSERT INTO groups (name, max_size, preferred_gender, created_by)
-  VALUES (p_group_name, p_max_size, p_preferred_gender, p_creator_id)
+  -- Get creator's gender for group_gender setting
+  SELECT gender INTO creator_gender FROM users WHERE id = p_creator_id;
+  
+  -- Raise detailed error if user not found
+  IF creator_gender IS NULL THEN
+    RAISE EXCEPTION 'User with ID % not found in users table', p_creator_id;
+  END IF;
+  
+  -- Map user gender to group gender values that match database constraint
+  CASE creator_gender
+    WHEN 'Man' THEN mapped_group_gender := 'male';
+    WHEN 'Woman' THEN mapped_group_gender := 'female';
+    WHEN 'Nonbinary', 'Other' THEN mapped_group_gender := 'mixed';
+    ELSE 
+      RAISE EXCEPTION 'Unsupported gender value: %. Expected Man, Woman, Nonbinary, or Other', creator_gender;
+  END CASE;
+  
+  -- Create the group with proper creator_id column and mapped group_gender
+  INSERT INTO groups (name, max_size, preferred_gender, creator_id, group_gender)
+  VALUES (p_group_name, p_max_size, p_preferred_gender, p_creator_id, mapped_group_gender)
   RETURNING id INTO new_group_id;
   
+  -- Raise detailed error if group creation failed
+  IF new_group_id IS NULL THEN
+    RAISE EXCEPTION 'Failed to create group - INSERT returned NULL';
+  END IF;
+  
+  -- Add creator as a joined member with proper timestamp
   INSERT INTO group_members (group_id, user_id, status, joined_at)
   VALUES (new_group_id, p_creator_id, 'joined', NOW());
   
   RETURN new_group_id;
-EXCEPTION
-  WHEN OTHERS THEN
-    RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -390,7 +473,7 @@ DECLARE
   test_user_id UUID := '9b87bc6e-5ebc-4745-a0d9-6c223b38f530';
   new_group_id UUID;
 BEGIN
-  INSERT INTO groups (name, max_size, preferred_gender, created_by)
+  INSERT INTO groups (name, max_size, preferred_gender, creator_id)
   VALUES ('Test Group', 4, 'any', test_user_id)
   RETURNING id INTO new_group_id;
   

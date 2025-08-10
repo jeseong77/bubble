@@ -937,7 +937,40 @@ function ProfileScreen() {
     });
 
     try {
+      // Debug: Check if user exists in users table first
+      console.log("[ProfileScreen] 🔍 Checking user existence in database");
+      const { data: userCheck, error: userCheckError } = await supabase
+        .from("users")
+        .select("id, gender, first_name, last_name")
+        .eq("id", session.user.id)
+        .single();
+      
+      console.log("[ProfileScreen] 👤 User check result:", {
+        userCheck,
+        userCheckError,
+        sessionUserId: session.user.id
+      });
+
+      if (userCheckError || !userCheck) {
+        console.error("[ProfileScreen] ❌ User not found in users table!");
+        Alert.alert("오류", "사용자 정보를 찾을 수 없습니다. 프로필 설정을 완료해주세요.");
+        return;
+      }
+
+      if (!userCheck.gender) {
+        console.error("[ProfileScreen] ❌ User has no gender set!");
+        Alert.alert("오류", "성별 정보가 없습니다. 프로필을 완성해주세요.");
+        return;
+      }
+
       // 1. 사용자의 성별과 선호도를 기반으로 그룹 생성
+      console.log("[ProfileScreen] 🛠 Creating group with parameters:", {
+        p_creator_id: session.user.id,
+        p_max_size: parseInt(bubbleSize.split("-")[0]),
+        p_group_name: null,
+        p_preferred_gender: "any"
+      });
+      
       const { data: newGroup, error: groupError } = await supabase.rpc(
         "create_group",
         {
@@ -954,12 +987,20 @@ function ProfileScreen() {
       });
 
       if (groupError) {
-        console.error("[ProfileScreen] ❌ 그룹 생성 RPC 에러:", groupError);
-        throw groupError;
+        console.error("[ProfileScreen] ❌ 그룹 생성 RPC 에러:", {
+          error: groupError,
+          message: groupError.message,
+          details: groupError.details,
+          hint: groupError.hint,
+          code: groupError.code
+        });
+        Alert.alert("RPC 에러", `Database error: ${groupError.message || groupError}`);
+        return;
       }
       if (!newGroup) {
-        console.error("[ProfileScreen] ❌ 그룹 ID가 반환되지 않음");
-        throw new Error("Failed to create group - no group ID returned.");
+        console.error("[ProfileScreen] ❌ 그룹 ID가 반환되지 않음 (newGroup is null/undefined)");
+        Alert.alert("그룹 생성 실패", "그룹이 생성되지 않았습니다. 데이터베이스 함수를 확인해주세요.");
+        return;
       }
 
       console.log("[ProfileScreen] ✅ 그룹 생성 성공, 그룹 ID:", newGroup);
@@ -983,7 +1024,7 @@ function ProfileScreen() {
                   creatorId: profile.userId,
                   creatorFirstName: profile.firstName,
                   // 🚨 중요: 만료되는 임시 URL 대신 영구 파일 경로를 전달합니다.
-                  creatorImagePath: currentImages[0]?.path || null,
+                  creatorImageUrl: currentImages[0]?.url || currentImages[0]?.uri || null,
                 },
               });
               console.log("[ProfileScreen] ✅ form.tsx로 네비게이션 완료");
