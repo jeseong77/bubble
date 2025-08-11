@@ -65,6 +65,7 @@ interface ProfileHeroProps {
   userId?: string;
   imageUrl?: string;
   skeleton?: boolean; // Add skeleton prop for avatar loading state
+  onSettingsPress?: () => void; // Add settings button callback
 }
 
 interface FloatingBubbleProps {
@@ -215,11 +216,13 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
   userId,
   imageUrl,
   skeleton,
+  onSettingsPress,
 }) => {
   const router = useRouter();
   const { colors } = useAppTheme();
   const { invitations } = useRealtime();
   const { session } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Local state for real-time invitation count
   const [realTimeInvitationCount, setRealTimeInvitationCount] = useState(0);
@@ -341,6 +344,9 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         <SkeletonText width={200} height={24} style={styles.userNameText} />
         <SkeletonText width={150} height={16} style={styles.instagramIdText} />
 
+        {/* Settings Button */}
+        <SkeletonCircle size={44} style={[styles.settingsButtonContainer, { top: 50 }]} />
+
         {/* Message Indicator Button */}
         <SkeletonCircle size={60} style={styles.messageIndicatorContainer} />
       </View>
@@ -425,6 +431,23 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         @{username || "user"}
       </Text>
 
+      {/* Settings Button */}
+      {onSettingsPress && (
+        <TouchableOpacity
+          style={[
+            styles.settingsButtonContainer,
+            { 
+              backgroundColor: colors.white,
+              top: insets.top + 10,
+            },
+          ]}
+          onPress={onSettingsPress}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="settings-outline" size={24} color={colors.black} />
+        </TouchableOpacity>
+      )}
+
       {/* Message Indicator Button */}
       <TouchableOpacity
         style={[
@@ -490,6 +513,24 @@ const styles = StyleSheet.create({
     // backgroundColor는 FloatingBubble 컴포넌트 내부에서 설정
     // zIndex를 낮춰 프로필 이미지/텍스트보다 뒤에 있도록 할 수 있지만,
     // 보통은 렌더링 순서로 조절합니다. (배경 요소들을 먼저 렌더링)
+  },
+  settingsButtonContainer: {
+    position: "absolute",
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3.84,
+    elevation: 3,
+    zIndex: 20,
   },
   messageIndicatorContainer: {
     position: "absolute",

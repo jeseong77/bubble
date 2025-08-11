@@ -1228,6 +1228,7 @@ function ProfileScreen() {
             userId={profile?.userId}
             imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
             skeleton={loading}
+            onSettingsPress={navigateToSettings}
           />
           <ProfileTab
             tabs={TABS_DATA}
@@ -1327,6 +1328,7 @@ function ProfileScreen() {
           userId={profile.userId}
           imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
           skeleton={false}
+          onSettingsPress={navigateToSettings}
         />
         <ProfileTab
           tabs={TABS_DATA}
