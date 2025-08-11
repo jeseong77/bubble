@@ -190,7 +190,7 @@ function ProfileScreen() {
   const [currentImages, setCurrentImages] = useState<(ProfileImage | null)[]>(
     Array(MAX_IMAGES_DEFAULT).fill(null)
   );
-  const [activeTab, setActiveTab] = useState<string>("bubblePro");
+  const [activeTab, setActiveTab] = useState<string>("myBubble");
   const [showCreateBubbleModal, setShowCreateBubbleModal] = useState(false);
   const [myBubbles, setMyBubbles] = useState<Bubble[]>([]);
   const [bubblesLoading, setBubblesLoading] = useState(true);
@@ -1233,7 +1233,7 @@ function ProfileScreen() {
           <ProfileTab
             tabs={TABS_DATA}
             activeTabId={activeTab}
-            onTabPress={(tabId) => handleTabChange(tabId)}
+            onTabPress={(tabId, index) => handleTabChange(tabId)}
           />
           {activeTab === "bubblePro" && (
             <View style={styles.emptyTabContainer}>
@@ -1333,7 +1333,7 @@ function ProfileScreen() {
         <ProfileTab
           tabs={TABS_DATA}
           activeTabId={activeTab}
-          onTabPress={(tabId) => handleTabChange(tabId)}
+          onTabPress={(tabId, index) => handleTabChange(tabId)}
         />
         {renderTabContent()}
       </ScrollView>
