@@ -21,11 +21,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface SearchUser {
   id: string;
+  username: string;
   first_name: string;
   last_name: string;
   avatar_url: string | null;
   mbti: string;
-  fullName: string;
+  displayName: string;
   invitationStatus: "invited" | "joined" | "declined" | null;
 }
 
@@ -139,7 +140,7 @@ export default function SearchScreen() {
       const usersWithStatus =
         allUsers?.map((user) => ({
           ...user,
-          fullName: `${user.first_name} ${user.last_name}`.trim(),
+          displayName: user.username,
           invitationStatus: memberStatusMap.get(user.id) || null, // 'invited', 'joined', 'declined' 또는 null
         })) || [];
 
@@ -246,7 +247,7 @@ export default function SearchScreen() {
               },
             ]}
           >
-            {item.fullName}
+            {item.displayName}
           </Text>
           <Text
             style={[
@@ -264,7 +265,7 @@ export default function SearchScreen() {
         {canInvite ? (
           <TouchableOpacity
             style={styles.inviteButton}
-            onPress={() => sendInvitation(item.id, item.fullName)}
+            onPress={() => sendInvitation(item.id, item.displayName)}
           >
             <Ionicons
               name="add-circle-outline"
@@ -307,7 +308,7 @@ export default function SearchScreen() {
         </Text>
       ) : (
         <Text style={[styles.emptyText, { color: colors.darkGray }]}>
-          Search for users by name
+          Invite your friends{'\n'}to form your Bubble
         </Text>
       )}
     </View>
@@ -318,8 +319,16 @@ export default function SearchScreen() {
       <CustomAppBar
         leftComponent={
           <Text style={[styles.title, { color: colors.black }]}>
-            Invite Friends
+            Search ID
           </Text>
+        }
+        rightComponent={
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.closeButton}
+          >
+            <Ionicons name="close" size={24} color={colors.black} />
+          </TouchableOpacity>
         }
         background={true}
         blurIntensity={70}
@@ -332,7 +341,7 @@ export default function SearchScreen() {
           <Ionicons name="search" size={20} color={colors.darkGray} />
           <TextInput
             style={[styles.searchInput, { color: colors.black }]}
-            placeholder="Search by name..."
+            placeholder="Search by username"
             placeholderTextColor={colors.darkGray}
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -373,7 +382,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#E1F0FF",
     borderRadius: 25,
     paddingHorizontal: 15,
     paddingVertical: 12,
@@ -438,5 +447,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Quicksand-Regular",
     textAlign: "center",
+  },
+  closeButton: {
+    padding: 8,
   },
 });

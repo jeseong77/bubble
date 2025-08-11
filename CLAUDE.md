@@ -244,3 +244,38 @@ Fixed the foreign key constraint violation by implementing proper deletion order
 2. Remove all group memberships second  
 3. Delete the group itself last
 This ensures no orphaned foreign key references remain.
+
+## Color Palette
+
+The app uses the following official color palette. All UI components should reference these exact hex values:
+
+### Primary Colors
+- **Primary**: `#80B7FF`
+- **Secondary**: `#80B7FF`
+
+### Yellow Tones
+- **chat_Yellow**: `#FFF1C5`
+- **Point_Yellow**: `#CEE3FF`
+
+### Neutral Colors
+- **Black**: `#000000`
+- **White**: `#FFFFFF`
+- **Light Gray**: `#F4F4F4`
+- **Medium Gray**: `#D9D9D9`
+- **Dark Gray**: `#7A7A7A`
+
+### UI Specific Colors
+- **nav_bar_white**: `#FAFAFA`
+- **bubble_font**: `#303030`
+
+### Accent Colors
+- **Navy**: `#FFD95C`
+- **Navy_pin**: `#FFD95C` (with 70% opacity)
+- **Facebook_blue**: `#5890FF`
+- **Error**: `#EF4D24`
+
+**Usage Notes:**
+- All colors are defined in `/constants/Colors.ts`
+- Access colors via `useAppTheme()` hook: `const { colors } = useAppTheme()`
+- Maintain consistency between light and dark themes
+- Use semantic color names (e.g., `colors.primary`) rather than direct hex values in components

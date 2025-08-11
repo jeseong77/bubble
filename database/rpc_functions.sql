@@ -271,7 +271,7 @@ BEGIN
     u.height_cm,
     u.mbti,
     u.gender,
-    u.about_me as bio,
+    u.bio,
     u.location,
     u.profile_setup_completed,
     COALESCE(
@@ -417,6 +417,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION search_users(p_search_term TEXT, p_exclude_user_id UUID, p_exclude_group_id UUID)
 RETURNS TABLE (
   id UUID,
+  username TEXT,
   first_name TEXT,
   last_name TEXT,
   birth_date DATE,
@@ -430,22 +431,19 @@ BEGIN
   RETURN QUERY
   SELECT 
     u.id,
+    u.username,
     u.first_name,
     u.last_name,
     u.birth_date,
     u.height_cm,
     u.mbti,
     u.gender,
-    u.about_me as bio,
+    u.bio,
     u.location
   FROM users u
   WHERE u.id != p_exclude_user_id
     AND u.profile_setup_completed = TRUE
-    AND (
-      u.first_name ILIKE '%' || p_search_term || '%'
-      OR u.last_name ILIKE '%' || p_search_term || '%'
-      OR (u.first_name || ' ' || u.last_name) ILIKE '%' || p_search_term || '%'
-    )
+    AND u.username ILIKE '%' || p_search_term || '%'
     AND (p_exclude_group_id IS NULL OR u.id NOT IN (
       SELECT user_id FROM group_members WHERE group_id = p_exclude_group_id
     ));
