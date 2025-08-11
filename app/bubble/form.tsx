@@ -354,28 +354,30 @@ export default function BubbleFormScreen() {
             {bubbleName || "My Bubble"}
           </Text>
           
-          {/* Current user full name */}
-          <Text style={styles.creatorName}>
-            {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
-              ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
-              : bubbleMembers[0]?.first_name || "Me"
-            }
-          </Text>
-          
           {/* Member circles - overlapping layout */}
           <View style={styles.membersContainer}>
-            {/* Creator circle */}
-            <View style={styles.memberCircle}>
-              {creatorSignedUrl ? (
-                <Image
-                  source={{ uri: creatorSignedUrl }}
-                  style={styles.memberImage}
-                />
-              ) : (
-                <View style={[styles.memberImage, styles.placeholderImage]}>
-                  <Feather name="user" size={40} color="#999" />
-                </View>
-              )}
+            {/* Current user full name - positioned above profile image */}
+            <View style={styles.memberWithName}>
+              <Text style={styles.creatorName}>
+                {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
+                  ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
+                  : bubbleMembers[0]?.first_name || "Me"
+                }
+              </Text>
+              
+              {/* Creator circle */}
+              <View style={styles.memberCircle}>
+                {creatorSignedUrl ? (
+                  <Image
+                    source={{ uri: creatorSignedUrl }}
+                    style={styles.memberImage}
+                  />
+                ) : (
+                  <View style={[styles.memberImage, styles.placeholderImage]}>
+                    <Feather name="user" size={40} color="#999" />
+                  </View>
+                )}
+              </View>
             </View>
             
             {/* Add member circle - overlapping */}
@@ -395,21 +397,13 @@ export default function BubbleFormScreen() {
           {/* Waiting text */}
           <Text style={styles.waitingText}>waiting for invitation ...</Text>
           
-          {/* Bottom buttons */}
-          <View style={styles.bottomButtons}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.cancelButtonText}>✕</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.popButton}
-              onPress={handlePopBubble}
-            >
-              <Feather name="x" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          {/* Bottom button - only right side */}
+          <TouchableOpacity
+            style={styles.bottomRightButton}
+            onPress={handlePopBubble}
+          >
+            <Feather name="x" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -872,35 +866,40 @@ const styles = StyleSheet.create({
   newBubbleContainer: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     padding: 20,
     position: "relative",
   },
   backButton: {
     position: "absolute",
-    top: 40,
+    top: 50,
     left: 20,
     padding: 10,
+    zIndex: 10,
   },
   newBubbleTitle: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#000",
-    marginTop: 60,
-    marginBottom: 60,
+    marginTop: 100,
+    marginBottom: 80,
     textAlign: "center",
   },
   creatorName: {
     fontSize: 20,
     color: "#000",
-    marginBottom: 30,
+    marginBottom: 15,
     textAlign: "center",
   },
   membersContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 40,
+    alignItems: "flex-end",
+    marginBottom: 60,
     justifyContent: "center",
+  },
+  memberWithName: {
+    alignItems: "center",
+    zIndex: 2,
   },
   memberCircle: {
     zIndex: 2,
@@ -936,6 +935,22 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginBottom: 60,
+  },
+  bottomRightButton: {
+    position: "absolute",
+    bottom: 40,
+    right: 20,
+    backgroundColor: "#8ec3ff",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   bottomButtons: {
     position: "absolute",

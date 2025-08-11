@@ -1162,12 +1162,13 @@ function ProfileScreen() {
                     bubble={bubble}
                     isActive={activeBubbleId === bubble.id}
                     onPress={() => {
-                      // 기존 버블을 form.tsx로 이동 (get_bubble RPC 사용)
+                      // 버블 상태에 따라 다른 인터페이스로 이동
+                      // forming: 대기 화면, full: 업데이트 화면
                       router.push({
                         pathname: "/bubble/form",
                         params: {
                           groupId: bubble.id,
-                          isExistingBubble: "true", // 기존 버블임을 표시
+                          isExistingBubble: bubble.status === 'full' ? "true" : "false",
                         },
                       });
                     }}
