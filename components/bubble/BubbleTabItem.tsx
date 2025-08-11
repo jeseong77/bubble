@@ -96,21 +96,21 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
   // Long Press 핸들러
   const handleLongPress = () => {
     Alert.alert(
-      "버블 옵션",
-      `${name || "Unnamed Bubble"}에 대한 작업을 선택하세요`,
+      "Bubble Options",
+      `Select an action for ${name || "Unnamed Bubble"}`,
       [
         {
-          text: "Active로 설정",
+          text: "Set as Active",
           onPress: onSetActive,
           style: "default",
         },
         {
-          text: "나가기",
+          text: "Pop",
           onPress: onLeaveGroup,
           style: "destructive",
         },
         {
-          text: "취소",
+          text: "Cancel",
           style: "cancel",
         },
       ]
@@ -198,9 +198,22 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
           )}
         </View>
 
-        {/* 오른쪽 화살표 아이콘 */}
-        <View style={styles.chevronContainer}>
-          <Ionicons name="chevron-forward" size={24} color="#C0C0C0" />
+        {/* 오른쪽 액션 버튼들 */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.checkButton]}
+            onPress={onSetActive}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="checkmark" size={20} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.closeButton]}
+            onPress={onLeaveGroup}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -259,9 +272,26 @@ const styles = StyleSheet.create({
     fontFamily: "Quicksand-Bold",
     textAlign: "center",
   },
-  chevronContainer: {
+  actionButtonsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     marginLeft: "auto",
     paddingRight: 12,
+  },
+  actionButton: {
+    marginLeft: 8,
+    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkButton: {
+    backgroundColor: "#8ec3ff",
+  },
+  closeButton: {
+    backgroundColor: "#8ec3ff",
   },
   activeText: {
     fontSize: 12,

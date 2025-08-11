@@ -488,6 +488,83 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
+-- 그룹 나가기 관련 RPC 함수들
+-- =====================================================
+
+-- 사용자가 그룹에서 나가기 (버블 터뜨리기)
+-- Note: "Popping" a bubble destroys it for ALL members
+CREATE OR REPLACE FUNCTION leave_group(p_user_id UUID, p_group_id UUID)
+RETURNS JSON AS $$
+DECLARE
+  v_group_name TEXT;
+  v_popper_name TEXT;
+  v_affected_users UUID[];
+BEGIN
+  -- Debug logging
+  RAISE NOTICE '[leave_group] User % popping group %', p_user_id, p_group_id;
+  
+  -- Check if user is actually in the group
+  IF NOT EXISTS (
+    SELECT 1 FROM group_members 
+    WHERE user_id = p_user_id AND group_id = p_group_id AND status = 'joined'
+  ) THEN
+    RAISE NOTICE '[leave_group] User is not a member of this group';
+    RETURN json_build_object('success', false, 'message', 'User is not a member of this group');
+  END IF;
+  
+  -- Get group name and popper's name for notifications
+  SELECT g.name, u.first_name 
+  INTO v_group_name, v_popper_name
+  FROM groups g, users u
+  WHERE g.id = p_group_id AND u.id = p_user_id;
+  
+  -- Get list of all users who will be affected (for notifications)
+  SELECT array_agg(DISTINCT user_id) INTO v_affected_users
+  FROM group_members 
+  WHERE group_id = p_group_id AND status = 'joined' AND user_id != p_user_id;
+  
+  RAISE NOTICE '[leave_group] Group "%" popped by "%", affecting % other users', 
+    COALESCE(v_group_name, 'Unnamed'), v_popper_name, array_length(v_affected_users, 1);
+  
+  -- POPPING BEHAVIOR: Always destroy the entire bubble for everyone
+  
+  -- Step 1: Clear active_group_id for ALL users pointing to this group
+  UPDATE users 
+  SET active_group_id = NULL 
+  WHERE active_group_id = p_group_id;
+  
+  RAISE NOTICE '[leave_group] Cleared active_group_id for all affected users';
+  
+  -- Step 2: Remove ALL group members
+  DELETE FROM group_members WHERE group_id = p_group_id;
+  
+  RAISE NOTICE '[leave_group] Removed all group members';
+  
+  -- Step 3: Delete the group itself
+  DELETE FROM groups WHERE id = p_group_id;
+  
+  RAISE NOTICE '[leave_group] Bubble completely destroyed';
+  
+  -- Return success with notification data
+  RETURN json_build_object(
+    'success', true,
+    'message', 'Bubble popped successfully',
+    'group_name', COALESCE(v_group_name, 'Unnamed Bubble'),
+    'popper_name', v_popper_name,
+    'affected_users', COALESCE(v_affected_users, '{}')
+  );
+  
+EXCEPTION
+  WHEN foreign_key_violation THEN
+    RAISE NOTICE '[leave_group] Foreign key violation: %', SQLERRM;
+    RETURN json_build_object('success', false, 'message', 'Database constraint error');
+  WHEN OTHERS THEN
+    RAISE NOTICE '[leave_group] Unexpected error: %', SQLERRM;
+    RETURN json_build_object('success', false, 'message', 'Unexpected error occurred');
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
 -- 활성 그룹 관련 RPC 함수들
 -- =====================================================
 

@@ -860,15 +860,15 @@ function ProfileScreen() {
     if (!session?.user) return;
     
     Alert.alert(
-      "그룹 나가기",
-      "정말로 이 그룹에서 나가시겠습니까?",
+      "Do you want to pop this bubble?",
+      "Popped bubbles can't be restored.",
       [
         {
-          text: "취소",
+          text: "Cancel",
           style: "cancel",
         },
         {
-          text: "나가기",
+          text: "Pop",
           style: "destructive",
           onPress: async () => {
             try {
@@ -880,33 +880,40 @@ function ProfileScreen() {
               });
               
               if (error) {
-                console.error("[ProfileScreen] 그룹 나가기 실패:", error);
-                Alert.alert("오류", "그룹 나가기에 실패했습니다.");
+                console.error("[ProfileScreen] Failed to leave group:", error);
+                Alert.alert("Error", "Failed to pop bubble.");
                 return;
               }
               
-              if (data) {
-                console.log("[ProfileScreen] 그룹 나가기 성공:", bubbleId);
-                
-                // Active 버블이 삭제된 버블이었다면 Active 상태 제거
-                if (activeBubbleId === bubbleId) {
-                  setActiveBubbleId(null);
-                }
-                
-                // 버블 목록 새로고침
-                if (activeTab === "myBubble") {
-                  // fetchMyBubbles 함수를 다시 호출
-                  const fetchMyBubbles = async () => {
-                    // ... 기존 fetchMyBubbles 로직
-                  };
-                  fetchMyBubbles();
-                }
-                
-                Alert.alert("성공", "그룹에서 나갔습니다.");
+              if (!data || !data.success) {
+                console.error("[ProfileScreen] Failed to pop bubble:", data?.message || "Unknown error");
+                Alert.alert("Error", data?.message || "Failed to pop bubble.");
+                return;
               }
+
+              console.log(`[ProfileScreen] Successfully popped bubble: "${data.group_name}" by ${data.popper_name}`);
+              
+              // Active 버블이 삭제된 버블이었다면 Active 상태 제거
+              if (activeBubbleId === bubbleId) {
+                setActiveBubbleId(null);
+              }
+              
+              // 버블 목록 새로고침
+              if (activeTab === "myBubble") {
+                // fetchMyBubbles 함수를 다시 호출
+                const fetchMyBubbles = async () => {
+                  // ... 기존 fetchMyBubbles 로직
+                };
+                fetchMyBubbles();
+              }
+              
+              Alert.alert(
+                "Bubble Popped! 💥", 
+                `"${data.group_name}" has been destroyed.`
+              );
             } catch (error) {
-              console.error("[ProfileScreen] 그룹 나가기 중 에러:", error);
-              Alert.alert("오류", "그룹 나가기에 실패했습니다.");
+              console.error("[ProfileScreen] Error while leaving group:", error);
+              Alert.alert("Error", "Failed to pop bubble.");
             }
           },
         },

@@ -69,22 +69,32 @@ app/
 - Real-time subscriptions for chat and matchmaking
 - Custom hooks like `useMatchmaking.ts` encapsulate data fetching logic
 
-### Key Components
+### Key Components & User Flow
 
 **Authentication Flow:**
 - `AuthProvider.tsx` manages Google/Apple OAuth and session state
 - `useInitialRouteRedirect.ts` handles routing logic based on auth/onboarding status
 - Profile setup completion tracking via AsyncStorage and database
 
-**Matchmaking System:**
-- Groups-based matching where users join "bubbles" (groups of 2-4 people)
-- `MatchmakingProvider.tsx` and `useMatchmaking.ts` handle the swiping/matching logic
+**Bubble System (Core Feature):**
+- Groups-based social matching where users join "bubbles" (groups of 2-4 people)
+- **Bubble Creation**: Users create bubbles via `CreateBubbleModal` → `form.tsx` (naming) → `search.tsx` (invitations)
+- **Bubble Management**: Users can view, manage, and "pop" (destroy) their bubbles from profile screen
+- **Bubble Destruction**: When any member "pops" a bubble, it's completely destroyed for ALL members
+- `MatchmakingProvider.tsx` and `useMatchmaking.ts` handle the swiping/matching logic between bubbles
 - Real-time updates via Supabase subscriptions
 
 **Chat System:**
 - Real-time messaging using Supabase subscriptions  
 - `RealtimeProvider.tsx` manages WebSocket connections
 - React Native Gifted Chat for UI components
+
+**Complete App Flow:**
+1. **Onboarding**: User signs up → completes profile setup with photos, details
+2. **Bubble Creation**: User creates bubble → names it → invites friends → waits for acceptance
+3. **Matchmaking**: Full bubbles can swipe on other bubbles → mutual likes create matches
+4. **Chatting**: Matched bubbles can chat in group chat rooms
+5. **Bubble Management**: Users can view their bubble, member status, and "pop" (destroy) bubbles
 
 ### Development Notes
 
@@ -184,3 +194,53 @@ These RPC functions must be applied to Supabase database via SQL Editor:
 
 **Navigation Flow**:
 Profile → CreateBubbleModal → Form (name setting) → Search (friend invitation) → Invitation waiting → Back to Profile
+
+### Bubble Popping/Destruction System Fix (August 11, 2025)
+**Issue**: Users getting foreign key constraint error when trying to "pop" (destroy) bubbles: `"update or delete on table \"groups\" violates foreign key constraint \"users_active_group_id_fkey\""`
+
+**Root Cause Analysis**:
+- `leave_group` RPC function was completely missing from the database
+- Code was trying to call non-existent RPC function, causing failures
+- `form.tsx` was using direct SQL DELETE which violated foreign key constraints
+- `users.active_group_id` references were not cleared before group deletion
+
+**Files Modified**:
+- `database/rpc_functions.sql` - Added complete `leave_group` RPC function (lines 495-565)
+- `app/bubble/form.tsx` - Replaced direct DELETE with RPC call (lines 289-330)
+- `app/(tabs)/profile.tsx` - Updated to handle new JSON response format (lines 882-913)
+
+**Implementation Details**:
+
+1. **New `leave_group` RPC Function** (`database/rpc_functions.sql:495-565`):
+   - **Bubble Destruction Behavior**: ANY user popping a bubble destroys it for ALL members
+   - **Proper Constraint Handling**: Clears all `users.active_group_id` references before deletion
+   - **Complete Cleanup**: Removes all group members and deletes group entirely
+   - **Detailed Response**: Returns JSON with success status, bubble name, popper name, and affected users
+   - **Error Handling**: Comprehensive exception handling with detailed logging
+
+2. **Enhanced User Experience**:
+   - **Visual Feedback**: Shows "Bubble Popped! 💥" message with bubble name
+   - **Proper Navigation**: Returns to profile with updated bubble list
+   - **Error Messages**: Clear, specific error feedback for failures
+
+3. **Notification Infrastructure**:
+   - RPC function returns `affected_users` array for future push notifications
+   - Logs who popped which bubble for notification system integration
+
+**Expected Behavior**:
+1. **Any user pops bubble** → Confirmation dialog appears
+2. **User confirms** → `leave_group` RPC executes
+3. **Complete destruction** → All members lose access, group deleted entirely
+4. **Success feedback** → "Bubble Popped! 💥 [BubbleName] has been destroyed"
+5. **UI updates** → Bubble disappears from all members' "My Bubble" lists
+6. **Navigation** → User returns to profile with updated data
+
+**Database Updates Required**:
+Apply the new `leave_group` RPC function in Supabase SQL Editor to enable proper bubble destruction.
+
+**Key Technical Achievement**:
+Fixed the foreign key constraint violation by implementing proper deletion order:
+1. Clear `users.active_group_id` references first
+2. Remove all group memberships second  
+3. Delete the group itself last
+This ensures no orphaned foreign key references remain.
