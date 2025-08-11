@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import CustomAppBar from "@/components/CustomAppBar";
 import CustomView from "@/components/CustomView";
 import { Ionicons } from "@expo/vector-icons";
 import { ProfileFormData, ProfileImage } from "@/types/profile";
@@ -23,7 +22,6 @@ import ProfileHero from "@/components/ProfileHero";
 import ProfileTab, { TabInfo } from "@/components/ProfileTab";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BubbleTabItem from "@/components/bubble/BubbleTabItem";
 import CreateBubbleModal from "@/components/ui/CreateBubbleModal";
 import * as Camera from "expo-camera";
@@ -180,7 +178,6 @@ function ProfileScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const bottomHeight = useBottomTabBarHeight();
-  const topPadding = useSafeAreaInsets().top + 56;
 
   // --- 상태 관리 ---
   const { session } = useAuth();
@@ -193,7 +190,7 @@ function ProfileScreen() {
   const [currentImages, setCurrentImages] = useState<(ProfileImage | null)[]>(
     Array(MAX_IMAGES_DEFAULT).fill(null)
   );
-  const [activeTab, setActiveTab] = useState<string>(TABS_DATA[0].id);
+  const [activeTab, setActiveTab] = useState<string>("bubblePro");
   const [showCreateBubbleModal, setShowCreateBubbleModal] = useState(false);
   const [myBubbles, setMyBubbles] = useState<Bubble[]>([]);
   const [bubblesLoading, setBubblesLoading] = useState(true);
@@ -299,6 +296,7 @@ function ProfileScreen() {
           userId: profileData.id,
           firstName: profileData.first_name,
           lastName: profileData.last_name,
+          username: profileData.username,
           age: age,
           birthDay: birthDay,
           birthMonth: birthMonth,
@@ -824,9 +822,6 @@ function ProfileScreen() {
     router.push("/settings");
   };
 
-  const iconColorForAppBar = colors.black;
-  const logoTextColor = colors.black;
-
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
   };
@@ -919,124 +914,6 @@ function ProfileScreen() {
     );
   };
 
-  // handleCreateBubble 함수를 async로 변경하고 로직을 수정합니다.
-  const handleCreateBubble = async (
-    bubbleSize: "2-2" | "3-3" | "4-4",
-    bubbleName: string // 이 인자는 이제 bubble/form.tsx에서 사용되므로 여기서는 무시됩니다.
-  ) => {
-    if (!profile || !session?.user) {
-      Alert.alert("오류", "프로필 정보가 로드되지 않았습니다.");
-      return;
-    }
-
-    console.log("[ProfileScreen] 🟢 handleCreateBubble 시작");
-    console.log("[ProfileScreen] 버블 크기:", bubbleSize);
-    console.log("[ProfileScreen] 생성자 정보:", {
-      id: session.user.id,
-      gender: profile.gender,
-    });
-
-    try {
-      // Debug: Check if user exists in users table first
-      console.log("[ProfileScreen] 🔍 Checking user existence in database");
-      const { data: userCheck, error: userCheckError } = await supabase
-        .from("users")
-        .select("id, gender, first_name, last_name")
-        .eq("id", session.user.id)
-        .single();
-      
-      console.log("[ProfileScreen] 👤 User check result:", {
-        userCheck,
-        userCheckError,
-        sessionUserId: session.user.id
-      });
-
-      if (userCheckError || !userCheck) {
-        console.error("[ProfileScreen] ❌ User not found in users table!");
-        Alert.alert("오류", "사용자 정보를 찾을 수 없습니다. 프로필 설정을 완료해주세요.");
-        return;
-      }
-
-      if (!userCheck.gender) {
-        console.error("[ProfileScreen] ❌ User has no gender set!");
-        Alert.alert("오류", "성별 정보가 없습니다. 프로필을 완성해주세요.");
-        return;
-      }
-
-      // 1. 사용자의 성별과 선호도를 기반으로 그룹 생성
-      console.log("[ProfileScreen] 🛠 Creating group with parameters:", {
-        p_creator_id: session.user.id,
-        p_max_size: parseInt(bubbleSize.split("-")[0]),
-        p_group_name: null,
-        p_preferred_gender: "any"
-      });
-      
-      const { data: newGroup, error: groupError } = await supabase.rpc(
-        "create_group",
-        {
-          p_creator_id: session.user.id,
-          p_max_size: parseInt(bubbleSize.split("-")[0]),
-          p_group_name: null, // form.tsx에서 설정
-          p_preferred_gender: "any", // 기본값으로 "any" 사용
-        }
-      );
-
-      console.log("[ProfileScreen] 📡 create_group RPC 응답:", {
-        newGroup,
-        groupError,
-      });
-
-      if (groupError) {
-        console.error("[ProfileScreen] ❌ 그룹 생성 RPC 에러:", {
-          error: groupError,
-          message: groupError.message,
-          details: groupError.details,
-          hint: groupError.hint,
-          code: groupError.code
-        });
-        Alert.alert("RPC 에러", `Database error: ${groupError.message || groupError}`);
-        return;
-      }
-      if (!newGroup) {
-        console.error("[ProfileScreen] ❌ 그룹 ID가 반환되지 않음 (newGroup is null/undefined)");
-        Alert.alert("그룹 생성 실패", "그룹이 생성되지 않았습니다. 데이터베이스 함수를 확인해주세요.");
-        return;
-      }
-
-      console.log("[ProfileScreen] ✅ 그룹 생성 성공, 그룹 ID:", newGroup);
-
-      // 성공 메시지 표시
-      Alert.alert(
-        "성공", 
-        "버블이 생성되었습니다! 이제 버블 이름을 설정하고 멤버를 초대할 수 있습니다.",
-        [
-          {
-            text: "확인",
-            onPress: () => {
-              // 2. 생성된 group.id와 다른 정보들을 form.tsx로 전달
-              setShowCreateBubbleModal(false);
-              router.push({
-                pathname: "/bubble/form",
-                params: {
-                  groupId: newGroup, // RPC에서 반환된 그룹 ID 사용
-                  isExistingBubble: "false", // 새로 생성된 버블임을 명시
-                  bubbleSize: bubbleSize.split("-")[0],
-                  creatorId: profile.userId,
-                  creatorFirstName: profile.firstName,
-                  // 🚨 중요: 만료되는 임시 URL 대신 영구 파일 경로를 전달합니다.
-                  creatorImageUrl: currentImages[0]?.url || currentImages[0]?.uri || null,
-                },
-              });
-              console.log("[ProfileScreen] ✅ form.tsx로 네비게이션 완료");
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error("[ProfileScreen] ❌ 버블 생성 중 에러:", error);
-      Alert.alert("오류", "버블 생성에 실패했습니다. 다시 시도해주세요.");
-    }
-  };
 
   // 이미지 그리드 레이아웃 계산
   const screenWidth = Dimensions.get("window").width;
@@ -1254,8 +1131,8 @@ function ProfileScreen() {
   const renderTabContent = () => {
     if (activeTab === "bubblePro") {
       return (
-        <View style={styles.tabContentPlaceholder}>
-          <Text style={{ color: colors.black }}>Bubble Pro Content</Text>
+        <View style={styles.emptyTabContainer}>
+          {/* Empty state - no content to match target design */}
         </View>
       );
     } else if (activeTab === "myBubble") {
@@ -1292,42 +1169,30 @@ function ProfileScreen() {
                   />
                 ))
               ) : (
-                // 3. 버블 목록이 없을 때
-                <View style={styles.emptyBubbleContainer}>
-                  <Text
-                    style={[styles.emptyBubbleText, { color: colors.darkGray }]}
-                  >
-                    You haven't joined any bubbles yet.
+                // 3. 버블 목록이 없을 때 - "Make new bubble" UI 표시
+                <View style={styles.makeNewBubbleContainer}>
+                  <Text style={[styles.makeNewBubbleText, { color: colors.black }]}>
+                    Make new bubble !
                   </Text>
-                  <Text
-                    style={[styles.emptyBubbleText, { color: colors.darkGray }]}
+                  <TouchableOpacity
+                    style={[styles.makeNewBubbleButton, { backgroundColor: colors.primary }]}
+                    onPress={() => setShowCreateBubbleModal(true)}
+                    activeOpacity={0.8}
                   >
-                    Create a new bubble to start meeting people!
-                  </Text>
+                    <Ionicons
+                      name="add"
+                      size={40}
+                      color="white"
+                    />
+                  </TouchableOpacity>
                 </View>
               )}
             </>
           )}
 
-          {/* 4. 'Create New Bubble' 버튼 (항상 표시) */}
-          <TouchableOpacity
-            style={styles.createBubbleRow}
-            onPress={() => setShowCreateBubbleModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.createBubbleContent}>
-              <Ionicons name="add-circle-outline" size={24} color="#5A99E5" />
-              <Text style={styles.createBubbleText}>Create New Bubble</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#C0C0C0" />
-          </TouchableOpacity>
-
           <CreateBubbleModal
             visible={showCreateBubbleModal}
             onClose={() => setShowCreateBubbleModal(false)}
-            onCreate={(bubbleType) =>
-              handleCreateBubble(bubbleType, "New Bubble")
-            }
           />
         </View>
       );
@@ -1352,41 +1217,15 @@ function ProfileScreen() {
   if (loading) {
     return (
       <CustomView style={{ backgroundColor: colors.white }}>
-        <CustomAppBar
-          leftComponent={
-            <Text
-              style={{
-                fontFamily: "Quicksand-Bold",
-                fontSize: 22,
-                color: logoTextColor,
-              }}
-            >
-              Bubble
-            </Text>
-          }
-          rightComponent={
-            <TouchableOpacity
-              onPress={navigateToSettings}
-              style={styles.appBarIconButton}
-            >
-              <Ionicons
-                name="settings-outline"
-                size={24}
-                color={iconColorForAppBar}
-              />
-            </TouchableOpacity>
-          }
-          background={true}
-          blurIntensity={70}
-          extendStatusBar
-        />
         <ScrollView
-          style={[styles.container, { paddingTop: topPadding }]}
+          style={styles.container}
           showsVerticalScrollIndicator={false}
         >
           <ProfileHero
             firstName={profile?.firstName}
             lastName={profile?.lastName}
+            username={profile?.username}
+            userId={profile?.userId}
             imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
             skeleton={loading}
           />
@@ -1396,8 +1235,8 @@ function ProfileScreen() {
             onTabPress={(tabId) => handleTabChange(tabId)}
           />
           {activeTab === "bubblePro" && (
-            <View style={styles.tabContentPlaceholder}>
-              <SkeletonText width={200} height={20} />
+            <View style={styles.emptyTabContainer}>
+              {/* Empty state during loading */}
             </View>
           )}
           {activeTab === "myBubble" && (
@@ -1433,9 +1272,6 @@ function ProfileScreen() {
         <CreateBubbleModal
           visible={showCreateBubbleModal}
           onClose={() => setShowCreateBubbleModal(false)}
-          onCreate={(bubbleType) =>
-            handleCreateBubble(bubbleType, "New Bubble")
-          }
         />
       </CustomView>
     );
@@ -1444,40 +1280,11 @@ function ProfileScreen() {
   if (!profile) {
     return (
       <CustomView style={{ backgroundColor: colors.white }}>
-        <CustomAppBar
-          leftComponent={
-            <Text
-              style={{
-                fontFamily: "Quicksand-Bold",
-                fontSize: 22,
-                color: logoTextColor,
-              }}
-            >
-              Bubble
-            </Text>
-          }
-          rightComponent={
-            <TouchableOpacity
-              onPress={navigateToSettings}
-              style={styles.appBarIconButton}
-            >
-              <Ionicons
-                name="settings-outline"
-                size={24}
-                color={iconColorForAppBar}
-              />
-            </TouchableOpacity>
-          }
-          background={true}
-          blurIntensity={70}
-          extendStatusBar
-        />
         <View
           style={{
             flex: 1,
             justifyContent: "center",
             alignItems: "center",
-            paddingTop: topPadding,
           }}
         >
           <Text
@@ -1508,42 +1315,16 @@ function ProfileScreen() {
 
   return (
     <CustomView style={{ backgroundColor: colors.white }}>
-      <CustomAppBar
-        leftComponent={
-          <Text
-            style={{
-              fontFamily: "Quicksand-Bold",
-              fontSize: 22,
-              color: logoTextColor,
-            }}
-          >
-            Bubble
-          </Text>
-        }
-        rightComponent={
-          <TouchableOpacity
-            onPress={navigateToSettings}
-            style={styles.appBarIconButton}
-          >
-            <Ionicons
-              name="settings-outline"
-              size={24}
-              color={iconColorForAppBar}
-            />
-          </TouchableOpacity>
-        }
-        background={true}
-        blurIntensity={70}
-        extendStatusBar
-      />
       <ScrollView
-        style={[styles.container, { paddingTop: topPadding }]}
+        style={styles.container}
         showsVerticalScrollIndicator={false}
       >
         {/* ProfileHero에 실제 데이터 전달 */}
         <ProfileHero
           firstName={profile.firstName}
           lastName={profile.lastName}
+          username={profile.username}
+          userId={profile.userId}
           imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
           skeleton={false}
         />
@@ -1662,13 +1443,6 @@ function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  appBarTitle: {
-    fontFamily: "Quicksand-Bold",
-    fontSize: 22,
-  },
-  appBarIconButton: {
-    padding: 10,
   },
   editProfileTabContent: {
     paddingHorizontal: 20,
@@ -1792,6 +1566,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 200,
   },
+  emptyTabContainer: {
+    flex: 1,
+    minHeight: 300,
+  },
   myBubbleContainer: {
     paddingVertical: 10,
   },
@@ -1811,9 +1589,10 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   createBubbleText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#5A99E5",
+    color: 'black', 
+    fontSize: 16, 
+    fontFamily: 'Quicksand', 
+    fontWeight: '700',
     marginLeft: 10,
   },
   imageGridContainer: {
@@ -1868,6 +1647,36 @@ const styles = StyleSheet.create({
     fontFamily: "Quicksand-Regular",
     lineHeight: 24,
     textAlign: "center",
+  },
+  makeNewBubbleContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  makeNewBubbleText: {
+    color: 'black', 
+    fontSize: 16, 
+    fontFamily: 'Quicksand', 
+    fontWeight: '700', 
+    textAlign: "center",
+    marginBottom: 30,
+  },
+  makeNewBubbleButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   skeletonBubbleItem: {
     flexDirection: "row",
