@@ -15,6 +15,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase"; // supabase 클라이언트 추가
+import { useAuth } from "@/providers/AuthProvider";
 
 // 스켈레톤 컴포넌트들
 const SkeletonView = ({
@@ -85,6 +86,7 @@ interface BubbleMember {
 
 export default function BubbleFormScreen() {
   const router = useRouter();
+  // const { session } = useAuth(); // Not needed for current implementation
 
   // 이전 화면에서 전달된 파라미터 가져오기
   const {
@@ -109,7 +111,7 @@ export default function BubbleFormScreen() {
   // get_bubble RPC를 사용하여 버블 정보 가져오기
   useEffect(() => {
     const fetchBubbleInfo = async () => {
-      if (isExistingBubble === "true" && groupId) {
+      if (groupId) { // Fetch for both new and existing bubbles
         setIsLoading(true);
         try {
           console.log("=== 🔍 FORM.TSX DEBUG ===");
@@ -271,6 +273,86 @@ export default function BubbleFormScreen() {
     router.back();
   };
 
+  // Check if this is a new bubble to show simplified interface
+  const isNewBubble = isExistingBubble === "false";
+  
+  if (isNewBubble) {
+    // Show simplified interface for new bubbles (like screenshot #4)
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.newBubbleContainer}>
+          {/* Back button */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Feather name="chevron-left" size={24} color="#000" />
+          </TouchableOpacity>
+          
+          {/* Bubble name as title */}
+          <Text style={styles.newBubbleTitle}>
+            {bubbleName || "My Bubble"}
+          </Text>
+          
+          {/* Current user info */}
+          <Text style={styles.creatorName}>
+            {bubbleMembers[0]?.first_name || "Me"}
+          </Text>
+          
+          {/* Member circles - simplified layout */}
+          <View style={styles.membersContainer}>
+            {/* Creator circle */}
+            <View style={styles.memberCircle}>
+              {creatorSignedUrl ? (
+                <Image
+                  source={{ uri: creatorSignedUrl }}
+                  style={styles.memberImage}
+                />
+              ) : (
+                <View style={[styles.memberImage, styles.placeholderImage]}>
+                  <Feather name="user" size={40} color="#999" />
+                </View>
+              )}
+            </View>
+            
+            {/* Add member circle */}
+            <TouchableOpacity
+              style={styles.addMemberCircle}
+              onPress={() => {
+                router.push({
+                  pathname: "/search",
+                  params: { groupId },
+                });
+              }}
+            >
+              <Feather name="plus" size={40} color="#5A99E5" />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Waiting text */}
+          <Text style={styles.waitingText}>waiting for invitation ...</Text>
+          
+          {/* Bottom buttons */}
+          <View style={styles.bottomButtons}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.cancelButtonText}>✕</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.chevronButton}
+              onPress={() => router.replace("/(tabs)")}
+            >
+              <Feather name="chevron-right" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Original complex interface for existing bubbles
   return (
     <SafeAreaView style={styles.container}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -709,5 +791,76 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: "bold",
     lineHeight: 40,
+  },
+  // New styles for simplified bubble interface
+  newBubbleContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    position: "relative",
+  },
+  backButton: {
+    position: "absolute",
+    top: 60,
+    left: 20,
+    padding: 10,
+  },
+  newBubbleTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 40,
+    textAlign: "center",
+  },
+  creatorName: {
+    fontSize: 20,
+    color: "#000",
+    marginBottom: 30,
+    textAlign: "center",
+  },
+  membersContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 40,
+  },
+  memberCircle: {
+    marginRight: 20,
+  },
+  memberImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: "#eee",
+  },
+  placeholderImage: {
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  addMemberCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#D9D9D9",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#eee",
+  },
+  waitingText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 60,
+  },
+  bottomButtons: {
+    position: "absolute",
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
 });

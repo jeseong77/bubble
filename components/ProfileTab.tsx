@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tabText: {
-    fontSize: 15, // 폰트 크기 조절 가능
+    fontSize: 16, // 폰트 크기 조절 가능
     fontFamily: "Quicksand-Regular",
   },
   tabIndicator: {

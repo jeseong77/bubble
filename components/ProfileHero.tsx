@@ -61,6 +61,8 @@ const SkeletonText = ({
 interface ProfileHeroProps {
   firstName?: string;
   lastName?: string;
+  username?: string;
+  userId?: string;
   imageUrl?: string;
   skeleton?: boolean; // Add skeleton prop for avatar loading state
 }
@@ -209,6 +211,8 @@ const withDelay = (delayMs: number, animation: any) => {
 const ProfileHero: React.FC<ProfileHeroProps> = ({
   firstName,
   lastName,
+  username,
+  userId,
   imageUrl,
   skeleton,
 }) => {
@@ -281,7 +285,7 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
 
   if (skeleton) {
     return (
-      <View style={[styles.container, { paddingTop: 60 }]}>
+      <View style={[styles.container, { paddingTop: 110 }]}>
         {/* 떠다니는 공들 - 배경 */}
         {/* 다양한 크기와 초기 위치, 딜레이를 가진 공들을 배치합니다. */}
         <FloatingBubble
@@ -331,7 +335,7 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         />
 
         {/* 프로필 이미지 컨테이너 */}
-        <SkeletonCircle size={150} style={styles.profileImageContainer} />
+        <SkeletonCircle size={142} style={styles.profileImageContainer} />
 
         {/* 사용자 정보 */}
         <SkeletonText width={200} height={24} style={styles.userNameText} />
@@ -344,7 +348,7 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
   }
 
   return (
-    <View style={[styles.container, { paddingTop: 60 }]}>
+    <View style={[styles.container, { paddingTop: 110 }]}>
       {/* 떠다니는 공들 - 배경 */}
       {/* 다양한 크기와 초기 위치, 딜레이를 가진 공들을 배치합니다. */}
       <FloatingBubble
@@ -416,22 +420,21 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         {firstName && lastName ? `${firstName} ${lastName}` : "User"}
       </Text>
       <Text
-        style={[styles.instagramIdText, { color: colors.onSurfaceVariant }]}
+        style={[styles.instagramIdText, { color: colors.primary }]}
       >
-        @{firstName?.toLowerCase() || "user"}
-        {lastName?.toLowerCase() || ""}
+        @{username || "user"}
       </Text>
 
       {/* Message Indicator Button */}
       <TouchableOpacity
         style={[
           styles.messageIndicatorContainer,
-          { backgroundColor: colors.secondary },
+          { backgroundColor: '#CEE3FF' },
         ]}
         onPress={navigateToInvitations}
         activeOpacity={0.8}
       >
-        <Ionicons name="mail-outline" size={30} color={colors.onSecondary} />
+        <Ionicons name="mail-outline" size={30} color="white" />
         {realTimeInvitationCount > 0 && (
           <View
             style={[styles.badgeContainer, { backgroundColor: colors.error }]}
@@ -455,10 +458,10 @@ const styles = StyleSheet.create({
     // backgroundColor: '#f0f0f0', // 배경색 확인용
   },
   profileImageContainer: {
-    width: 150, // 이미지 컨테이너 크기
-    height: 150,
-    borderRadius: 75, // 원형
-    borderWidth: 5, // Primary 색상 테두리 두께
+    width: 142, // 이미지 컨테이너 크기
+    height: 142,
+    borderRadius: 71, // 원형
+    borderWidth: 9, // Primary 색상 테두리 두께
     overflow: "hidden", // 이미지가 테두리를 벗어나지 않도록
     marginBottom: 15,
     justifyContent: "center",
@@ -471,14 +474,14 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   userNameText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "bold",
     fontFamily: "Quicksand-Bold",
     marginBottom: 4,
     zIndex: 10,
   },
   instagramIdText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "Quicksand-Regular",
     zIndex: 10,
   },
@@ -494,7 +497,7 @@ const styles = StyleSheet.create({
     bottom: 16,
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 9999,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
