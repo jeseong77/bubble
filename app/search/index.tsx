@@ -18,6 +18,7 @@ import CustomView from "@/components/CustomView";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
 
 interface SearchUser {
   id: string;
@@ -43,6 +44,46 @@ export default function SearchScreen() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [signedUrls, setSignedUrls] = useState<{ [key: string]: string }>({});
 
+  // URL 유효성 검사 함수
+  const isValidUrl = (url: string): boolean => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch (error) {
+      console.warn(`Invalid URL detected: ${url}`);
+      return false;
+    }
+  };
+
+  // 안전한 이미지 URL 가져오기 (Supabase Storage 최적화)
+  const getSafeImageUrl = (userId: string, avatarUrl: string | null): string => {
+    const fallbackUrl = "https://via.placeholder.com/50/CCCCCC/FFFFFF?text=User";
+    
+    console.log(`[getSafeImageUrl] User ${userId}:`, {
+      hasSignedUrl: !!signedUrls[userId],
+      signedUrl: signedUrls[userId],
+      avatarUrl: avatarUrl,
+      hasAvatarUrl: !!avatarUrl
+    });
+    
+    // 1. Signed URL이 있고 유효한 경우
+    const signedUrl = signedUrls[userId];
+    if (signedUrl && isValidUrl(signedUrl)) {
+      console.log(`[getSafeImageUrl] Using signed URL for user ${userId}`);
+      return signedUrl;
+    }
+    
+    // 2. Avatar URL이 있고 유효한 경우
+    if (avatarUrl && isValidUrl(avatarUrl)) {
+      console.log(`[getSafeImageUrl] Using avatar URL for user ${userId}`);
+      return avatarUrl;
+    }
+    
+    // 3. 모든 URL이 유효하지 않으면 fallback 사용
+    console.log(`[getSafeImageUrl] Using fallback for user ${userId}`);
+    return fallbackUrl;
+  };
+
   // 디바운싱 효과
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -64,28 +105,39 @@ export default function SearchScreen() {
   const generateSignedUrls = async (users: SearchUser[]) => {
     const urls: { [key: string]: string } = {};
 
+    console.log(`[generateSignedUrls] Processing ${users.length} users`);
+
     for (const user of users) {
       if (user.avatar_url) {
         try {
-          // Public URL에서 파일 경로 추출
-          const urlParts = user.avatar_url.split("/user-images/");
-          const filePath = urlParts.length > 1 ? urlParts[1] : null;
-
-          if (filePath) {
-            const { data, error } = await supabase.storage
-              .from("user-images")
-              .createSignedUrl(filePath, 60);
-
-            if (!error && data) {
-              urls[user.id] = data.signedUrl;
+          console.log(`[generateSignedUrls] Processing user ${user.id} with avatar_url: ${user.avatar_url}`);
+          
+          // Use the existing avatarUtils function
+          const signedUrl = await createSignedUrlForAvatar(user.avatar_url, 3600);
+          
+          if (signedUrl && isValidUrl(signedUrl)) {
+            console.log(`[generateSignedUrls] Signed URL 생성 성공 for user ${user.id}`);
+            urls[user.id] = signedUrl;
+          } else {
+            console.warn(`[generateSignedUrls] Signed URL 생성 실패, 원본 URL 사용 for user ${user.id}`);
+            if (isValidUrl(user.avatar_url)) {
+              urls[user.id] = user.avatar_url;
+            } else {
+              console.error(`[generateSignedUrls] 원본 avatar_url도 유효하지 않음 for user ${user.id}: ${user.avatar_url}`);
             }
           }
         } catch (error) {
-          console.error(`유저 ${user.id}의 Signed URL 생성 실패:`, error);
+          console.error(`[generateSignedUrls] Exception for user ${user.id}:`, error);
+          if (user.avatar_url && isValidUrl(user.avatar_url)) {
+            urls[user.id] = user.avatar_url;
+          }
         }
+      } else {
+        console.log(`[generateSignedUrls] No avatar_url for user ${user.id}`);
       }
     }
 
+    console.log(`[generateSignedUrls] 생성된 URLs:`, Object.keys(urls).length, urls);
     setSignedUrls(urls);
   };
 
@@ -145,6 +197,11 @@ export default function SearchScreen() {
         })) || [];
 
       console.log(`[SearchScreen] 상태가 추가된 검색 결과:`, usersWithStatus);
+      
+      // Log avatar URLs to debug format
+      usersWithStatus.forEach(user => {
+        console.log(`[SearchScreen] User ${user.id} (${user.username}) avatar_url:`, user.avatar_url);
+      });
 
       setSearchResults(usersWithStatus);
 
@@ -182,10 +239,37 @@ export default function SearchScreen() {
       }
 
       if (data) {
-        console.log(`[SearchScreen] 초대 전송 성공: ${userName}`);
-        Alert.alert("Success", `Invitation sent to ${userName}`, [
-          { text: "OK", onPress: () => router.back() },
-        ]);
+        console.log(`[SearchScreen] ==================== 초대 전송 응답 분석 ====================`);
+        console.log(`[SearchScreen] Raw response:`, JSON.stringify(data, null, 2));
+        console.log(`[SearchScreen] - success: ${data.success}`);
+        console.log(`[SearchScreen] - already_exists: ${data.already_exists}`);
+        console.log(`[SearchScreen] - parameters:`, data.parameters);
+        console.log(`[SearchScreen] - error:`, data.error);
+
+        if (data.success) {
+          console.log(`[SearchScreen] ✅ 초대 전송 성공: ${userName}`);
+          // Update the user's invitation status immediately in the UI
+          setSearchResults(prevResults => 
+            prevResults.map(user => 
+              user.id === userId 
+                ? { ...user, invitationStatus: "invited" as const }
+                : user
+            )
+          );
+        } else if (data.already_exists) {
+          console.log(`[SearchScreen] ⚠️ 이미 초대됨: ${userName}`);
+          // Still update UI since they're already invited
+          setSearchResults(prevResults => 
+            prevResults.map(user => 
+              user.id === userId 
+                ? { ...user, invitationStatus: "invited" as const }
+                : user
+            )
+          );
+        } else {
+          console.error(`[SearchScreen] ❌ 초대 전송 실패: ${userName}`, data.error);
+          Alert.alert("Error", `Failed to send invitation: ${data.error || "Unknown error"}`);
+        }
       } else {
         console.log(
           `[SearchScreen] 초대 전송 실패: ${userName} - 이미 초대됨 또는 그룹이 가득참`
@@ -201,6 +285,129 @@ export default function SearchScreen() {
     }
   };
 
+  const cancelInvitation = async (userId: string, userName: string) => {
+    if (!session?.user?.id || !groupId) {
+      console.error(`[SearchScreen] Missing session or groupId:`, { 
+        hasSession: !!session?.user?.id, 
+        groupId 
+      });
+      return;
+    }
+
+    console.log(`[SearchScreen] ==================== CANCEL INVITATION START ====================`);
+    console.log(`[SearchScreen] 초대 취소 시도: ${userName} (ID: ${userId})`);
+    console.log(`[SearchScreen] 그룹 ID: ${groupId} (타입: ${typeof groupId})`);
+    console.log(`[SearchScreen] 유저 ID: ${userId} (타입: ${typeof userId})`);
+    console.log(`[SearchScreen] 현재 유저 ID: ${session.user.id}`);
+    
+    // UUID format validation
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isGroupIdValid = uuidRegex.test(groupId);
+    const isUserIdValid = uuidRegex.test(userId);
+    
+    console.log(`[SearchScreen] UUID 검증 - groupId: ${isGroupIdValid}, userId: ${isUserIdValid}`);
+    
+    if (!isGroupIdValid || !isUserIdValid) {
+      console.error(`[SearchScreen] Invalid UUID format`, { groupId, userId });
+      Alert.alert("Error", "Invalid ID format");
+      return;
+    }
+
+    // Log the exact parameters being sent
+    const rpcParams = {
+      p_group_id: groupId,
+      p_user_id: userId,
+    };
+    console.log(`[SearchScreen] RPC 파라미터:`, JSON.stringify(rpcParams, null, 2));
+
+    try {
+      const { data, error } = await supabase.rpc("cancel_invitation", rpcParams);
+
+      console.log(`[SearchScreen] ==================== RPC 응답 ====================`);
+      console.log(`[SearchScreen] Raw data:`, JSON.stringify(data, null, 2));
+      console.log(`[SearchScreen] Raw error:`, JSON.stringify(error, null, 2));
+      
+      if (error) {
+        console.error(`[SearchScreen] 에러 발생:`, {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // Check if it's a function not found error
+        if (error.code === '42883' || error.message?.includes('function') || error.message?.includes('does not exist')) {
+          Alert.alert("Error", "Cancel invitation function not found. Please update the database function.");
+        } else {
+          Alert.alert("Error", `Failed to cancel invitation: ${error.message}`);
+        }
+        return;
+      }
+
+      // Handle JSON response from enhanced RPC function
+      if (data) {
+        console.log(`[SearchScreen] ==================== RPC 응답 상세 분석 ====================`);
+        console.log(`[SearchScreen] - success: ${data.success}`);
+        console.log(`[SearchScreen] - deleted_count: ${data.deleted_count}`);
+        console.log(`[SearchScreen] - exact_match_count: ${data.exact_match_count}`);
+        console.log(`[SearchScreen] - invited_records_count: ${data.invited_records_count}`);
+        console.log(`[SearchScreen] - found_record:`, data.found_record);
+        console.log(`[SearchScreen] - total_user_invites: ${data.total_user_invites}`);
+        console.log(`[SearchScreen] - sent_parameters:`, data.parameters);
+
+        if (data.success) {
+          console.log(`[SearchScreen] ✅ 초대 취소 성공: ${userName} (${data.deleted_count}개 레코드 삭제됨)`);
+          // Update the user's invitation status back to null (no invitation)
+          setSearchResults(prevResults => 
+            prevResults.map(user => 
+              user.id === userId 
+                ? { ...user, invitationStatus: null }
+                : user
+            )
+          );
+        } else {
+          console.error(`[SearchScreen] ❌ 초대 취소 실패 - 진단 정보:`);
+          console.error(`[SearchScreen] - exact_match_count: ${data.exact_match_count} (그룹+유저 매치)`);
+          console.error(`[SearchScreen] - invited_records_count: ${data.invited_records_count} (invited 상태 매치)`);
+          console.error(`[SearchScreen] - found_record:`, data.found_record);
+          console.error(`[SearchScreen] - total_user_invites: ${data.total_user_invites} (전체 초대)`);
+          
+          let diagnosticMessage = `Cancel failed for ${userName}:\n`;
+          diagnosticMessage += `• Group+User match: ${data.exact_match_count}\n`;
+          diagnosticMessage += `• Invited status match: ${data.invited_records_count}\n`;
+          
+          if (data.found_record) {
+            diagnosticMessage += `• Found record status: "${data.found_record.status}"\n`;
+          } else {
+            diagnosticMessage += `• No matching record found\n`;
+          }
+          
+          diagnosticMessage += `• User's total invites: ${data.total_user_invites}`;
+          
+          // Show different messages based on the diagnosis
+          if (data.exact_match_count === 0) {
+            Alert.alert("Debug Info", "No record found with this group_id and user_id combination");
+          } else if (data.invited_records_count === 0) {
+            Alert.alert("Debug Info", 
+              `Record exists but status is "${data.found_record?.status}" (not "invited")`
+            );
+          } else {
+            Alert.alert("Debug Info", diagnosticMessage);
+          }
+        }
+      } else {
+        console.log(`[SearchScreen] RPC returned null/undefined data`);
+        Alert.alert("Error", "No response data from cancel invitation");
+      }
+      
+      console.log(`[SearchScreen] ==================== CANCEL INVITATION END ====================`);
+    } catch (error) {
+      console.error(`[SearchScreen] 예외 발생:`, error);
+      console.error(`[SearchScreen] 예외 전체 객체:`, JSON.stringify(error, null, 2));
+      Alert.alert("Error", `Exception during cancel: ${error}`);
+    }
+  };
+
   const renderUserRow = ({ item }: { item: SearchUser }) => {
     const isInvited = item.invitationStatus === "invited";
     const isJoined = item.invitationStatus === "joined";
@@ -211,30 +418,31 @@ export default function SearchScreen() {
       <View
         style={[
           styles.userRow,
-          isInvited && { opacity: 0.6 }, // 초대된 유저는 투명도 적용
         ]}
       >
         <Image
-          source={{
-            uri:
-              signedUrls[item.id] ||
-              item.avatar_url ||
-              "https://via.placeholder.com/50",
-          }}
+          source={{ uri: getSafeImageUrl(item.id, item.avatar_url) }}
           style={[
             styles.userAvatar,
-            isInvited && { opacity: 0.6 }, // 초대된 유저는 이미지도 투명도 적용
           ]}
+          defaultSource={{ uri: "https://via.placeholder.com/50/CCCCCC/FFFFFF?text=User" }}
           onError={(error) => {
             console.error(
               `유저 ${item.id} 이미지 로드 실패:`,
-              error.nativeEvent
+              error.nativeEvent,
+              `사용된 URL: ${getSafeImageUrl(item.id, item.avatar_url)}`
             );
+            // 이미지 로드 실패시 해당 유저의 signedUrl을 제거하여 다시 fallback 사용
+            setSignedUrls(prev => {
+              const updated = { ...prev };
+              delete updated[item.id];
+              return updated;
+            });
           }}
           onLoad={() => {
             console.log(
               `유저 ${item.id} 이미지 로드 성공:`,
-              signedUrls[item.id] || item.avatar_url
+              getSafeImageUrl(item.id, item.avatar_url)
             );
           }}
         />
@@ -243,7 +451,7 @@ export default function SearchScreen() {
             style={[
               styles.userName,
               {
-                color: isInvited ? colors.darkGray : colors.black,
+                color: colors.black,
               },
             ]}
           >
@@ -253,7 +461,7 @@ export default function SearchScreen() {
             style={[
               styles.userMbti,
               {
-                color: isInvited ? colors.darkGray : colors.darkGray,
+                color: colors.darkGray,
               },
             ]}
           >
@@ -268,19 +476,22 @@ export default function SearchScreen() {
             onPress={() => sendInvitation(item.id, item.displayName)}
           >
             <Ionicons
-              name="add-circle-outline"
+              name="add"
+              size={24}
+              color={colors.darkGray}
+            />
+          </TouchableOpacity>
+        ) : isInvited ? (
+          <TouchableOpacity
+            style={styles.inviteButton}
+            onPress={() => cancelInvitation(item.id, item.displayName)}
+          >
+            <Ionicons
+              name="checkmark-circle"
               size={24}
               color={colors.primary}
             />
           </TouchableOpacity>
-        ) : isInvited ? (
-          <View style={styles.inviteButton}>
-            <Ionicons
-              name="ellipsis-horizontal"
-              size={24}
-              color={colors.darkGray}
-            />
-          </View>
         ) : isJoined ? (
           <View style={styles.inviteButton}>
             <Ionicons

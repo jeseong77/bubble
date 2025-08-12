@@ -355,18 +355,131 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 전송
+-- 초대 전송 (Fixed schema mismatch)
 CREATE OR REPLACE FUNCTION send_invitation(p_group_id UUID, p_invited_user_id UUID, p_invited_by_user_id UUID)
-RETURNS BOOLEAN AS $$
+RETURNS JSON AS $$
+DECLARE
+  insert_success BOOLEAN := FALSE;
+  conflict_occurred BOOLEAN := FALSE;
 BEGIN
-  INSERT INTO group_members (group_id, user_id, status, invited_by, invited_at)
-  VALUES (p_group_id, p_invited_user_id, 'invited', p_invited_by_user_id, NOW())
-  ON CONFLICT (group_id, user_id) DO NOTHING;
+  -- Log parameters
+  RAISE NOTICE 'send_invitation called: group_id=%, invited_user_id=%, invited_by=%', 
+    p_group_id, p_invited_user_id, p_invited_by_user_id;
+
+  -- Check if record already exists
+  IF EXISTS (SELECT 1 FROM group_members WHERE group_id = p_group_id AND user_id = p_invited_user_id) THEN
+    conflict_occurred := TRUE;
+    RAISE NOTICE 'Record already exists for group_id=%, user_id=%', p_group_id, p_invited_user_id;
+  ELSE
+    -- Insert the invitation (without invited_by column since it doesn't exist in schema)
+    INSERT INTO group_members (group_id, user_id, status, invited_at)
+    VALUES (p_group_id, p_invited_user_id, 'invited', NOW());
+    
+    insert_success := TRUE;
+    RAISE NOTICE 'Successfully inserted invitation record';
+  END IF;
   
-  RETURN TRUE;
+  RETURN json_build_object(
+    'success', insert_success,
+    'already_exists', conflict_occurred,
+    'parameters', json_build_object(
+      'group_id', p_group_id,
+      'invited_user_id', p_invited_user_id,
+      'invited_by_user_id', p_invited_by_user_id
+    )
+  );
 EXCEPTION
   WHEN OTHERS THEN
-    RETURN FALSE;
+    RAISE NOTICE 'Exception in send_invitation: %', SQLERRM;
+    RETURN json_build_object(
+      'success', false,
+      'error', SQLERRM,
+      'parameters', json_build_object(
+        'group_id', p_group_id,
+        'invited_user_id', p_invited_user_id,
+        'invited_by_user_id', p_invited_by_user_id
+      )
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- 초대 취소 (Enhanced with debugging)
+CREATE OR REPLACE FUNCTION cancel_invitation(p_group_id UUID, p_user_id UUID)
+RETURNS JSON AS $$
+DECLARE
+  deleted_count INTEGER;
+  found_record RECORD;
+  exact_match_count INTEGER;
+  invited_records_count INTEGER;
+  all_user_records RECORD;
+BEGIN
+  -- Log parameters 
+  RAISE NOTICE 'cancel_invitation called with group_id: %, user_id: %', p_group_id, p_user_id;
+  
+  -- Check for exact match with both conditions
+  SELECT COUNT(*) INTO exact_match_count 
+  FROM group_members 
+  WHERE group_id = p_group_id AND user_id = p_user_id;
+  
+  -- Check for exact match with invited status
+  SELECT COUNT(*) INTO invited_records_count 
+  FROM group_members 
+  WHERE group_id = p_group_id AND user_id = p_user_id AND status = 'invited';
+  
+  -- Get the actual record if it exists
+  SELECT group_id, user_id, status, invited_at, joined_at 
+  INTO found_record 
+  FROM group_members 
+  WHERE group_id = p_group_id AND user_id = p_user_id
+  LIMIT 1;
+  
+  -- Count all user invites across all groups
+  SELECT count(*) as total_invites INTO all_user_records 
+  FROM group_members 
+  WHERE user_id = p_user_id AND status = 'invited';
+  
+  RAISE NOTICE 'Exact match count (any status): %', exact_match_count;
+  RAISE NOTICE 'Invited status count: %', invited_records_count;
+  RAISE NOTICE 'Found record: group_id=%, user_id=%, status=%', 
+    found_record.group_id, found_record.user_id, found_record.status;
+  RAISE NOTICE 'User has % total invited records across all groups', all_user_records.total_invites;
+  
+  -- Delete the invitation (only if status is 'invited')
+  DELETE FROM group_members 
+  WHERE group_id = p_group_id 
+    AND user_id = p_user_id 
+    AND status = 'invited';
+  
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RAISE NOTICE 'Deleted % records', deleted_count;
+  
+  -- Return detailed JSON response
+  RETURN json_build_object(
+    'success', deleted_count > 0,
+    'deleted_count', deleted_count,
+    'exact_match_count', exact_match_count,
+    'invited_records_count', invited_records_count,
+    'found_record', CASE 
+      WHEN found_record.group_id IS NOT NULL THEN row_to_json(found_record)
+      ELSE NULL 
+    END,
+    'total_user_invites', all_user_records.total_invites,
+    'parameters', json_build_object(
+      'group_id', p_group_id, 
+      'user_id', p_user_id
+    )
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Exception in cancel_invitation: %', SQLERRM;
+    RETURN json_build_object(
+      'success', false,
+      'error', SQLERRM,
+      'parameters', json_build_object(
+        'group_id', p_group_id, 
+        'user_id', p_user_id
+      )
+    );
 END;
 $$ LANGUAGE plpgsql;
 
