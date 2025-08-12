@@ -550,7 +550,7 @@ export default function SearchScreen() {
         extendStatusBar
       />
 
-      <View style={[styles.content, { paddingTop: insets.top + 5 }]}>
+      <View style={styles.content}>
         {/* 검색 입력 */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color={colors.darkGray} />
@@ -602,8 +602,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
     marginHorizontal: 20,
-    marginTop: 2,
-    marginBottom: 10,
+    marginBottom: 20,
   },
   searchInput: {
     flex: 1,
@@ -662,6 +661,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 10,
+    marginTop: -50,
   },
   emptyText: {
     fontSize: 16,

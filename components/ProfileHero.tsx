@@ -460,7 +460,7 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
         <Ionicons name="mail-outline" size={30} color="white" />
         {realTimeInvitationCount > 0 && (
           <View
-            style={[styles.badgeContainer, { backgroundColor: colors.error }]}
+            style={[styles.badgeContainer, { backgroundColor: '#FFD95C' }]}
           >
             <Text style={[styles.badgeText, { color: colors.white }]}>
               {realTimeInvitationCount}
