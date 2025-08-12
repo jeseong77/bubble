@@ -28,6 +28,7 @@ interface CustomAppBarProps {
   title?: string;
   titleTextStyle?: TextStyle;
   leftComponent?: React.ReactNode;
+  centerComponent?: React.ReactNode;
   rightComponent?: React.ReactNode;
   style?: ViewStyle;
   background?: boolean;
@@ -44,6 +45,7 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
   title,
   titleTextStyle,
   leftComponent,
+  centerComponent,
   rightComponent,
   style,
   background = false,
@@ -125,14 +127,18 @@ const CustomAppBar: React.FC<CustomAppBarProps> = ({
         />
       )}
       {renderLeft()}
-      {title && (
-        <Text
-          style={[styles.title, { color: defaultContentColor }, titleTextStyle]}
-          numberOfLines={1}
-        >
-          {title}
-        </Text>
-      )}
+      <View style={styles.centerContainer}>
+        {centerComponent ? centerComponent : (
+          title && (
+            <Text
+              style={[styles.title, { color: defaultContentColor }, titleTextStyle]}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+          )
+        )}
+      </View>
       {renderRight()}
     </View>
   );
@@ -155,8 +161,12 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 10,
   },
-  title: {
+  centerContainer: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
     textAlign: "center",
     fontSize: 18,
     fontWeight: "bold",

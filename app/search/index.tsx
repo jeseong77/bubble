@@ -529,6 +529,11 @@ export default function SearchScreen() {
     <CustomView style={styles.container}>
       <CustomAppBar
         leftComponent={
+          <View style={styles.profileIconContainer}>
+            <Ionicons name="person-add-outline" size={24} color={colors.black} />
+          </View>
+        }
+        centerComponent={
           <Text style={[styles.title, { color: colors.black }]}>
             Search ID
           </Text>
@@ -541,18 +546,17 @@ export default function SearchScreen() {
             <Ionicons name="close" size={24} color={colors.black} />
           </TouchableOpacity>
         }
-        background={true}
-        blurIntensity={70}
+        background={false}
         extendStatusBar
       />
 
-      <View style={[styles.content, { paddingTop: insets.top + 56 }]}>
+      <View style={[styles.content, { paddingTop: insets.top + 5 }]}>
         {/* 검색 입력 */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color={colors.darkGray} />
           <TextInput
             style={[styles.searchInput, { color: colors.black }]}
-            placeholder="Search by username"
+            placeholder="Search your friend's UserID"
             placeholderTextColor={colors.darkGray}
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -571,7 +575,7 @@ export default function SearchScreen() {
           renderItem={renderUserRow}
           keyExtractor={(item) => item.id}
           ListEmptyComponent={renderEmptyState}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={searchResults.length === 0 ? styles.listContainerEmpty : styles.listContainer}
           showsVerticalScrollIndicator={false}
         />
       </View>
@@ -588,7 +592,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: "Quicksand-Bold",
-    fontSize: 22,
+    fontSize: 18,
   },
   searchContainer: {
     flexDirection: "row",
@@ -598,7 +602,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
     marginHorizontal: 20,
-    marginVertical: 15,
+    marginTop: 2,
+    marginBottom: 10,
   },
   searchInput: {
     flex: 1,
@@ -608,6 +613,10 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flexGrow: 1,
+    paddingHorizontal: 20,
+  },
+  listContainerEmpty: {
+    flex: 1,
     paddingHorizontal: 20,
   },
   userRow: {
@@ -652,7 +661,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 50,
+    paddingVertical: 10,
   },
   emptyText: {
     fontSize: 16,
@@ -661,5 +670,10 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
+  },
+  profileIconContainer: {
+    padding: 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
