@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -273,11 +274,70 @@ export default function BubbleFormScreen() {
     router.back();
   };
 
+  const handlePopBubble = () => {
+    Alert.alert(
+      "Do you want to pop this bubble?",
+      "Popped bubbles can't be restored.",
+      [
+        {
+          text: "No",
+          style: "cancel",
+        },
+        {
+          text: "Pop",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Use the leave_group RPC function to properly handle foreign key constraints
+              const { data, error } = await supabase.rpc("leave_group", {
+                p_user_id: session?.user?.id,
+                p_group_id: groupId,
+              });
+
+              if (error) {
+                console.error("Error popping bubble:", error);
+                Alert.alert("Error", "Failed to pop bubble. Please try again.");
+                return;
+              }
+
+              if (!data || !data.success) {
+                console.error("Failed to pop bubble:", data?.message || "Unknown error");
+                Alert.alert("Error", data?.message || "Failed to pop bubble. Please try again.");
+                return;
+              }
+
+              // Log the bubble destruction details
+              console.log(`[PopBubble] "${data.group_name}" was popped by ${data.popper_name}`);
+              if (data.affected_users && data.affected_users.length > 0) {
+                console.log(`[PopBubble] ${data.affected_users.length} other users were in the bubble`);
+                // TODO: Send push notifications to affected users
+                // Format: "{popper_name} popped the bubble"
+              }
+
+              // Show success message
+              Alert.alert(
+                "Bubble Popped! 💥", 
+                `"${data.group_name}" has been destroyed.`,
+                [{ text: "OK" }]
+              );
+
+              // Navigate back to profile
+              router.replace("/(tabs)");
+            } catch (error) {
+              console.error("Error in handlePopBubble:", error);
+              Alert.alert("Error", "Failed to pop bubble. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Check if this is a new bubble to show simplified interface
   const isNewBubble = isExistingBubble === "false";
   
   if (isNewBubble) {
-    // Show simplified interface for new bubbles (like screenshot #4)
+    // Show simplified interface for new bubbles matching target design
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.newBubbleContainer}>
@@ -294,30 +354,35 @@ export default function BubbleFormScreen() {
             {bubbleName || "My Bubble"}
           </Text>
           
-          {/* Current user info */}
-          <Text style={styles.creatorName}>
-            {bubbleMembers[0]?.first_name || "Me"}
-          </Text>
-          
-          {/* Member circles - simplified layout */}
+          {/* Member circles - overlapping layout */}
           <View style={styles.membersContainer}>
-            {/* Creator circle */}
-            <View style={styles.memberCircle}>
-              {creatorSignedUrl ? (
-                <Image
-                  source={{ uri: creatorSignedUrl }}
-                  style={styles.memberImage}
-                />
-              ) : (
-                <View style={[styles.memberImage, styles.placeholderImage]}>
-                  <Feather name="user" size={40} color="#999" />
-                </View>
-              )}
+            {/* Current user full name - positioned above profile image */}
+            <View style={styles.memberWithName}>
+              <Text style={styles.creatorName}>
+                {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
+                  ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
+                  : bubbleMembers[0]?.first_name || "Me"
+                }
+              </Text>
+              
+              {/* Creator circle */}
+              <View style={styles.memberCircle}>
+                {creatorSignedUrl ? (
+                  <Image
+                    source={{ uri: creatorSignedUrl }}
+                    style={styles.memberImage}
+                  />
+                ) : (
+                  <View style={[styles.memberImage, styles.placeholderImage]}>
+                    <Feather name="user" size={40} color="#999" />
+                  </View>
+                )}
+              </View>
             </View>
             
-            {/* Add member circle */}
+            {/* Add member circle - overlapping */}
             <TouchableOpacity
-              style={styles.addMemberCircle}
+              style={[styles.addMemberCircle, styles.overlappingCircle]}
               onPress={() => {
                 router.push({
                   pathname: "/search",
@@ -332,21 +397,13 @@ export default function BubbleFormScreen() {
           {/* Waiting text */}
           <Text style={styles.waitingText}>waiting for invitation ...</Text>
           
-          {/* Bottom buttons */}
-          <View style={styles.bottomButtons}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.cancelButtonText}>✕</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.chevronButton}
-              onPress={() => router.replace("/(tabs)")}
-            >
-              <Feather name="chevron-right" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          {/* Bottom button - only right side */}
+          <TouchableOpacity
+            style={styles.bottomRightButton}
+            onPress={handlePopBubble}
+          >
+            <Feather name="x" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -786,6 +843,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  popButton: {
+    backgroundColor: "#8ec3ff",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   cancelButtonText: {
     color: "#fff",
     fontSize: 36,
@@ -796,41 +866,48 @@ const styles = StyleSheet.create({
   newBubbleContainer: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     padding: 20,
     position: "relative",
   },
   backButton: {
     position: "absolute",
-    top: 60,
+    top: 50,
     left: 20,
     padding: 10,
+    zIndex: 10,
   },
   newBubbleTitle: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#000",
-    marginBottom: 40,
+    marginTop: 100,
+    marginBottom: 80,
     textAlign: "center",
   },
   creatorName: {
     fontSize: 20,
     color: "#000",
-    marginBottom: 30,
+    marginBottom: 15,
     textAlign: "center",
   },
   membersContainer: {
     flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 60,
+    justifyContent: "center",
+  },
+  memberWithName: {
     alignItems: "center",
-    marginBottom: 40,
+    zIndex: 2,
   },
   memberCircle: {
-    marginRight: 20,
+    zIndex: 2,
   },
   memberImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     borderWidth: 3,
     borderColor: "#eee",
   },
@@ -840,20 +917,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addMemberCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: "#D9D9D9",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
     borderColor: "#eee",
   },
+  overlappingCircle: {
+    marginLeft: -40,
+    zIndex: 1,
+  },
   waitingText: {
     fontSize: 16,
     color: "#666",
     textAlign: "center",
     marginBottom: 60,
+  },
+  bottomRightButton: {
+    position: "absolute",
+    bottom: 40,
+    right: 20,
+    backgroundColor: "#8ec3ff",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   bottomButtons: {
     position: "absolute",

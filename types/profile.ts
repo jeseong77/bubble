@@ -22,7 +22,7 @@ export interface ProfileFormData {
   birthYear: string; // 예: "1990", "2003"
   height: number | null;
   mbti: string | null; // 예: "INFP" 또는 null
-  gender: string; // 예: "Man", "Woman", "Nonbinary", "Other" 또는 사용자 정의 값
+  gender: string; // 예: "male", "female", "nonbinary", "other" 또는 사용자 정의 값
   genderVisibleOnProfile: boolean; // 프로필에 성별 표시 여부
   location: string | null; // 사용자 거주 도시
   preferredGender: string; // 선호하는 성별: "male", "female", "nonbinary", "any"

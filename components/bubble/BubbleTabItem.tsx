@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
 import { Colors } from "@/constants/Colors";
 
 // 버블 멤버 타입 정의
 export type BubbleTabMember = {
   id: string;
   avatar_url: string | null;
+  status?: string; // 'joined' or 'invited'
 };
 
 // 버블 아이템 타입 정의
@@ -15,6 +15,7 @@ export type BubbleTabItemData = {
   id: string;
   name: string | null;
   status: string;
+  max_size: number;
   members: BubbleTabMember[];
 };
 
@@ -34,27 +35,28 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
   onSetActive, 
   onLeaveGroup 
 }) => {
-  const { members, name, status } = bubble;
-  const [currentUserSignedUrl, setCurrentUserSignedUrl] = useState<
-    string | null
-  >(null);
-  const [otherMemberSignedUrl, setOtherMemberSignedUrl] = useState<
-    string | null
-  >(null);
-  const [currentUserImageError, setCurrentUserImageError] = useState(false);
-  const [otherMemberImageError, setOtherMemberImageError] = useState(false);
+  const { members, name, status, max_size } = bubble;
+  const [memberSignedUrls, setMemberSignedUrls] = useState<(string | null)[]>([]);
+  const [imageErrors, setImageErrors] = useState<boolean[]>([]);
 
-  // members가 배열이 아닐 경우를 대비한 방어 코드
-  if (!Array.isArray(members)) {
-    return null;
-  }
-
-  // 현재 유저의 이미지 (첫 번째 멤버)
-  const currentUser = members[0];
-
-  // 다른 멤버들 (두 번째부터)
-  const otherMembers = members.slice(1);
-  const otherMember = otherMembers[0]; // 첫 번째 다른 멤버
+  // Filter joined members only (exclude invited members for avatar display) - memoized to prevent infinite loops
+  const joinedMembers = useMemo(() => {
+    if (!Array.isArray(members)) return [];
+    
+    console.log("[BubbleTabItem] 🔍 Filtering members for joined status...");
+    const filtered = members.filter(member => {
+      const isJoined = member.status === 'joined';
+      console.log(`[BubbleTabItem] - Member ${member.id}: status='${member.status}', isJoined=${isJoined}`);
+      return isJoined;
+    });
+    
+    console.log("[BubbleTabItem] 🔍 Filtered result:", filtered);
+    return filtered;
+  }, [members]);
+  
+  // Always show max_size slots regardless of bubble status
+  const totalSpotsToShow = max_size;
+  const placeholderCount = Math.max(0, max_size - joinedMembers.length);
 
   // 이미 공개 URL이므로 Signed URL 생성이 필요 없습니다
   const getImageUrl = (avatarUrl: string | null | undefined): string | null => {
@@ -65,52 +67,78 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
     return avatarUrl;
   };
 
-  // 현재 유저와 다른 멤버의 이미지 URL을 설정합니다.
+  // 모든 멤버의 이미지 URL을 설정합니다.
   useEffect(() => {
-    // 현재 유저의 이미지 URL 설정
-    const currentUserUrl = getImageUrl(currentUser?.avatar_url);
-    setCurrentUserSignedUrl(currentUserUrl);
+    const urls = joinedMembers.map(member => getImageUrl(member.avatar_url));
+    const errors = new Array(joinedMembers.length).fill(false);
+    
+    setMemberSignedUrls(urls);
+    setImageErrors(errors);
+  }, [joinedMembers]);
 
-    // 다른 멤버의 이미지 URL 설정
-    if (otherMember) {
-      const otherMemberUrl = getImageUrl(otherMember.avatar_url);
-      setOtherMemberSignedUrl(otherMemberUrl);
-    }
-  }, [currentUser?.avatar_url, otherMember?.avatar_url]);
+  // Handle individual image errors
+  const handleImageError = (index: number) => {
+    setImageErrors(prev => {
+      const newErrors = [...prev];
+      newErrors[index] = true;
+      return newErrors;
+    });
+  };
 
-  // 서버에서 받은 데이터 로깅
+  // Handle individual image load success
+  const handleImageLoad = (index: number, url: string) => {
+    console.log(`[BubbleTabItem] Member ${index} avatar loaded successfully:`, url);
+  };
+
+  // members가 배열이 아닐 경우를 대비한 방어 코드 (hooks 이후에 위치)
+  if (!Array.isArray(members)) {
+    return null;
+  }
+
+  // 서버에서 받은 데이터 로깅 - 디버깅 강화
   console.log("[BubbleTabItem] 🔍 버블 데이터 분석:");
   console.log("[BubbleTabItem] - 버블 이름:", name);
   console.log("[BubbleTabItem] - 버블 상태:", status);
-  console.log("[BubbleTabItem] - 멤버 수:", members.length);
+  console.log("[BubbleTabItem] - 최대 크기:", max_size);
+  console.log("[BubbleTabItem] - 전체 멤버 수:", members.length);
+  console.log("[BubbleTabItem] - 전체 멤버 데이터:", members);
+  
+  // 각 멤버의 상세 정보 로깅
+  members.forEach((member, index) => {
+    console.log(`[BubbleTabItem] - 멤버 ${index}:`, {
+      id: member.id,
+      avatar_url: member.avatar_url,
+      status: member.status,
+      hasStatus: 'status' in member,
+      statusValue: member.status,
+      statusType: typeof member.status
+    });
+  });
+  
+  console.log("[BubbleTabItem] - 가입된 멤버 수:", joinedMembers.length);
+  console.log("[BubbleTabItem] - 가입된 멤버 데이터:", joinedMembers);
+  console.log("[BubbleTabItem] - 표시할 총 슬롯:", totalSpotsToShow);
+  console.log("[BubbleTabItem] - 플레이스홀더 수:", placeholderCount);
   console.log("[BubbleTabItem] - Active 상태:", isActive);
-
-  if (currentUser) {
-    console.log("[BubbleTabItem] - 현재 유저 ID:", currentUser.id);
-    console.log(
-      "[BubbleTabItem] - 현재 유저 avatar_url:",
-      currentUser.avatar_url
-    );
-  }
 
   // Long Press 핸들러
   const handleLongPress = () => {
     Alert.alert(
-      "버블 옵션",
-      `${name || "Unnamed Bubble"}에 대한 작업을 선택하세요`,
+      "Bubble Options",
+      `Select an action for ${name || "Unnamed Bubble"}`,
       [
         {
-          text: "Active로 설정",
+          text: "Set as Active",
           onPress: onSetActive,
           style: "default",
         },
         {
-          text: "나가기",
+          text: "Pop",
           onPress: onLeaveGroup,
           style: "destructive",
         },
         {
-          text: "취소",
+          text: "Cancel",
           style: "cancel",
         },
       ]
@@ -125,82 +153,76 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
     >
       <View style={styles.container}>
         <View style={styles.avatarContainer}>
-          {/* 현재 유저의 이미지 (왼쪽) */}
-          <View style={styles.avatarWrapper}>
-            {!currentUserImageError && currentUserSignedUrl ? (
-              <Image
-                source={{ uri: currentUserSignedUrl }}
-                style={styles.avatar}
-                onError={(error) => {
-                  console.error(
-                    "BubbleTabItem current user avatar load error:",
-                    error.nativeEvent
-                  );
-                  setCurrentUserImageError(true);
-                }}
-                onLoad={() => {
-                  console.log(
-                    "BubbleTabItem current user avatar loaded successfully:",
-                    currentUserSignedUrl
-                  );
-                }}
-              />
-            ) : (
-              <View style={[styles.avatar, styles.placeholderAvatar]}>
-                <Ionicons name="person" size={24} color="#999" />
-              </View>
-            )}
-          </View>
+          {/* Render joined member avatars */}
+          {joinedMembers.map((member, index) => (
+            <View 
+              key={member.id} 
+              style={[
+                styles.avatarWrapper, 
+                index > 0 && { marginLeft: -20, zIndex: totalSpotsToShow - index }
+              ]}
+            >
+              {!imageErrors[index] && memberSignedUrls[index] ? (
+                <Image
+                  source={{ uri: memberSignedUrls[index]! }}
+                  style={styles.avatar}
+                  onError={() => handleImageError(index)}
+                  onLoad={() => handleImageLoad(index, memberSignedUrls[index]!)}
+                />
+              ) : (
+                <View style={[styles.avatar, styles.placeholderAvatar]}>
+                  <Ionicons name="person" size={24} color="#999" />
+                </View>
+              )}
+            </View>
+          ))}
 
-          {/* 다른 멤버들 또는 초대 대기 상태 (오른쪽) */}
-          <View style={[styles.avatarWrapper, { marginLeft: -20, zIndex: 0 }]}>
-            {otherMembers.length > 0 ? (
-              // 다른 멤버가 있는 경우
-              <View>
-                {!otherMemberImageError && otherMemberSignedUrl ? (
-                  <Image
-                    source={{ uri: otherMemberSignedUrl }}
-                    style={styles.avatar}
-                    onError={(error) => {
-                      console.error(
-                        "BubbleTabItem other member avatar load error:",
-                        error.nativeEvent
-                      );
-                      setOtherMemberImageError(true);
-                    }}
-                    onLoad={() => {
-                      console.log(
-                        "BubbleTabItem other member avatar loaded successfully:",
-                        otherMemberSignedUrl
-                      );
-                    }}
-                  />
-                ) : (
-                  <View style={[styles.avatar, styles.placeholderAvatar]}>
-                    <Ionicons name="person" size={24} color="#999" />
-                  </View>
-                )}
-              </View>
-            ) : (
-              // 다른 멤버가 없거나 초대를 받지 않은 경우 "..." 표시
+          {/* Render placeholder spots for unfilled positions */}
+          {placeholderCount > 0 && Array.from({ length: placeholderCount }).map((_, index) => (
+            <View 
+              key={`placeholder-${index}`}
+              style={[
+                styles.avatarWrapper, 
+                { 
+                  marginLeft: -20, 
+                  zIndex: totalSpotsToShow - joinedMembers.length - index - 1
+                }
+              ]}
+            >
               <View style={[styles.avatar, styles.invitePlaceholder]}>
                 <Text style={styles.inviteText}>...</Text>
               </View>
-            )}
-          </View>
+            </View>
+          ))}
         </View>
 
         {/* 중앙 정렬된 타이틀 */}
-        <View style={styles.textContainer}>
+        <View style={[
+          styles.textContainer, 
+          { marginLeft: Math.max(36, (totalSpotsToShow - 1) * 20 + 36) }
+        ]}>
           <Text style={styles.title}>{name || "Unnamed Bubble"}</Text>
           {isActive && (
             <Text style={styles.activeText}>Active</Text>
           )}
         </View>
 
-        {/* 오른쪽 화살표 아이콘 */}
-        <View style={styles.chevronContainer}>
-          <Ionicons name="chevron-forward" size={24} color="#C0C0C0" />
+        {/* 오른쪽 액션 버튼들 */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.checkButton]}
+            onPress={onSetActive}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="checkmark" size={20} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.closeButton]}
+            onPress={onLeaveGroup}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -229,7 +251,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: "#FFFFFF",
   },
   placeholderAvatar: {
@@ -248,7 +270,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   textContainer: {
-    marginLeft: 36,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -259,9 +280,26 @@ const styles = StyleSheet.create({
     fontFamily: "Quicksand-Bold",
     textAlign: "center",
   },
-  chevronContainer: {
+  actionButtonsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     marginLeft: "auto",
     paddingRight: 12,
+  },
+  actionButton: {
+    marginLeft: 8,
+    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkButton: {
+    backgroundColor: "#8ec3ff",
+  },
+  closeButton: {
+    backgroundColor: "#8ec3ff",
   },
   activeText: {
     fontSize: 12,
