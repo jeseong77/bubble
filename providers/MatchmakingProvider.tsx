@@ -9,6 +9,7 @@ import {
 interface MatchmakingContextType {
   matchingGroups: MatchingGroup[];
   currentUserGroup: string | null;
+  currentUserGroupStatus: string | null;
   isLoading: boolean;
   isLoadingMore: boolean;
   error: string | null;

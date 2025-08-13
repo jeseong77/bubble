@@ -58,9 +58,25 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
       return;
     }
 
+    // Check for preferred gender in both possible field names (camelCase and snake_case)
+    const userPreferredGender = profile.preferredGender || profile.preferred_gender;
+    
+    console.log("[CreateBubbleModal] 🔍 Profile debug:");
+    console.log("[CreateBubbleModal] Full profile keys:", Object.keys(profile));
+    console.log("[CreateBubbleModal] profile.preferredGender:", profile.preferredGender);
+    console.log("[CreateBubbleModal] profile.preferred_gender:", profile.preferred_gender);
+    console.log("[CreateBubbleModal] userPreferredGender:", userPreferredGender);
+
+    if (!userPreferredGender) {
+      Alert.alert("Error", "Please complete your dating preferences first.");
+      return;
+    }
+
     console.log("[CreateBubbleModal] 🟢 Creating bubble...");
     console.log("[CreateBubbleModal] Bubble size:", bubbleSize);
     console.log("[CreateBubbleModal] Bubble name:", bubbleName);
+    console.log("[CreateBubbleModal] Creator gender:", profile.gender);
+    console.log("[CreateBubbleModal] Creator preference:", userPreferredGender);
 
     setIsCreating(true);
     try {
@@ -71,7 +87,7 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
         p_creator_id: session.user.id,
         p_max_size: maxSize,
         p_group_name: bubbleName,
-        p_preferred_gender: 'any' // Default to 'any' for now
+        p_preferred_gender: userPreferredGender || 'any' // Use creator's actual preference
       });
 
       if (error) {

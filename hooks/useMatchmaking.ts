@@ -39,6 +39,7 @@ export const useMatchmaking = () => {
   const { session } = useAuth();
   const [matchingGroups, setMatchingGroups] = useState<MatchingGroup[]>([]);
   const [currentUserGroup, setCurrentUserGroup] = useState<string | null>(null);
+  const [currentUserGroupStatus, setCurrentUserGroupStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +62,16 @@ export const useMatchmaking = () => {
       ) {
         const activeBubble = activeBubbleData[0];
         setCurrentUserGroup(activeBubble.id);
-        return activeBubble.id;
+        setCurrentUserGroupStatus(activeBubble.status);
+        
+        // Only return group ID if it's full and ready for matching
+        if (activeBubble.status === 'full') {
+          return activeBubble.id;
+        } else {
+          // Group exists but is still forming - don't fetch matches
+          console.log("[useMatchmaking] User's active group is still forming, not fetching matches");
+          return null;
+        }
       }
 
       const { data, error } = await supabase.rpc("get_my_bubbles", {
@@ -75,12 +85,27 @@ export const useMatchmaking = () => {
       );
       if (joinedGroup) {
         setCurrentUserGroup(joinedGroup.id);
-        return joinedGroup.id;
+        setCurrentUserGroupStatus(joinedGroup.status);
+        
+        // Only return group ID if it's full and ready for matching
+        if (joinedGroup.status === 'full') {
+          return joinedGroup.id;
+        } else {
+          // Group exists but is still forming - don't fetch matches
+          console.log("[useMatchmaking] User's joined group is still forming, not fetching matches");
+          return null;
+        }
       }
+      
+      // No group found
+      setCurrentUserGroup(null);
+      setCurrentUserGroupStatus(null);
       return null;
     } catch (err) {
       console.error("Error fetching current user group:", err);
       setError("Failed to fetch your group");
+      setCurrentUserGroup(null);
+      setCurrentUserGroupStatus(null);
       return null;
     }
   }, [session?.user]);
@@ -223,6 +248,7 @@ export const useMatchmaking = () => {
   return {
     matchingGroups,
     currentUserGroup,
+    currentUserGroupStatus,
     isLoading,
     isLoadingMore,
     error,

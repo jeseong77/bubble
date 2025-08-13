@@ -75,6 +75,7 @@ export default function MatchScreen() {
     likeGroup,
     passGroup,
     currentUserGroup,
+    currentUserGroupStatus,
     hasMore,
     loadMore,
     refetch,
@@ -276,9 +277,10 @@ export default function MatchScreen() {
       return <LoadingState message="Loading your bubble..." />;
     }
 
-    // 사용자가 속한 그룹이 없음
-    if (!userBubble) {
-      console.log("❌ No user bubble - showing NoGroupState");
+    // 사용자가 속한 그룹이 없음 OR 그룹이 아직 형성중
+    if (!userBubble || currentUserGroupStatus === 'forming') {
+      console.log("❌ No user bubble or forming group - showing NoGroupState");
+      console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
         <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
       );
