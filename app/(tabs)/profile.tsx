@@ -365,46 +365,92 @@ function ProfileScreen() {
 
       setBubblesLoading(true);
       try {
-        // Supabase RPC(Remote Procedure Call)를 사용하여 복잡한 쿼리를 한번에 처리합니다.
-        const { data, error } = await supabase.rpc("get_my_bubbles", {
-          p_user_id: session.user.id,
-        });
+        // First, get basic bubble info where user is a member
+        const { data: basicBubbles, error: basicError } = await supabase
+          .from('group_members')
+          .select(`
+            groups!inner(id, name, status, max_size, creator_id),
+            status,
+            invited_at
+          `)
+          .eq('user_id', session.user.id)
+          .eq('status', 'joined')
+          .order('invited_at', { ascending: false });
 
-        if (error) throw error;
+        if (basicError) throw basicError;
 
-        // RPC 결과가 없을 경우를 대비한 처리
-        const allBubbles = data || [];
+        console.log("[ProfileScreen] 🔍 Basic bubbles from direct query:", basicBubbles);
 
-        // 서버에서 내려오는 원본 데이터 로깅
-        console.log("[ProfileScreen] 🔍 서버에서 내려온 원본 버블 데이터:");
-        console.log(
-          "[ProfileScreen] 전체 데이터:",
-          JSON.stringify(allBubbles, null, 2)
-        );
-
-        if (allBubbles.length > 0) {
-          console.log("[ProfileScreen] 첫 번째 버블 상세 구조:");
-          console.log("[ProfileScreen] - 버블 ID:", allBubbles[0].id);
-          console.log("[ProfileScreen] - 버블 이름:", allBubbles[0].name);
-          console.log("[ProfileScreen] - 버블 상태:", allBubbles[0].status);
-          console.log(
-            "[ProfileScreen] - 유저 상태:",
-            allBubbles[0].user_status
-          );
-          console.log("[ProfileScreen] - 멤버 배열:", allBubbles[0].members);
+        // For each bubble, get complete member data using the WORKING get_bubble RPC
+        const allBubbles = [];
+        for (const bubbleRow of basicBubbles || []) {
+          const bubble = bubbleRow.groups;
+          
+          // Get complete member data using the same RPC as bubble detail page
+          const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+            p_group_id: bubble.id,
+          });
+          
+          if (!bubbleError && bubbleData && bubbleData.length > 0) {
+            const completeData = bubbleData[0];
+            
+            // Combine basic info with complete member data
+            allBubbles.push({
+              id: bubble.id,
+              name: bubble.name,
+              status: bubble.status,
+              max_size: bubble.max_size,
+              members: completeData.members, // This will have ALL members like bubble detail page
+              user_status: bubbleRow.status,
+              invited_at: bubbleRow.invited_at,
+              creator: {} // Can add creator info if needed
+            });
+          }
         }
 
-        // joined 상태인 버블만 My Bubble 탭에 표시
-        const joinedBubbles = allBubbles.filter(
-          (bubble: any) => bubble.user_status === "joined"
-        );
+        // 서버에서 내려오는 원본 데이터 로깅 - 디버깅 강화
+        console.log("[ProfileScreen] 🔍 서버에서 내려온 원본 버블 데이터:");
+        console.log("[ProfileScreen] 전체 데이터:", JSON.stringify(allBubbles, null, 2));
 
-        console.log("[ProfileScreen] get_my_bubbles 응답:", allBubbles);
+        if (allBubbles.length > 0) {
+          allBubbles.forEach((bubble, index) => {
+            console.log(`[ProfileScreen] 🔍 버블 ${index} 상세 분석:`);
+            console.log(`[ProfileScreen] - 버블 ID: ${bubble.id}`);
+            console.log(`[ProfileScreen] - 버블 이름: ${bubble.name}`);
+            console.log(`[ProfileScreen] - 버블 상태: ${bubble.status}`);
+            console.log(`[ProfileScreen] - 최대 크기: ${bubble.max_size}`);
+            console.log(`[ProfileScreen] - 유저 상태: ${bubble.user_status}`);
+            console.log(`[ProfileScreen] - 멤버 배열:`, bubble.members);
+            
+            if (bubble.members && Array.isArray(bubble.members)) {
+              bubble.members.forEach((member, memberIndex) => {
+                console.log(`[ProfileScreen] - 멤버 ${memberIndex}:`, {
+                  id: member.id,
+                  first_name: member.first_name,
+                  last_name: member.last_name,
+                  status: member.status,
+                  hasImages: member.images && member.images.length > 0
+                });
+              });
+            }
+          });
+        }
+
+        // All bubbles are already filtered for 'joined' status
+        const joinedBubbles = allBubbles;
+
+        console.log("[ProfileScreen] Final bubble data using get_bubble RPC:", allBubbles);
+        console.log("[ProfileScreen] 🔍 Raw members data from get_bubble:");
+        joinedBubbles.forEach((bubble, index) => {
+          console.log(`[ProfileScreen] Bubble ${index} members:`, bubble.members);
+          console.log(`[ProfileScreen] Members array length:`, bubble.members ? bubble.members.length : 0);
+          console.log(`[ProfileScreen] Members is array:`, Array.isArray(bubble.members));
+        });
         
         // 데이터 구조를 BubbleTabItem에서 사용하는 형태로 변환
         const transformedBubbles: Bubble[] = joinedBubbles.map((bubble: any) => {
-          // 멤버 정보 파싱 (새로운 구조에 맞게)
-          let members: Array<{ id: string; first_name: string; last_name: string; images: Array<{ image_url: string; position: number }> }> = [];
+          // get_bubble RPC returns members in simpler structure with direct avatar_url
+          let members: Array<{ id: string; first_name: string; last_name: string; avatar_url: string | null }> = [];
           if (bubble.members) {
             try {
               members = Array.isArray(bubble.members)
@@ -416,19 +462,20 @@ function ProfileScreen() {
             }
           }
 
-          // 새로운 구조에 맞게 멤버 데이터 변환
+          console.log(`[ProfileScreen] 🔍 Processing bubble "${bubble.name}" with ${members.length} members:`);
+          members.forEach((member, idx) => {
+            console.log(`[ProfileScreen] - Member ${idx}: ${member.first_name} ${member.last_name} (${member.id})`);
+          });
+
+          // Transform to BubbleTabItem structure
           const transformedMembers = members.map((member) => {
-            // 첫 번째 이미지를 아바타로 사용
-            const avatarUrl = member.images && member.images.length > 0 
-              ? member.images[0].image_url 
-              : null;
-            
             return {
               id: member.id,
               first_name: member.first_name,
               last_name: member.last_name,
-              avatar_url: avatarUrl,
-              signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
+              avatar_url: member.avatar_url,
+              status: 'joined', // All members from get_bubble are 'joined'
+              signedUrl: member.avatar_url, // 이미 공개 URL이므로 그대로 사용
             };
           });
 
@@ -436,6 +483,7 @@ function ProfileScreen() {
             id: bubble.id,
             name: bubble.name,
             status: bubble.status,
+            max_size: bubble.max_size || 2, // Default to 2 if not provided
             members: transformedMembers,
           };
         });

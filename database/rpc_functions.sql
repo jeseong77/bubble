@@ -20,12 +20,13 @@
 -- WHERE current_num_users >= max_size AND status = 'forming';
 -- =====================================================
 
--- 사용자가 속한 그룹 조회 (joined 상태 유저만, 디버그 추가)
-CREATE OR REPLACE FUNCTION get_my_bubbles(p_user_id UUID)
+-- 사용자가 속한 그룹 조회 (joined 상태 유저만, 디버그 추가) - NEW VERSION
+CREATE OR REPLACE FUNCTION get_my_bubbles_v2(p_user_id UUID)
 RETURNS TABLE(
     id UUID,
     name TEXT,
     status TEXT,
+    max_size INTEGER,
     members JSON,
     user_status TEXT,
     invited_at TIMESTAMPTZ,
@@ -36,7 +37,7 @@ DECLARE
   v_member_count INTEGER;
 BEGIN
   -- Debug logging
-  RAISE NOTICE '[get_my_bubbles] Called for user: %', p_user_id;
+  RAISE NOTICE '[get_my_bubbles_v2] Called for user: %', p_user_id;
   
   -- Count total groups for this user
   SELECT COUNT(*) INTO v_group_count
@@ -44,13 +45,14 @@ BEGIN
   JOIN group_members gm ON g.id = gm.group_id
   WHERE gm.user_id = p_user_id AND gm.status IN ('joined', 'invited');
   
-  RAISE NOTICE '[get_my_bubbles] Found % groups for user', v_group_count;
+  RAISE NOTICE '[get_my_bubbles_v2] Found % groups for user', v_group_count;
   
   RETURN QUERY
   SELECT
     g.id,
     g.name,
     g.status,
+    g.max_size,
     -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 - ALL members including joined and invited
     COALESCE(
       (
@@ -80,6 +82,9 @@ BEGIN
         JOIN users u ON gm2.user_id = u.id
         WHERE gm2.group_id = g.id
           AND gm2.status IN ('joined', 'invited')  -- Include both joined and invited members
+        ORDER BY 
+          CASE WHEN gm2.user_id = p_user_id THEN 1 ELSE 2 END,  -- Put requesting user first
+          gm2.joined_at ASC  -- Then order by join time
       ),
       '[]'::json
     ) as members,
@@ -121,7 +126,7 @@ BEGIN
     
   -- Debug: Log what we're returning
   GET DIAGNOSTICS v_member_count = ROW_COUNT;
-  RAISE NOTICE '[get_my_bubbles] Returning % rows', v_member_count;
+  RAISE NOTICE '[get_my_bubbles_v2] Returning % rows', v_member_count;
 END;
 $$ LANGUAGE plpgsql;
 
