@@ -567,7 +567,7 @@ export default function MatchScreen() {
     } else {
       // Visual feedback for pass action
       console.log(`[MatchScreen] Passing group: ${currentGroup.group_name}`);
-      passGroup(currentGroup.group_id);
+      await passGroup(currentGroup.group_id);
     }
 
     // Animate OUT

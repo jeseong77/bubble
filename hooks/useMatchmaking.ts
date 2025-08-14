@@ -222,16 +222,39 @@ export const useMatchmaking = () => {
   );
 
   const passGroup = useCallback(
-    (targetGroupId: string) => {
-      setMatchingGroups((prev) =>
-        prev.filter((group) => group.group_id !== targetGroupId)
-      );
+    async (targetGroupId: string) => {
+      if (!currentUserGroup) return;
 
-      if (matchingGroups.length <= 3 && hasMore) {
-        loadMore();
+      try {
+        // Call the pass_group RPC to store the pass in database
+        const { error } = await supabase.rpc("pass_group", {
+          p_from_group_id: currentUserGroup,
+          p_to_group_id: targetGroupId,
+        });
+
+        if (error) {
+          console.error("Error recording pass:", error);
+          // Continue with UI removal even if RPC fails
+        }
+
+        // Remove from UI immediately for user feedback
+        setMatchingGroups((prev) =>
+          prev.filter((group) => group.group_id !== targetGroupId)
+        );
+
+        // Load more if running low on groups
+        if (matchingGroups.length <= 3 && hasMore) {
+          loadMore();
+        }
+      } catch (err) {
+        console.error("Error in passGroup:", err);
+        // Still remove from UI even if database operation fails
+        setMatchingGroups((prev) =>
+          prev.filter((group) => group.group_id !== targetGroupId)
+        );
       }
     },
-    [matchingGroups.length, hasMore, loadMore]
+    [currentUserGroup, matchingGroups.length, hasMore, loadMore]
   );
 
   useEffect(() => {
