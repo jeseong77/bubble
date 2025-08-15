@@ -15,10 +15,12 @@ import {
 } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { ChatItem, MatchData } from "@/components/chat/ChatItem";
+import { useUIStore } from "@/stores/uiStore";
 
 export default function MessageListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { setTotalUnreadMessages } = useUIStore();
   const [matches, setMatches] = useState<MatchData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +67,20 @@ export default function MessageListScreen() {
             throw rpcError;
           }
 
-          setMatches(finalData || []);
+          const matchesData = finalData || [];
+          setMatches(matchesData);
+          
+          // Calculate total unread messages across all chat rooms
+          const totalUnread = matchesData.reduce((sum: number, match: MatchData) => {
+            return sum + (match.unread_count || 0);
+          }, 0);
+          
+          console.log(`📊 [ChatsScreen] Total unread messages: ${totalUnread}`);
+          setTotalUnreadMessages(totalUnread);
         } catch (err: any) {
           console.error("Failed to fetch matches:", err);
           setError("채팅 목록을 불러오는 데 실패했습니다.");
+          setTotalUnreadMessages(0); // Reset count on error
         } finally {
           setIsLoading(false);
         }

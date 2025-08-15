@@ -1221,3 +1221,167 @@ BEGIN
   
 END;
 $$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- CHAT ROOM MEMBERS RPC FUNCTION
+-- =====================================================
+-- Get all members from both groups in a chat room for profile display
+CREATE OR REPLACE FUNCTION get_chat_room_members(p_chat_room_id UUID)
+RETURNS JSON AS $$
+DECLARE
+  v_match_id UUID;
+  v_group_1_id UUID;
+  v_group_2_id UUID;
+  v_my_group_id UUID;
+  v_other_group_id UUID;
+  v_current_user_id UUID;
+  result JSON;
+BEGIN
+  -- Get current user
+  SELECT auth.uid() INTO v_current_user_id;
+  
+  RAISE NOTICE '[get_chat_room_members] Called for chat room: % by user: %', p_chat_room_id, v_current_user_id;
+  
+  -- Get match info from chat room
+  SELECT cr.match_id, m.group_1_id, m.group_2_id
+  INTO v_match_id, v_group_1_id, v_group_2_id
+  FROM chat_rooms cr
+  JOIN matches m ON cr.match_id = m.id
+  WHERE cr.id = p_chat_room_id;
+  
+  IF v_match_id IS NULL THEN
+    RAISE NOTICE '[get_chat_room_members] Chat room not found or no match';
+    RETURN json_build_object(
+      'success', false,
+      'error', 'Chat room not found or no associated match',
+      'my_group', '[]'::json,
+      'other_group', '[]'::json,
+      'total_members', 0
+    );
+  END IF;
+  
+  -- Determine which group is "my group" vs "other group"
+  SELECT 
+    CASE WHEN EXISTS(SELECT 1 FROM group_members WHERE group_id = v_group_1_id AND user_id = v_current_user_id)
+         THEN v_group_1_id 
+         ELSE v_group_2_id END,
+    CASE WHEN EXISTS(SELECT 1 FROM group_members WHERE group_id = v_group_1_id AND user_id = v_current_user_id)
+         THEN v_group_2_id 
+         ELSE v_group_1_id END
+  INTO v_my_group_id, v_other_group_id;
+  
+  RAISE NOTICE '[get_chat_room_members] My group: %, Other group: %', v_my_group_id, v_other_group_id;
+  
+  -- Build result with both groups' members
+  SELECT json_build_object(
+    'success', true,
+    'match_id', v_match_id,
+    'my_group', (
+      SELECT json_build_object(
+        'id', g.id,
+        'name', g.name,
+        'members', COALESCE((
+          SELECT json_agg(
+            json_build_object(
+              'id', u.id,
+              'first_name', u.first_name,
+              'last_name', u.last_name,
+              'birth_date', u.birth_date,
+              'age', EXTRACT(YEAR FROM age(CURRENT_DATE, u.birth_date)),
+              'gender', u.gender,
+              'bio', u.bio,
+              'images', (
+                SELECT COALESCE(json_agg(
+                  json_build_object(
+                    'id', ui.id,
+                    'image_url', ui.image_url,
+                    'position', ui.position
+                  ) ORDER BY ui.position
+                ), '[]'::json)
+                FROM user_images ui
+                WHERE ui.user_id = u.id
+              ),
+              'primary_image', (
+                SELECT ui.image_url 
+                FROM user_images ui 
+                WHERE ui.user_id = u.id 
+                ORDER BY ui.position ASC 
+                LIMIT 1
+              )
+            ) ORDER BY gm.joined_at ASC
+          )
+          FROM group_members gm
+          JOIN users u ON gm.user_id = u.id
+          WHERE gm.group_id = g.id AND gm.status = 'joined'
+        ), '[]'::json)
+      )
+      FROM groups g
+      WHERE g.id = v_my_group_id
+    ),
+    'other_group', (
+      SELECT json_build_object(
+        'id', g.id,
+        'name', g.name,
+        'members', COALESCE((
+          SELECT json_agg(
+            json_build_object(
+              'id', u.id,
+              'first_name', u.first_name,
+              'last_name', u.last_name,
+              'birth_date', u.birth_date,
+              'age', EXTRACT(YEAR FROM age(CURRENT_DATE, u.birth_date)),
+              'gender', u.gender,
+              'bio', u.bio,
+              'images', (
+                SELECT COALESCE(json_agg(
+                  json_build_object(
+                    'id', ui.id,
+                    'image_url', ui.image_url,
+                    'position', ui.position
+                  ) ORDER BY ui.position
+                ), '[]'::json)
+                FROM user_images ui
+                WHERE ui.user_id = u.id
+              ),
+              'primary_image', (
+                SELECT ui.image_url 
+                FROM user_images ui 
+                WHERE ui.user_id = u.id 
+                ORDER BY ui.position ASC 
+                LIMIT 1
+              )
+            ) ORDER BY gm.joined_at ASC
+          )
+          FROM group_members gm
+          JOIN users u ON gm.user_id = u.id
+          WHERE gm.group_id = g.id AND gm.status = 'joined'
+        ), '[]'::json)
+      )
+      FROM groups g
+      WHERE g.id = v_other_group_id
+    ),
+    'total_members', (
+      SELECT COUNT(*)
+      FROM group_members gm
+      WHERE gm.group_id IN (v_my_group_id, v_other_group_id) 
+        AND gm.status = 'joined'
+    )
+  ) INTO result;
+  
+  RAISE NOTICE '[get_chat_room_members] Returning result for % total members', 
+    (SELECT COUNT(*) FROM group_members WHERE group_id IN (v_my_group_id, v_other_group_id) AND status = 'joined');
+  
+  RETURN result;
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE '[get_chat_room_members] Exception: %', SQLERRM;
+    RETURN json_build_object(
+      'success', false,
+      'error', SQLERRM,
+      'my_group', '[]'::json,
+      'other_group', '[]'::json,
+      'total_members', 0
+    );
+END;
+$$ LANGUAGE plpgsql;
