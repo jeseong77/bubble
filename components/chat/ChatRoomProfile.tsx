@@ -21,8 +21,7 @@ interface Group {
 
 interface ChatRoomProfileData {
   success: boolean;
-  my_group: Group;
-  other_group: Group;
+  all_members: Member[];
   total_members: number;
   error?: string;
 }
@@ -56,7 +55,7 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
     );
   }
 
-  const allMembers = [...(data.my_group?.members || []), ...(data.other_group?.members || [])];
+  const allMembers = data.all_members || [];
   const totalMembers = allMembers.length;
   
   // Determine grid layout based on total members
@@ -74,8 +73,6 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
   const itemWidth = (screenWidth - 40) / gridConfig.columns; // 40px for padding and gaps
 
   const renderMemberCard = (member: Member, index: number) => {
-    const isMyGroupMember = data.my_group?.members.some(m => m.id === member.id);
-    
     return (
       <MemberCard key={member.id} itemWidth={itemWidth}>
         <ProfileImageContainer>
@@ -91,7 +88,6 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
               </PlaceholderText>
             </PlaceholderImage>
           )}
-          <GroupIndicator isMyGroup={isMyGroupMember} imageSize={gridConfig.imageSize} />
         </ProfileImageContainer>
         <MemberInfo>
           <MemberName numberOfLines={1} fontSize={gridConfig.imageSize >= 80 ? 16 : 14}>
@@ -109,32 +105,11 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
-        <Header>
-          <HeaderTitle>Group Members</HeaderTitle>
-          <HeaderSubtitle numberOfLines={2}>
-            {data.my_group?.name} × {data.other_group?.name}
-          </HeaderSubtitle>
-          <MemberCountBadge>
-            <MemberCountText>{totalMembers} members</MemberCountText>
-          </MemberCountBadge>
-        </Header>
-
         <GridContainer>
           <MembersGrid columns={gridConfig.columns}>
             {allMembers.map((member, index) => renderMemberCard(member, index))}
           </MembersGrid>
         </GridContainer>
-
-        <GroupLegend>
-          <LegendItem>
-            <LegendDot isMyGroup={true} />
-            <LegendText>{data.my_group?.name || 'My Group'}</LegendText>
-          </LegendItem>
-          <LegendItem>
-            <LegendDot isMyGroup={false} />
-            <LegendText>{data.other_group?.name || 'Other Group'}</LegendText>
-          </LegendItem>
-        </GroupLegend>
       </ScrollView>
     </Container>
   );
@@ -180,43 +155,9 @@ const ErrorSubText = styled.Text`
   text-align: center;
 `;
 
-const Header = styled.View`
-  padding: 20px 20px 16px 20px;
-  align-items: center;
-`;
-
-const HeaderTitle = styled.Text`
-  font-size: 24px;
-  font-weight: 600;
-  color: #303030;
-  font-family: Quicksand-SemiBold;
-  margin-bottom: 4px;
-`;
-
-const HeaderSubtitle = styled.Text`
-  font-size: 16px;
-  color: #7A7A7A;
-  font-family: Quicksand-Regular;
-  text-align: center;
-  margin-bottom: 8px;
-`;
-
-const MemberCountBadge = styled.View`
-  background-color: #CEE3FF;
-  padding: 4px 12px;
-  border-radius: 12px;
-`;
-
-const MemberCountText = styled.Text`
-  font-size: 12px;
-  color: #303030;
-  font-family: Quicksand-Medium;
-  font-weight: 500;
-`;
-
 const GridContainer = styled.View`
   flex: 1;
-  padding: 0 20px;
+  padding: 20px;
   justify-content: center;
 `;
 
@@ -262,17 +203,6 @@ const PlaceholderText = styled.Text<{ imageSize: number }>`
   font-family: Quicksand-SemiBold;
 `;
 
-const GroupIndicator = styled.View<{ isMyGroup: boolean; imageSize: number }>`
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: ${props => Math.max(props.imageSize * 0.25, 16)}px;
-  height: ${props => Math.max(props.imageSize * 0.25, 16)}px;
-  border-radius: ${props => Math.max(props.imageSize * 0.125, 8)}px;
-  background-color: ${props => props.isMyGroup ? '#80B7FF' : '#FFD95C'};
-  border: 2px solid #FFFFFF;
-`;
-
 const MemberInfo = styled.View`
   align-items: center;
 `;
@@ -292,29 +222,3 @@ const MemberAge = styled.Text<{ fontSize: number }>`
   font-family: Quicksand-Regular;
 `;
 
-const GroupLegend = styled.View`
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-  gap: 24px;
-`;
-
-const LegendItem = styled.View`
-  flex-direction: row;
-  align-items: center;
-`;
-
-const LegendDot = styled.View<{ isMyGroup: boolean }>`
-  width: 12px;
-  height: 12px;
-  border-radius: 6px;
-  background-color: ${props => props.isMyGroup ? '#80B7FF' : '#FFD95C'};
-  margin-right: 8px;
-`;
-
-const LegendText = styled.Text`
-  font-size: 14px;
-  color: #7A7A7A;
-  font-family: Quicksand-Medium;
-`;
