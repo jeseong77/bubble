@@ -142,12 +142,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           )}
         </View>
 
-        {group.match_score > 0 && (
-          <View style={styles.scoreContainer}>
-            <Feather name="star" size={16} color="#FFD700" />
-            <Text style={styles.scoreText}>{group.match_score}% Match</Text>
-          </View>
-        )}
       </BlurView>
     </View>
   );

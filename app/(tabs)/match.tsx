@@ -500,60 +500,6 @@ export default function LikesYouScreen() {
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {/* User's bubble at top left */}
-        {userBubble && (
-          <View
-            style={[
-              styles.userBubbleContainer,
-              {
-                left: Math.max(
-                  0,
-                  (screenWidth - centerBubbleDiameter) / 2 -
-                    userBubbleDiameter * 0.18
-                ),
-                top: insets.top + 24,
-                width: userBubbleDiameter,
-                height: userBubbleDiameter + 24,
-              },
-            ]}
-          >
-            <BlurView
-              style={styles.userBubbleBlur}
-              intensity={Platform.OS === "ios" ? 60 : 80}
-              tint="light"
-            >
-              <Text style={styles.userBubbleName}>{userBubble.name}</Text>
-              <View style={styles.userBubbleRow}>
-                {userBubble.members.map((user, idx) => (
-                  <View
-                    key={user.id}
-                    style={{
-                      marginLeft:
-                        idx === 1 ? -userBubbleImageSize * overlapRatio : 0,
-                      zIndex: idx === 0 ? 2 : 1,
-                    }}
-                  >
-                    <Image
-                      source={{ uri: user.signedUrl || user.avatar_url }}
-                      style={{
-                        width: userBubbleImageSize,
-                        height: userBubbleImageSize,
-                        borderRadius: userBubbleImageSize / 2,
-                        borderWidth: 2,
-                        borderColor: "#fff",
-                      }}
-                    />
-                  </View>
-                ))}
-              </View>
-            </BlurView>
-            <View style={styles.pinIconWrap}>
-              <View style={styles.pinCircle}>
-                <Feather name="feather" size={18} color="#fff" />
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* MatchCard for the current group */}
         <Animated.View
