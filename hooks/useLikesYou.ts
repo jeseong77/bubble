@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/providers/AuthProvider";
+import { useUIStore } from "@/stores/uiStore";
 
 // --- TypeScript Interfaces ---
 
@@ -37,6 +38,7 @@ export interface LikeResponse {
 // --- The Hook ---
 export const useLikesYou = () => {
   const { session } = useAuth();
+  const { setUnreadLikesCount, decrementUnreadLikes } = useUIStore();
   const [incomingLikes, setIncomingLikes] = useState<IncomingLikeGroup[]>([]);
   const [currentUserGroup, setCurrentUserGroup] = useState<string | null>(null);
   const [currentUserGroupStatus, setCurrentUserGroupStatus] = useState<string | null>(null);
@@ -165,6 +167,8 @@ export const useLikesYou = () => {
           setIncomingLikes((prev) => [...prev, ...groupsWithMembers]);
         } else {
           setIncomingLikes(groupsWithMembers);
+          // Update unread count when fetching initial data (not when loading more)
+          setUnreadLikesCount(groupsWithMembers.length + (hasMoreData ? batchSize : 0));
         }
 
         setCurrentOffset(offset + data.length);
@@ -208,6 +212,9 @@ export const useLikesYou = () => {
           prev.filter((group) => group.group_id !== targetGroupId)
         );
 
+        // Decrement unread count
+        decrementUnreadLikes();
+
         // Load more if running low
         if (incomingLikes.length <= 3 && hasMore) {
           await loadMore();
@@ -244,6 +251,9 @@ export const useLikesYou = () => {
           prev.filter((group) => group.group_id !== targetGroupId)
         );
 
+        // Decrement unread count
+        decrementUnreadLikes();
+
         // Load more if running low on groups
         if (incomingLikes.length <= 3 && hasMore) {
           loadMore();
@@ -254,6 +264,8 @@ export const useLikesYou = () => {
         setIncomingLikes((prev) =>
           prev.filter((group) => group.group_id !== targetGroupId)
         );
+        // Decrement unread count even on error
+        decrementUnreadLikes();
       }
     },
     [currentUserGroup, incomingLikes.length, hasMore, loadMore]
