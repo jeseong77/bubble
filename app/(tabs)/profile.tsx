@@ -180,7 +180,7 @@ function ProfileScreen() {
   const bottomHeight = useBottomTabBarHeight();
 
   // --- 상태 관리 ---
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileFormData | null>(null);
   const [editingProfile, setEditingProfile] = useState<ProfileFormData | null>(
     null
@@ -1365,6 +1365,25 @@ function ProfileScreen() {
               Retry
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.logoutButton,
+              { borderColor: colors.error, marginTop: 15 },
+            ]}
+            onPress={async () => {
+              try {
+                await signOut();
+                router.replace("/login");
+              } catch (error) {
+                console.error("Logout error:", error);
+                Alert.alert("Error", "Failed to logout. Please try again.");
+              }
+            }}
+          >
+            <Text style={[styles.logoutButtonText, { color: colors.error }]}>
+              Logout
+            </Text>
+          </TouchableOpacity>
         </View>
       </CustomView>
     );
@@ -1534,6 +1553,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveButtonText: {
+    fontSize: 16,
+    fontFamily: "Quicksand-Bold",
+  },
+  logoutButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  logoutButtonText: {
     fontSize: 16,
     fontFamily: "Quicksand-Bold",
   },
