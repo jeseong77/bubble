@@ -165,63 +165,41 @@ BEGIN
   
   RAISE NOTICE 'Total available groups (excluding current): %', v_total_groups;
   
-  -- Debug: Count groups that match gender preferences (ONLY FULL groups)
+  -- Debug: Count groups that match exact opposite preferences (ONLY FULL groups)
   SELECT COUNT(*) INTO v_matching_groups
   FROM groups g
   WHERE g.id != p_group_id
     AND g.status = 'full'
     AND (
-      -- Exact match
-      (g.group_gender = v_current_group.preferred_gender 
-       AND v_current_group.group_gender = g.preferred_gender)
-      OR
-      -- Any preference matches
-      (g.preferred_gender = 'any' 
-       AND v_current_group.group_gender = g.group_gender)
-      OR
-      (v_current_group.preferred_gender = 'any' 
-       AND g.group_gender = v_current_group.group_gender)
+      -- Exact opposite match only: my group gender = their preference AND their group gender = my preference
+      g.group_gender = v_current_group.preferred_gender 
+      AND v_current_group.group_gender = g.preferred_gender
     );
   
   RAISE NOTICE 'Groups matching gender preferences: %', v_matching_groups;
   
-  -- Return matching groups based on rules
+  -- Return matching groups based on exact opposite matching rules
   RETURN QUERY
   SELECT 
     g.id as group_id,
     g.name as group_name,
     g.group_gender,
     g.preferred_gender,
-    CASE 
-      WHEN g.group_gender = v_current_group.preferred_gender 
-        AND v_current_group.group_gender = g.preferred_gender THEN 100
-      WHEN g.preferred_gender = 'any' 
-        AND v_current_group.group_gender = g.group_gender THEN 80
-      WHEN v_current_group.preferred_gender = 'any' 
-        AND g.group_gender = v_current_group.group_gender THEN 80
-      ELSE 0
-    END as match_score
+    100 as match_score  -- All matches are equal since we only show exact matches
   FROM groups g
   WHERE g.id != p_group_id
-    AND g.status = 'full'  -- CHANGED: Only show fully formed groups
+    AND g.status = 'full'  -- Only show fully formed groups
     AND g.id NOT IN (
       SELECT DISTINCT group_1_id FROM matches WHERE group_2_id = p_group_id
       UNION
       SELECT DISTINCT group_2_id FROM matches WHERE group_1_id = p_group_id
     )
     AND (
-      -- Exact match
-      (g.group_gender = v_current_group.preferred_gender 
-       AND v_current_group.group_gender = g.preferred_gender)
-      OR
-      -- Any preference matches
-      (g.preferred_gender = 'any' 
-       AND v_current_group.group_gender = g.group_gender)
-      OR
-      (v_current_group.preferred_gender = 'any' 
-       AND g.group_gender = v_current_group.group_gender)
+      -- Exact opposite match only: my group gender = their preference AND their group gender = my preference
+      g.group_gender = v_current_group.preferred_gender 
+      AND v_current_group.group_gender = g.preferred_gender
     )
-  ORDER BY match_score DESC, g.created_at ASC
+  ORDER BY g.created_at ASC  -- Order by creation time since all matches are equal
   LIMIT p_limit OFFSET p_offset;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -626,7 +604,6 @@ RETURNS UUID AS $$
 DECLARE
   new_group_id UUID;
   creator_gender TEXT;
-  mapped_group_gender TEXT;
 BEGIN
   -- Get creator's gender for group_gender setting
   SELECT gender INTO creator_gender FROM users WHERE id = p_creator_id;
@@ -636,23 +613,18 @@ BEGIN
     RAISE EXCEPTION 'User with ID % not found in users table', p_creator_id;
   END IF;
   
-  -- Map user gender to group gender values (handle both old and new formats)
-  CASE creator_gender
-    -- New lowercase format
-    WHEN 'male' THEN mapped_group_gender := 'male';
-    WHEN 'female' THEN mapped_group_gender := 'female';
-    WHEN 'nonbinary', 'other' THEN mapped_group_gender := 'mixed';
-    -- Legacy capitalized format (for backward compatibility)
-    WHEN 'Man' THEN mapped_group_gender := 'male';
-    WHEN 'Woman' THEN mapped_group_gender := 'female';
-    WHEN 'Nonbinary', 'Other' THEN mapped_group_gender := 'mixed';
-    ELSE 
-      RAISE EXCEPTION 'Unsupported gender value: %. Expected male, female, nonbinary, other, Man, Woman, Nonbinary, or Other', creator_gender;
-  END CASE;
+  -- Validate user gender (unified system - no backward compatibility)
+  IF creator_gender NOT IN ('man', 'woman', 'nonbinary', 'everyone') THEN
+    RAISE EXCEPTION 'Invalid gender value: %. Expected man, woman, nonbinary, or everyone', creator_gender;
+  END IF;
   
-  -- Create the group with proper creator_id column, mapped group_gender, and current_num_users = 1
+  IF p_preferred_gender NOT IN ('man', 'woman', 'nonbinary', 'everyone') THEN
+    RAISE EXCEPTION 'Invalid preferred_gender value: %. Expected man, woman, nonbinary, or everyone', p_preferred_gender;
+  END IF;
+  
+  -- Create the group with proper creator_id column, group_gender, and current_num_users = 1
   INSERT INTO groups (name, max_size, preferred_gender, creator_id, group_gender, current_num_users)
-  VALUES (p_group_name, p_max_size, p_preferred_gender, p_creator_id, mapped_group_gender, 1)
+  VALUES (p_group_name, p_max_size, p_preferred_gender, p_creator_id, creator_gender, 1)
   RETURNING id INTO new_group_id;
   
   -- Raise detailed error if group creation failed
@@ -1165,5 +1137,87 @@ EXCEPTION
     message := SQLERRM;
     details := json_build_object('error_code', SQLSTATE, 'error_message', SQLERRM);
     RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- LIKES YOU FUNCTIONALITY
+-- =====================================================
+
+-- Function to get groups that have liked the current user's group
+CREATE OR REPLACE FUNCTION get_incoming_likes(
+  p_group_id UUID, 
+  p_limit INTEGER DEFAULT 10,
+  p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+  group_id UUID,
+  group_name TEXT,
+  group_gender TEXT,
+  preferred_gender TEXT,
+  match_score INTEGER
+) AS $$
+DECLARE
+  v_current_group record;
+  v_total_incoming INTEGER;
+BEGIN
+  -- Get current group info
+  SELECT * INTO v_current_group 
+  FROM groups WHERE id = p_group_id;
+  
+  -- Debug: Log current group info
+  RAISE NOTICE 'Getting incoming likes for group: id=%, name=%, group_gender=%, preferred_gender=%, status=%', 
+    v_current_group.id, v_current_group.name, v_current_group.group_gender, 
+    v_current_group.preferred_gender, v_current_group.status;
+  
+  -- Count total incoming likes (excluding already matched groups)
+  SELECT COUNT(*) INTO v_total_incoming
+  FROM likes l
+  JOIN groups g ON l.from_group_id = g.id
+  WHERE l.to_group_id = p_group_id
+    AND g.status = 'full'
+    -- Exclude groups we already matched with
+    AND NOT EXISTS (
+      SELECT 1 FROM matches m
+      WHERE (m.group_1_id = l.from_group_id AND m.group_2_id = p_group_id)
+         OR (m.group_1_id = p_group_id AND m.group_2_id = l.from_group_id)
+    )
+    -- Exclude groups we passed on
+    AND NOT EXISTS (
+      SELECT 1 FROM group_passes gp
+      WHERE gp.from_group_id = p_group_id AND gp.to_group_id = l.from_group_id
+    );
+  
+  RAISE NOTICE 'Total incoming likes available: %', v_total_incoming;
+  
+  -- Return groups that liked this group
+  RETURN QUERY
+  SELECT 
+    g.id as group_id,
+    g.name as group_name,
+    g.group_gender,
+    g.preferred_gender,
+    85 as match_score  -- Fixed high score since they already liked us
+  FROM likes l
+  JOIN groups g ON l.from_group_id = g.id
+  WHERE l.to_group_id = p_group_id
+    AND g.status = 'full'
+    -- Exclude groups we already matched with
+    AND NOT EXISTS (
+      SELECT 1 FROM matches m
+      WHERE (m.group_1_id = l.from_group_id AND m.group_2_id = p_group_id)
+         OR (m.group_1_id = p_group_id AND m.group_2_id = l.from_group_id)
+    )
+    -- Exclude groups we passed on
+    AND NOT EXISTS (
+      SELECT 1 FROM group_passes gp
+      WHERE gp.from_group_id = p_group_id AND gp.to_group_id = l.from_group_id
+    )
+  ORDER BY l.created_at DESC  -- Most recent likes first
+  LIMIT p_limit
+  OFFSET p_offset;
+  
+  RAISE NOTICE 'Returned incoming likes with limit=%, offset=%', p_limit, p_offset;
+  
 END;
 $$ LANGUAGE plpgsql;

@@ -21,10 +21,10 @@ const PreferredGenderInputStep = ({
   const { colors } = useAppTheme();
 
   const genderOptions = [
-    { label: "Man", value: "male" },
-    { label: "Woman", value: "female" },
+    { label: "Man", value: "man" },
+    { label: "Woman", value: "woman" },
     { label: "Nonbinary", value: "nonbinary" },
-    { label: "Everyone", value: "any" },
+    { label: "Everyone", value: "everyone" },
   ];
 
   return (

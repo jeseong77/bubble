@@ -142,12 +142,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           )}
         </View>
 
-        {group.match_score > 0 && (
-          <View style={styles.scoreContainer}>
-            <Feather name="star" size={16} color="#FFD700" />
-            <Text style={styles.scoreText}>{group.match_score}% Match</Text>
-          </View>
-        )}
       </BlurView>
     </View>
   );
@@ -167,7 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: cardDiameter / 2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "#CEE3FF",
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

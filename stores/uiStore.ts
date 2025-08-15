@@ -9,6 +9,11 @@ interface UIState {
   customTabBarHeight: number; // [추가] 탭 바의 실제 높이를 저장할 상태
   setCustomTabBarHeight: (height: number) => void; // [추가] 탭 바 높이를 설정하는 함수
 
+  // --- 알림 배지 관련 상태 및 함수 ---
+  unreadLikesCount: number;
+  setUnreadLikesCount: (count: number) => void;
+  decrementUnreadLikes: () => void;
+
   // 여기에 다른 UI 요소들의 가시성 상태 및 제어 함수들을 추가할 수 있습니다.
 }
 
@@ -37,6 +42,20 @@ export const useUIStore = create<UIState>((set) => ({
   setCustomTabBarHeight: (height) => {
     // console.log(`UIStore: Setting custom tab bar height to ${height}`); // 디버깅 필요시 주석 해제
     set({ customTabBarHeight: height });
+  },
+
+  // --- 알림 배지 관련 상태 및 함수 ---
+  unreadLikesCount: 0,
+  setUnreadLikesCount: (count) => {
+    console.log(`UIStore: Setting unread likes count to ${count}`);
+    set({ unreadLikesCount: Math.max(0, count) }); // 음수 방지
+  },
+  decrementUnreadLikes: () => {
+    set((state) => {
+      const newCount = Math.max(0, state.unreadLikesCount - 1);
+      console.log(`UIStore: Decrementing unread likes from ${state.unreadLikesCount} to ${newCount}`);
+      return { unreadLikesCount: newCount };
+    });
   },
 }));
 

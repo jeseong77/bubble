@@ -87,7 +87,7 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
         p_creator_id: session.user.id,
         p_max_size: maxSize,
         p_group_name: bubbleName,
-        p_preferred_gender: userPreferredGender || 'any' // Use creator's actual preference
+        p_preferred_gender: userPreferredGender // Should always be one of: man, woman, nonbinary, everyone
       });
 
       if (error) {

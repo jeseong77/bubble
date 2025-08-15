@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/providers/AuthProvider";
+import { useUIStore } from "@/stores/uiStore";
 
 // --- TypeScript Interfaces ---
 
-export interface MatchingGroup {
+export interface IncomingLikeGroup {
   group_id: string;
   group_name: string;
   group_gender: string;
@@ -13,7 +14,7 @@ export interface MatchingGroup {
   members?: GroupMember[];
 }
 
-// GroupMember 인터페이스의 모든 필드를 포함합니다.
+// GroupMember interface (same as useMatchmaking)
 export interface GroupMember {
   id: string;
   user_id: string;
@@ -28,16 +29,17 @@ export interface GroupMember {
   joined_at: string;
 }
 
-// [수정 1] like_group RPC의 새로운 응답 타입을 정의합니다.
+// Like response interface (same as useMatchmaking)
 export interface LikeResponse {
   status: "liked" | "matched";
-  chat_room_id?: string; // 'matched' 상태일 때만 존재합니다.
+  chat_room_id?: string;
 }
 
 // --- The Hook ---
-export const useMatchmaking = () => {
+export const useLikesYou = () => {
   const { session } = useAuth();
-  const [matchingGroups, setMatchingGroups] = useState<MatchingGroup[]>([]);
+  const { setUnreadLikesCount, decrementUnreadLikes } = useUIStore();
+  const [incomingLikes, setIncomingLikes] = useState<IncomingLikeGroup[]>([]);
   const [currentUserGroup, setCurrentUserGroup] = useState<string | null>(null);
   const [currentUserGroupStatus, setCurrentUserGroupStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,8 +70,8 @@ export const useMatchmaking = () => {
         if (activeBubble.status === 'full') {
           return activeBubble.id;
         } else {
-          // Group exists but is still forming - don't fetch matches
-          console.log("[useMatchmaking] User's active group is still forming, not fetching matches");
+          // Group exists but is still forming - don't fetch likes
+          console.log("[useLikesYou] User's active group is still forming, not fetching incoming likes");
           return null;
         }
       }
@@ -91,8 +93,8 @@ export const useMatchmaking = () => {
         if (joinedGroup.status === 'full') {
           return joinedGroup.id;
         } else {
-          // Group exists but is still forming - don't fetch matches
-          console.log("[useMatchmaking] User's joined group is still forming, not fetching matches");
+          // Group exists but is still forming - don't fetch likes
+          console.log("[useLikesYou] User's joined group is still forming, not fetching incoming likes");
           return null;
         }
       }
@@ -110,7 +112,7 @@ export const useMatchmaking = () => {
     }
   }, [session?.user]);
 
-  const fetchMatchingGroups = useCallback(
+  const fetchIncomingLikes = useCallback(
     async (
       groupId: string,
       offset: number = 0,
@@ -124,7 +126,7 @@ export const useMatchmaking = () => {
       setError(null);
 
       try {
-        const { data, error } = await supabase.rpc("find_matching_group", {
+        const { data, error } = await supabase.rpc("get_incoming_likes", {
           p_group_id: groupId,
           p_limit: batchSize,
           p_offset: offset,
@@ -162,15 +164,17 @@ export const useMatchmaking = () => {
         );
 
         if (isLoadMore) {
-          setMatchingGroups((prev) => [...prev, ...groupsWithMembers]);
+          setIncomingLikes((prev) => [...prev, ...groupsWithMembers]);
         } else {
-          setMatchingGroups(groupsWithMembers);
+          setIncomingLikes(groupsWithMembers);
+          // Update unread count when fetching initial data (not when loading more)
+          setUnreadLikesCount(groupsWithMembers.length + (hasMoreData ? batchSize : 0));
         }
 
         setCurrentOffset(offset + data.length);
       } catch (err) {
-        console.error("Error fetching matching groups:", err);
-        setError("Failed to fetch matching groups");
+        console.error("Error fetching incoming likes:", err);
+        setError("Failed to fetch incoming likes");
       } finally {
         setIsLoading(false);
         setIsLoadingMore(false);
@@ -181,17 +185,17 @@ export const useMatchmaking = () => {
 
   const loadMore = useCallback(async () => {
     if (!currentUserGroup || isLoadingMore || !hasMore) return;
-    await fetchMatchingGroups(currentUserGroup, currentOffset, true);
+    await fetchIncomingLikes(currentUserGroup, currentOffset, true);
   }, [
     currentUserGroup,
     isLoadingMore,
     hasMore,
     currentOffset,
-    fetchMatchingGroups,
+    fetchIncomingLikes,
   ]);
 
-  // [수정 2] likeGroup 함수의 반환 타입을 새로운 응답 타입에 맞게 변경합니다.
-  const likeGroup = useCallback(
+  // Like back function - calls existing like_group RPC
+  const likeBack = useCallback(
     async (targetGroupId: string): Promise<LikeResponse | null> => {
       if (!currentUserGroup) return null;
 
@@ -203,25 +207,30 @@ export const useMatchmaking = () => {
 
         if (error) throw error;
 
-        setMatchingGroups((prev) =>
+        // Remove the liked group from the list
+        setIncomingLikes((prev) =>
           prev.filter((group) => group.group_id !== targetGroupId)
         );
 
-        if (matchingGroups.length <= 3 && hasMore) {
+        // Decrement unread count
+        decrementUnreadLikes();
+
+        // Load more if running low
+        if (incomingLikes.length <= 3 && hasMore) {
           await loadMore();
         }
 
-        // [수정 3] RPC 결과를 명시적 타입으로 변환하여 반환합니다.
         return data as LikeResponse;
       } catch (err) {
-        console.error("Error liking group:", err);
+        console.error("Error liking group back:", err);
         return null;
       }
     },
-    [currentUserGroup, matchingGroups.length, hasMore, loadMore]
+    [currentUserGroup, incomingLikes.length, hasMore, loadMore]
   );
 
-  const passGroup = useCallback(
+  // Pass function - calls existing pass_group RPC
+  const pass = useCallback(
     async (targetGroupId: string) => {
       if (!currentUserGroup) return;
 
@@ -238,51 +247,56 @@ export const useMatchmaking = () => {
         }
 
         // Remove from UI immediately for user feedback
-        setMatchingGroups((prev) =>
+        setIncomingLikes((prev) =>
           prev.filter((group) => group.group_id !== targetGroupId)
         );
 
+        // Decrement unread count
+        decrementUnreadLikes();
+
         // Load more if running low on groups
-        if (matchingGroups.length <= 3 && hasMore) {
+        if (incomingLikes.length <= 3 && hasMore) {
           loadMore();
         }
       } catch (err) {
-        console.error("Error in passGroup:", err);
+        console.error("Error in pass:", err);
         // Still remove from UI even if database operation fails
-        setMatchingGroups((prev) =>
+        setIncomingLikes((prev) =>
           prev.filter((group) => group.group_id !== targetGroupId)
         );
+        // Decrement unread count even on error
+        decrementUnreadLikes();
       }
     },
-    [currentUserGroup, matchingGroups.length, hasMore, loadMore]
+    [currentUserGroup, incomingLikes.length, hasMore, loadMore]
   );
 
   useEffect(() => {
     const initialize = async () => {
       const groupId = await fetchCurrentUserGroup();
       if (groupId) {
-        await fetchMatchingGroups(groupId, 0, false);
+        await fetchIncomingLikes(groupId, 0, false);
       }
     };
 
     initialize();
-  }, [fetchCurrentUserGroup, fetchMatchingGroups]);
+  }, [fetchCurrentUserGroup, fetchIncomingLikes]);
 
   return {
-    matchingGroups,
+    incomingLikes,
     currentUserGroup,
     currentUserGroupStatus,
     isLoading,
     isLoadingMore,
     error,
     hasMore,
-    likeGroup,
-    passGroup,
+    likeBack,
+    pass,
     loadMore,
     refetch: () => {
       if (currentUserGroup) {
         setCurrentOffset(0);
-        fetchMatchingGroups(currentUserGroup, 0, false);
+        fetchIncomingLikes(currentUserGroup, 0, false);
       }
     },
   };

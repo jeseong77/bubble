@@ -16,7 +16,7 @@ interface MatchmakingContextType {
   hasMore: boolean;
   // [수정 2] likeGroup 함수의 반환 타입을 boolean에서 새로운 응답 타입으로 변경합니다.
   likeGroup: (targetGroupId: string) => Promise<LikeResponse | null>;
-  passGroup: (targetGroupId: string) => void;
+  passGroup: (targetGroupId: string) => Promise<void>;
   loadMore: () => Promise<void>;
   refetch: () => void;
 }
