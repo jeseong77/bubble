@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: cardDiameter / 2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "#CEE3FF",
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

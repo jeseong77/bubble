@@ -495,11 +495,17 @@ export default function LikesYouScreen() {
         edges={["top"]}
       >
         <LinearGradient
-          colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
+          colors={["#ffffff", "#ffffff", "#ffffff"]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+
+        {/* Likes You Header */}
+        <View style={styles.header}>
+          <View style={styles.headerBackground} />
+          <Text style={styles.headerTitle}>Likes You</Text>
+        </View>
 
         {/* MatchCard for the current group */}
         <Animated.View
@@ -729,5 +735,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 32,
+  },
+
+  // Header styles
+  header: {
+    width: "100%",
+    position: "absolute",
+    top: 44,
+    height: 71,
+    zIndex: 10,
+  },
+  headerBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: 71,
+    backgroundColor: "#fff",
+    shadowColor: "#a6a6aa",
+    shadowOffset: { width: 0, height: 0.33 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 1,
+  },
+  headerTitle: {
+    position: "absolute",
+    top: 22,
+    left: 21,
+    fontSize: 32,
+    fontWeight: "600",
+    color: "#000",
+    fontFamily: "Quicksand",
+    lineHeight: 32 * 1.193, // 119.3% line height
   },
 });
