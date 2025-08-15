@@ -429,7 +429,7 @@ export default function LikesYouScreen() {
   });
 
   // Handle different states (same as main screen but for incoming likes)
-  const renderContent = () => {
+  const renderMainContent = () => {
     console.log("=== 🎨 LIKES YOU RENDER CONTENT DEBUG ===");
     console.log("userBubble:", userBubble);
     console.log("userBubbleLoading:", userBubbleLoading);
@@ -488,25 +488,9 @@ export default function LikesYouScreen() {
     }
 
     console.log("✅ Showing main content with MatchCard");
-    // Main content when we have data (EXACT SAME LAYOUT AS MAIN SCREEN)
+    // Main content when we have data - MatchCard and controls only
     return (
-      <SafeAreaView
-        style={[styles.safeArea, { paddingTop: insets.top }]}
-        edges={["top"]}
-      >
-        <LinearGradient
-          colors={["#ffffff", "#ffffff", "#ffffff"]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-
-        {/* Likes You Header */}
-        <View style={styles.header}>
-          <View style={styles.headerBackground} />
-          <Text style={styles.headerTitle}>Likes You</Text>
-        </View>
-
+      <>
         {/* MatchCard for the current group */}
         <Animated.View
           style={[
@@ -558,12 +542,33 @@ export default function LikesYouScreen() {
             </View>
           </View>
         )}
-      </SafeAreaView>
+      </>
     );
   };
 
-  // Main return - call renderContent to handle all conditional rendering
-  return renderContent();
+  // Main return - always show header with conditional content below
+  return (
+    <SafeAreaView
+      style={[styles.safeArea, { paddingTop: insets.top }]}
+      edges={["top"]}
+    >
+      <LinearGradient
+        colors={["#ffffff", "#ffffff", "#ffffff"]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Likes You Header - Always shown */}
+      <View style={styles.header}>
+        <View style={styles.headerBackground} />
+        <Text style={styles.headerTitle}>Likes You</Text>
+      </View>
+
+      {/* Main content area */}
+      {renderMainContent()}
+    </SafeAreaView>
+  );
 }
 
 // Styles (exact same as main screen)
