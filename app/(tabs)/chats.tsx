@@ -10,11 +10,15 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import {
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { ChatItem, MatchData } from "@/components/chat/ChatItem";
 
 export default function MessageListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [matches, setMatches] = useState<MatchData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,11 +115,15 @@ export default function MessageListScreen() {
   if (matches.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <Text style={styles.header}>Bubble Chats</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerBackground} />
+          <Text style={styles.headerTitle}>Bubble Chats</Text>
+        </View>
         <View style={styles.centeredContainer}>
-          <Text style={styles.emptyText}>아직 매칭된 채팅방이 없어요.</Text>
+          <Text style={styles.emptyText}>You don't have any chats yet.</Text>
           <Text style={styles.emptySubText}>
-            새로운 버블을 좋아하고 대화를 시작해보세요!
+            Match a bubble to start a conversation!
           </Text>
         </View>
       </SafeAreaView>
@@ -125,7 +133,11 @@ export default function MessageListScreen() {
   // 메인 컨텐츠
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Text style={styles.header}>Bubble Chats</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerBackground} />
+        <Text style={styles.headerTitle}>Bubble Chats</Text>
+      </View>
       <FlatList
         data={matches}
         keyExtractor={(item) => item.match_id}
@@ -138,7 +150,7 @@ export default function MessageListScreen() {
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: 115 }}
       />
     </SafeAreaView>
   );
@@ -149,13 +161,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     paddingTop: Platform.OS === "android" ? 25 : 0,
-  },
-  header: {
-    fontSize: 32,
-    fontWeight: "700",
-    marginTop: 12,
-    marginBottom: 18,
-    paddingHorizontal: 16,
   },
   separator: {
     height: 1,
@@ -182,5 +187,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#888",
     textAlign: "center",
+  },
+  // Header styles (matching Likes You)
+  header: {
+    width: "100%",
+    position: "absolute",
+    top: 59,
+    height: 71,
+    zIndex: 10,
+  },
+  headerBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: 71,
+    backgroundColor: "#fff",
+    shadowColor: "#a6a6aa",
+    shadowOffset: { width: 0, height: 0.33 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 1,
+  },
+  headerTitle: {
+    position: "absolute",
+    top: 22,
+    left: 21,
+    fontSize: 32,
+    fontWeight: "600",
+    color: "#000",
+    fontFamily: "Quicksand",
+    lineHeight: 32 * 1.193, // 119.3% line height
   },
 });
