@@ -27,6 +27,7 @@ interface SearchUser {
   last_name: string;
   avatar_url: string | null;
   mbti: string;
+  gender: string;
   displayName: string;
   invitationStatus: "invited" | "joined" | "declined" | null;
 }
@@ -43,6 +44,7 @@ export default function SearchScreen() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [signedUrls, setSignedUrls] = useState<{ [key: string]: string }>({});
+  const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
 
   // URL 유효성 검사 함수
   const isValidUrl = (url: string): boolean => {
@@ -84,6 +86,28 @@ export default function SearchScreen() {
     return fallbackUrl;
   };
 
+  // Fetch current user's gender
+  useEffect(() => {
+    const fetchCurrentUserGender = async () => {
+      if (!session?.user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("gender")
+          .eq("id", session.user.id)
+          .single();
+          
+        if (error) throw error;
+        setCurrentUserGender(data.gender);
+      } catch (error) {
+        console.error("[SearchScreen] Failed to fetch current user gender:", error);
+      }
+    };
+    
+    fetchCurrentUserGender();
+  }, [session?.user?.id]);
+
   // 디바운싱 효과
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -101,6 +125,12 @@ export default function SearchScreen() {
       setSearchResults([]);
     }
   }, [debouncedSearchTerm]);
+
+  const checkGenderCompatibility = (targetUserGender: string): boolean => {
+    if (!currentUserGender || !targetUserGender) return true;
+    if (currentUserGender === "everyone" || targetUserGender === "everyone") return true;
+    return currentUserGender === targetUserGender;
+  };
 
   const generateSignedUrls = async (users: SearchUser[]) => {
     const urls: { [key: string]: string } = {};
@@ -217,8 +247,13 @@ export default function SearchScreen() {
     }
   };
 
-  const sendInvitation = async (userId: string, userName: string) => {
+  const sendInvitation = async (userId: string, userName: string, userGender: string) => {
     if (!session?.user?.id || !groupId) return;
+
+    if (!checkGenderCompatibility(userGender)) {
+      Alert.alert("Sorry, You can only invite friends of the same gender :(");
+      return;
+    }
 
     console.log(`[SearchScreen] 초대 전송 시도: ${userName} (ID: ${userId})`);
     console.log(`[SearchScreen] 그룹 ID: ${groupId}`);
@@ -243,12 +278,14 @@ export default function SearchScreen() {
         console.log(`[SearchScreen] Raw response:`, JSON.stringify(data, null, 2));
         console.log(`[SearchScreen] - success: ${data.success}`);
         console.log(`[SearchScreen] - already_exists: ${data.already_exists}`);
+        console.log(`[SearchScreen] - inserted_count: ${data.inserted_count}`);
+        console.log(`[SearchScreen] - verification_status: ${data.verification_status}`);
         console.log(`[SearchScreen] - parameters:`, data.parameters);
         console.log(`[SearchScreen] - error:`, data.error);
 
-        if (data.success) {
-          console.log(`[SearchScreen] ✅ 초대 전송 성공: ${userName}`);
-          // Update the user's invitation status immediately in the UI
+        if (data.success && data.verification_status === 'invited') {
+          console.log(`[SearchScreen] ✅ 초대 전송 및 검증 성공: ${userName}`);
+          // Only update UI if database verification passed
           setSearchResults(prevResults => 
             prevResults.map(user => 
               user.id === userId 
@@ -267,8 +304,13 @@ export default function SearchScreen() {
             )
           );
         } else {
-          console.error(`[SearchScreen] ❌ 초대 전송 실패: ${userName}`, data.error);
-          Alert.alert("Error", `Failed to send invitation: ${data.error || "Unknown error"}`);
+          console.error(`[SearchScreen] ❌ 초대 전송 실패: ${userName}`, {
+            success: data.success,
+            verification_status: data.verification_status,
+            inserted_count: data.inserted_count,
+            error: data.error
+          });
+          Alert.alert("Error", `Failed to send invitation: ${data.error || "Verification failed"}`);
         }
       } else {
         console.log(
@@ -294,11 +336,11 @@ export default function SearchScreen() {
       return;
     }
 
-    console.log(`[SearchScreen] ==================== CANCEL INVITATION START ====================`);
-    console.log(`[SearchScreen] 초대 취소 시도: ${userName} (ID: ${userId})`);
-    console.log(`[SearchScreen] 그룹 ID: ${groupId} (타입: ${typeof groupId})`);
-    console.log(`[SearchScreen] 유저 ID: ${userId} (타입: ${typeof userId})`);
-    console.log(`[SearchScreen] 현재 유저 ID: ${session.user.id}`);
+    console.log(`[SearchScreen] ==================== CANCEL BUTTON PRESSED ====================`);
+    console.log(`[SearchScreen] Cancel button pressed for: ${userName}`);
+    console.log(`[SearchScreen] userid: ${userId} for groupid: ${groupId}`);
+    console.log(`[SearchScreen] Attempting to cancel invitation...`);
+    console.log(`[SearchScreen] Parameter types - userId: ${typeof userId}, groupId: ${typeof groupId}`);
     
     // UUID format validation
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -313,15 +355,24 @@ export default function SearchScreen() {
       return;
     }
 
-    // Log the exact parameters being sent
+    // Log the exact parameters being sent (matching RPC function parameter names)
     const rpcParams = {
       p_group_id: groupId,
       p_user_id: userId,
     };
-    console.log(`[SearchScreen] RPC 파라미터:`, JSON.stringify(rpcParams, null, 2));
+    console.log(`[SearchScreen] ==================== RPC PARAMETERS ====================`);
+    console.log(`[SearchScreen] Sending to RPC:`, JSON.stringify(rpcParams, null, 2));
+    console.log(`[SearchScreen] p_group_id: "${groupId}" (type: ${typeof groupId}, length: ${groupId.length})`);
+    console.log(`[SearchScreen] p_user_id: "${userId}" (type: ${typeof userId}, length: ${userId.length})`);
+    console.log(`[SearchScreen] Direct test - these exact values found 1 record in SQL`);
 
     try {
-      const { data, error } = await supabase.rpc("cancel_invitation", rpcParams);
+      console.log(`[SearchScreen] Calling FORCE DELETE function...`);
+      const forceParams = {
+        p_group_id: groupId,
+        p_user_id: userId,
+      };
+      const { data, error } = await supabase.rpc("force_delete_invitation", forceParams);
 
       console.log(`[SearchScreen] ==================== RPC 응답 ====================`);
       console.log(`[SearchScreen] Raw data:`, JSON.stringify(data, null, 2));
@@ -335,28 +386,20 @@ export default function SearchScreen() {
           hint: error.hint
         });
         
-        // Check if it's a function not found error
-        if (error.code === '42883' || error.message?.includes('function') || error.message?.includes('does not exist')) {
-          Alert.alert("Error", "Cancel invitation function not found. Please update the database function.");
-        } else {
-          Alert.alert("Error", `Failed to cancel invitation: ${error.message}`);
-        }
+        Alert.alert("Error", `Failed to cancel invitation: ${error.message}`);
         return;
       }
 
-      // Handle JSON response from enhanced RPC function
+      // Handle force delete response
       if (data) {
-        console.log(`[SearchScreen] ==================== RPC 응답 상세 분석 ====================`);
+        console.log(`[SearchScreen] ==================== FORCE DELETE 응답 ====================`);
         console.log(`[SearchScreen] - success: ${data.success}`);
         console.log(`[SearchScreen] - deleted_count: ${data.deleted_count}`);
-        console.log(`[SearchScreen] - exact_match_count: ${data.exact_match_count}`);
-        console.log(`[SearchScreen] - invited_records_count: ${data.invited_records_count}`);
-        console.log(`[SearchScreen] - found_record:`, data.found_record);
-        console.log(`[SearchScreen] - total_user_invites: ${data.total_user_invites}`);
-        console.log(`[SearchScreen] - sent_parameters:`, data.parameters);
+        console.log(`[SearchScreen] - sql_executed: ${data.sql_executed}`);
 
         if (data.success) {
-          console.log(`[SearchScreen] ✅ 초대 취소 성공: ${userName} (${data.deleted_count}개 레코드 삭제됨)`);
+          console.log(`[SearchScreen] 🔥 FORCE DELETE 성공: ${userName} (${data.deleted_count}개 레코드 삭제됨)`);
+          console.log(`[SearchScreen] 실행된 SQL: ${data.sql_executed}`);
           // Update the user's invitation status back to null (no invitation)
           setSearchResults(prevResults => 
             prevResults.map(user => 
@@ -365,39 +408,15 @@ export default function SearchScreen() {
                 : user
             )
           );
+          Alert.alert("Success!", `Invitation cancelled for ${userName}`);
         } else {
-          console.error(`[SearchScreen] ❌ 초대 취소 실패 - 진단 정보:`);
-          console.error(`[SearchScreen] - exact_match_count: ${data.exact_match_count} (그룹+유저 매치)`);
-          console.error(`[SearchScreen] - invited_records_count: ${data.invited_records_count} (invited 상태 매치)`);
-          console.error(`[SearchScreen] - found_record:`, data.found_record);
-          console.error(`[SearchScreen] - total_user_invites: ${data.total_user_invites} (전체 초대)`);
-          
-          let diagnosticMessage = `Cancel failed for ${userName}:\n`;
-          diagnosticMessage += `• Group+User match: ${data.exact_match_count}\n`;
-          diagnosticMessage += `• Invited status match: ${data.invited_records_count}\n`;
-          
-          if (data.found_record) {
-            diagnosticMessage += `• Found record status: "${data.found_record.status}"\n`;
-          } else {
-            diagnosticMessage += `• No matching record found\n`;
-          }
-          
-          diagnosticMessage += `• User's total invites: ${data.total_user_invites}`;
-          
-          // Show different messages based on the diagnosis
-          if (data.exact_match_count === 0) {
-            Alert.alert("Debug Info", "No record found with this group_id and user_id combination");
-          } else if (data.invited_records_count === 0) {
-            Alert.alert("Debug Info", 
-              `Record exists but status is "${data.found_record?.status}" (not "invited")`
-            );
-          } else {
-            Alert.alert("Debug Info", diagnosticMessage);
-          }
+          console.error(`[SearchScreen] ❌ FORCE DELETE도 실패: ${userName}`);
+          console.error(`[SearchScreen] 실행된 SQL: ${data.sql_executed}`);
+          Alert.alert("Error", `Even force delete failed for ${userName}. This shouldn't happen!`);
         }
       } else {
         console.log(`[SearchScreen] RPC returned null/undefined data`);
-        Alert.alert("Error", "No response data from cancel invitation");
+        Alert.alert("Error", "No response data from force delete");
       }
       
       console.log(`[SearchScreen] ==================== CANCEL INVITATION END ====================`);
@@ -473,7 +492,7 @@ export default function SearchScreen() {
         {canInvite ? (
           <TouchableOpacity
             style={styles.inviteButton}
-            onPress={() => sendInvitation(item.id, item.displayName)}
+            onPress={() => sendInvitation(item.id, item.displayName, item.gender)}
           >
             <Ionicons
               name="add"
