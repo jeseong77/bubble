@@ -218,6 +218,160 @@ export default function MatchScreen() {
     fetchUserBubble();
   }, [session?.user]); // session?.user가 변경될 때만 실행
 
+  // 사용자 버블 새로고침 함수 (버블 팝 후 상태 업데이트용)
+  const refreshUserBubble = async () => {
+    if (!session?.user) return;
+
+    setUserBubbleLoading(true);
+    try {
+      console.log("[MatchScreen] 🔄 Refreshing user bubble after pop...");
+
+      // Step 1: Get user's active_group_id from users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("active_group_id")
+        .eq("id", session.user.id)
+        .single();
+
+      let activeBubbleId: string | null = null;
+      if (!userError && userData?.active_group_id) {
+        activeBubbleId = userData.active_group_id;
+        console.log("[MatchScreen] ✅ Found active_group_id after refresh:", activeBubbleId);
+      } else {
+        // Step 2: If no active bubble, get first joined bubble
+        console.log("[MatchScreen] ❌ No active_group_id after pop, checking for other bubbles");
+        const { data: basicBubbles, error: basicError } = await supabase
+          .from('group_members')
+          .select(`
+            groups!inner(id, name, status, max_size, creator_id),
+            status,
+            invited_at
+          `)
+          .eq('user_id', session.user.id)
+          .eq('status', 'joined')
+          .order('invited_at', { ascending: false })
+          .limit(1);
+
+        if (!basicError && basicBubbles && basicBubbles.length > 0) {
+          activeBubbleId = basicBubbles[0].groups.id;
+          console.log("[MatchScreen] 🔄 Using first joined bubble as fallback:", activeBubbleId);
+        }
+      }
+
+      if (!activeBubbleId) {
+        console.log("[MatchScreen] ✅ No bubbles found after pop - user has no active bubbles");
+        setUserBubble(null);
+        return;
+      }
+
+      // Step 3: Get complete bubble data using get_bubble RPC
+      console.log("[MatchScreen] 🎯 Fetching updated bubble data");
+      const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+        p_group_id: activeBubbleId,
+      });
+
+      if (bubbleError || !bubbleData || bubbleData.length === 0) {
+        console.error("[MatchScreen] ❌ get_bubble RPC failed during refresh:", bubbleError);
+        setUserBubble(null);
+        return;
+      }
+
+      const completeData = bubbleData[0];
+      console.log("[MatchScreen] ✅ Bubble refresh successful:", completeData.name);
+
+      // Transform data same as initial load
+      let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+      if (completeData.members) {
+        try {
+          members = Array.isArray(completeData.members)
+            ? completeData.members
+            : JSON.parse(completeData.members);
+        } catch (parseError) {
+          console.error("[MatchScreen] 멤버 정보 파싱 실패 during refresh:", parseError);
+          members = [];
+        }
+      }
+
+      const transformedMembers = members.map((member) => ({
+        id: member.id,
+        first_name: member.first_name,
+        last_name: member.last_name,
+        avatar_url: member.avatar_url,
+        signedUrl: member.avatar_url,
+      }));
+
+      const userBubbleData: UserBubble = {
+        id: completeData.id,
+        name: completeData.name,
+        members: transformedMembers,
+      };
+
+      setUserBubble(userBubbleData);
+      console.log("[MatchScreen] 🎯 User bubble refreshed successfully");
+
+    } catch (error) {
+      console.error("[MatchScreen] Error refreshing user bubble:", error);
+      setUserBubble(null);
+    } finally {
+      setUserBubbleLoading(false);
+    }
+  };
+
+  // 버블 팝 함수 (프로필 화면과 동일한 로직)
+  const handlePopBubble = async (bubbleId: string) => {
+    if (!session?.user) return;
+    
+    Alert.alert(
+      "Do you want to pop this bubble?",
+      "Popped bubbles can't be restored.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Pop",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("[MatchScreen] 그룹 나가기 시작:", bubbleId);
+              
+              const { data, error } = await supabase.rpc("leave_group", {
+                p_user_id: session.user.id,
+                p_group_id: bubbleId,
+              });
+              
+              if (error) {
+                console.error("[MatchScreen] Failed to leave group:", error);
+                Alert.alert("Error", "Failed to pop bubble.");
+                return;
+              }
+              
+              if (!data || !data.success) {
+                console.error("[MatchScreen] Failed to pop bubble:", data?.message || "Unknown error");
+                Alert.alert("Error", data?.message || "Failed to pop bubble.");
+                return;
+              }
+
+              console.log(`[MatchScreen] Successfully popped bubble: "${data.group_name}" by ${data.popper_name}`);
+              
+              // 버블 목록 새로고침
+              await refreshUserBubble();
+              
+              Alert.alert(
+                "Bubble Popped! 💥", 
+                `"${data.group_name}" has been destroyed.`
+              );
+            } catch (error) {
+              console.error("[MatchScreen] Error while leaving group:", error);
+              Alert.alert("Error", "Failed to pop bubble.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // 🔍 DEBUG: 매칭 그룹 데이터 로깅
   useEffect(() => {
     console.log("=== 🔍 MATCHING GROUPS IN INDEX ===");
@@ -415,11 +569,16 @@ export default function MatchScreen() {
                 })}
               </View>
             </BlurView>
-            <View style={styles.pinIconWrap}>
+            <TouchableOpacity 
+              style={styles.pinIconWrap}
+              onPress={() => userBubble && handlePopBubble(userBubble.id)}
+              activeOpacity={0.7}
+              disabled={!userBubble || userBubbleLoading}
+            >
               <View style={styles.pinCircle}>
                 <Feather name="feather" size={18} color="#fff" />
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
 
