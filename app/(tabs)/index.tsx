@@ -92,8 +92,9 @@ export default function MatchScreen() {
   const [recentMatches, setRecentMatches] = useState<string[]>([]);
   const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
   const [userBubbleLoading, setUserBubbleLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Helper function to format reset time
+  // Helper function to format reset time for small display
   const formatResetTime = (resetTimeISO: string) => {
     const resetTime = new Date(resetTimeISO);
     const now = new Date();
@@ -110,6 +111,28 @@ export default function MatchScreen() {
       return `Resets in ${minutes}m`;
     }
   };
+
+  // Helper function to format countdown timer (HH:MM format)
+  const formatCountdownTime = (resetTimeISO: string) => {
+    const resetTime = new Date(resetTimeISO);
+    const diff = resetTime.getTime() - currentTime.getTime();
+    
+    if (diff <= 0) return "00:00";
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Update timer every minute for countdown
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Safety check: Reset index if it goes out of bounds after group removal
   useEffect(() => {
@@ -617,6 +640,109 @@ export default function MatchScreen() {
             refetch();
           }}
         />
+      );
+    }
+
+    // Check if daily swipe limit is reached
+    if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
+      console.log("🚫 Daily swipe limit reached - showing limit reached state");
+      return (
+        <SafeAreaView
+          style={[styles.safeArea, { paddingTop: insets.top }]}
+          edges={["top"]}
+        >
+          <LinearGradient
+            colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* User's bubble at top left */}
+          {userBubble && (
+            <View
+              style={[
+                styles.userBubbleContainer,
+                {
+                  left: Math.max(
+                    0,
+                    (screenWidth - centerBubbleDiameter) / 2 -
+                      userBubbleDiameter * 0.18
+                  ),
+                  top: insets.top + 24,
+                  width: userBubbleDiameter,
+                  height: userBubbleDiameter + 24,
+                },
+              ]}
+            >
+              <BlurView
+                style={styles.userBubbleBlur}
+                intensity={Platform.OS === "ios" ? 60 : 80}
+                tint="light"
+              >
+                <Text style={styles.userBubbleName}>{userBubble.name}</Text>
+                <View style={styles.userBubbleRow}>
+                  {userBubble.members.map((user, idx) => (
+                    <View
+                      key={user.id}
+                      style={{
+                        marginLeft: idx > 0 ? -userBubbleImageSize * overlapRatio : 0,
+                        zIndex: userBubble.members.length - idx,
+                      }}
+                    >
+                      <Image
+                        source={{ uri: user.signedUrl || user.avatar_url }}
+                        style={{
+                          width: userBubbleImageSize,
+                          height: userBubbleImageSize,
+                          borderRadius: userBubbleImageSize / 2,
+                          borderWidth: 2,
+                          borderColor: "#fff",
+                        }}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </BlurView>
+              <TouchableOpacity 
+                style={styles.pinIconWrap}
+                onPress={() => userBubble && handlePopBubble(userBubble.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.pinCircle}>
+                  <Feather name="feather" size={18} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Large Countdown Display */}
+          <View style={styles.limitReachedContainer}>
+            <Text style={styles.limitReachedMessage}>
+              You've used all your swipes for today.{'\n'}
+              Please wait for new Bubbles tomorrow!
+            </Text>
+            <Text style={styles.countdownTimer}>
+              {formatCountdownTime(swipeLimitInfo.reset_time)}
+            </Text>
+          </View>
+
+          {/* Disabled Swipe Controls */}
+          <View style={styles.swipeControls}>
+            <TouchableOpacity
+              style={[styles.xButton, styles.disabledButton]}
+              disabled={true}
+            >
+              <Feather name="x" size={32} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.checkButton, styles.disabledButton]}
+              disabled={true}
+            >
+              <Feather name="heart" size={32} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       );
     }
 
@@ -1230,5 +1356,29 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.4,
+  },
+
+  // Limit reached state styles
+  limitReachedContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  limitReachedMessage: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#303030",
+    textAlign: "center",
+    lineHeight: 26,
+    marginBottom: 60,
+  },
+  countdownTimer: {
+    fontSize: 120,
+    fontWeight: "300",
+    color: "#80B7FF",
+    letterSpacing: 4,
+    textAlign: "center",
+    fontFamily: "System",
   },
 });
