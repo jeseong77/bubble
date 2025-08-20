@@ -25,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { useFocusEffect } from "@react-navigation/native";
 import { useMatchmakingContext } from "@/providers/MatchmakingProvider";
 import { MatchCard } from "@/components/matchmaking/MatchCard";
 import {
@@ -52,13 +53,13 @@ const centerBubbleOverlap = centerBubbleImageSize * 0.18;
 interface UserBubble {
   id: string;
   name: string;
-  members: Array<{
+  members: {
     id: string;
     first_name: string;
     last_name: string;
     avatar_url: string;
     signedUrl?: string;
-  }>;
+  }[];
 }
 
 export default function MatchScreen() {
@@ -79,6 +80,7 @@ export default function MatchScreen() {
     hasMore,
     loadMore,
     refetch,
+    refreshAll,
   } = useMatchmakingContext();
 
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
@@ -371,6 +373,118 @@ export default function MatchScreen() {
       ]
     );
   };
+
+  // Focus effect for automatic refresh when returning to first tab
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("[MatchScreen] 🔄 Tab focused - refreshing all data...");
+      
+      // Refresh user bubble data (may have new active group)
+      const refreshUserBubbleData = async () => {
+        if (!session?.user) return;
+
+        setUserBubbleLoading(true);
+        try {
+          console.log("[MatchScreen] 🔄 Refreshing user bubble on focus...");
+
+          // Step 1: Get user's active_group_id from users table
+          const { data: userData, error: userError } = await supabase
+            .from("users")
+            .select("active_group_id")
+            .eq("id", session.user.id)
+            .single();
+
+          let activeBubbleId: string | null = null;
+          if (!userError && userData?.active_group_id) {
+            activeBubbleId = userData.active_group_id;
+            console.log("[MatchScreen] ✅ Found active_group_id on focus:", activeBubbleId);
+          } else {
+            // Step 2: If no active bubble, get first joined bubble
+            console.log("[MatchScreen] ❌ No active_group_id on focus, checking for other bubbles");
+            const { data: basicBubbles, error: basicError } = await supabase
+              .from('group_members')
+              .select(`
+                groups!inner(id, name, status, max_size, creator_id),
+                status,
+                invited_at
+              `)
+              .eq('user_id', session.user.id)
+              .eq('status', 'joined')
+              .order('invited_at', { ascending: false })
+              .limit(1);
+
+            if (!basicError && basicBubbles && basicBubbles.length > 0) {
+              activeBubbleId = basicBubbles[0].groups.id;
+              console.log("[MatchScreen] 🔄 Using first joined bubble on focus:", activeBubbleId);
+            }
+          }
+
+          if (!activeBubbleId) {
+            console.log("[MatchScreen] ✅ No bubbles found on focus - user has no active bubbles");
+            setUserBubble(null);
+            return;
+          }
+
+          // Step 3: Get complete bubble data using get_bubble RPC
+          console.log("[MatchScreen] 🎯 Fetching bubble data on focus");
+          const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+            p_group_id: activeBubbleId,
+          });
+
+          if (bubbleError || !bubbleData || bubbleData.length === 0) {
+            console.error("[MatchScreen] ❌ get_bubble RPC failed on focus:", bubbleError);
+            setUserBubble(null);
+            return;
+          }
+
+          const completeData = bubbleData[0];
+          console.log("[MatchScreen] ✅ Bubble data refreshed on focus:", completeData.name);
+
+          // Transform data same as initial load
+          let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+          if (completeData.members) {
+            try {
+              members = Array.isArray(completeData.members)
+                ? completeData.members
+                : JSON.parse(completeData.members);
+            } catch (parseError) {
+              console.error("[MatchScreen] 멤버 정보 파싱 실패 on focus:", parseError);
+              members = [];
+            }
+          }
+
+          const transformedMembers = members.map((member) => ({
+            id: member.id,
+            first_name: member.first_name,
+            last_name: member.last_name,
+            avatar_url: member.avatar_url,
+            signedUrl: member.avatar_url,
+          }));
+
+          const userBubbleData: UserBubble = {
+            id: completeData.id,
+            name: completeData.name,
+            members: transformedMembers,
+          };
+
+          setUserBubble(userBubbleData);
+          console.log("[MatchScreen] 🎯 User bubble refreshed successfully on focus");
+
+        } catch (error) {
+          console.error("[MatchScreen] Error refreshing user bubble on focus:", error);
+          setUserBubble(null);
+        } finally {
+          setUserBubbleLoading(false);
+        }
+      };
+      
+      // Refresh matchmaking data (detects active group changes)
+      refreshAll();
+      
+      // Refresh user bubble data
+      refreshUserBubbleData();
+    }, [refreshAll, session?.user])
+  );
 
   // 🔍 DEBUG: 매칭 그룹 데이터 로깅
   useEffect(() => {

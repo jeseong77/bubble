@@ -450,7 +450,7 @@ function ProfileScreen() {
       // 데이터 구조를 BubbleTabItem에서 사용하는 형태로 변환
       const transformedBubbles: Bubble[] = joinedBubbles.map((bubble: any) => {
         // get_bubble RPC returns members in simpler structure with direct avatar_url
-        let members: Array<{ id: string; first_name: string; last_name: string; avatar_url: string | null }> = [];
+        let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
         if (bubble.members) {
           try {
             members = Array.isArray(bubble.members)

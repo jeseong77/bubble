@@ -9,7 +9,7 @@ interface Member {
   age: number;
   gender: string;
   bio: string;
-  images: Array<{ id: string; image_url: string; position: number }>;
+  images: { id: string; image_url: string; position: number }[];
   primary_image: string | null;
 }
 

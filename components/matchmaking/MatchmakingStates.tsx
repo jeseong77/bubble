@@ -1,7 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator , TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { TouchableOpacity } from "react-native";
 
 interface LoadingStateProps {
   message?: string;

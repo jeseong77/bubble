@@ -19,6 +19,7 @@ interface MatchmakingContextType {
   passGroup: (targetGroupId: string) => Promise<void>;
   loadMore: () => Promise<void>;
   refetch: () => void;
+  refreshAll: () => Promise<void>;
 }
 
 const MatchmakingContext = createContext<MatchmakingContextType | undefined>(

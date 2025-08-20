@@ -268,6 +268,37 @@ export const useMatchmaking = () => {
     initialize();
   }, [fetchCurrentUserGroup, fetchMatchingGroups]);
 
+  // Full refresh method that re-detects active group and refreshes everything
+  const refreshAll = useCallback(async () => {
+    console.log("[useMatchmaking] 🔄 Full refresh - detecting active group changes...");
+    
+    // Reset state completely
+    setCurrentOffset(0);
+    setMatchingGroups([]);
+    setHasMore(true);
+    setError(null);
+    setIsLoading(true);
+    
+    try {
+      // Re-fetch current user group (may have changed)
+      const groupId = await fetchCurrentUserGroup();
+      console.log("[useMatchmaking] Active group after refresh:", groupId, "Previous:", currentUserGroup);
+      
+      // Fetch matching groups for the (possibly new) active group
+      if (groupId) {
+        await fetchMatchingGroups(groupId, 0, false);
+      } else {
+        // No active group - clear everything
+        setIsLoading(false);
+        console.log("[useMatchmaking] No active group found - clearing matchmaking data");
+      }
+    } catch (error) {
+      console.error("[useMatchmaking] Error in refreshAll:", error);
+      setError("Failed to refresh matchmaking data");
+      setIsLoading(false);
+    }
+  }, [fetchCurrentUserGroup, fetchMatchingGroups, currentUserGroup]);
+
   return {
     matchingGroups,
     currentUserGroup,
@@ -285,5 +316,6 @@ export const useMatchmaking = () => {
         fetchMatchingGroups(currentUserGroup, 0, false);
       }
     },
+    refreshAll,
   };
 };
