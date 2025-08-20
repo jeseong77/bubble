@@ -89,6 +89,14 @@ export default function MatchScreen() {
   const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
   const [userBubbleLoading, setUserBubbleLoading] = useState(true);
 
+  // Safety check: Reset index if it goes out of bounds after group removal
+  useEffect(() => {
+    if (matchingGroups.length > 0 && currentGroupIndex >= matchingGroups.length) {
+      console.log(`[MatchScreen] 🔧 Index ${currentGroupIndex} out of bounds (length: ${matchingGroups.length}), resetting to 0`);
+      setCurrentGroupIndex(0);
+    }
+  }, [matchingGroups.length, currentGroupIndex]);
+
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
 
@@ -771,28 +779,28 @@ export default function MatchScreen() {
 
   // Animate and switch bubble data
   const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
-    // Handle real data cycling
-    const nextIndex = (currentGroupIndex + 1) % matchingGroups.length;
-    setCurrentGroupIndex(nextIndex);
-
     // Handle empty state when no more groups
     if (matchingGroups.length === 0) {
+      console.log("❌ No more groups available");
       return;
     }
 
     // 🔍 DEBUG: 배열 범위 체크
     console.log("=== 🔄 CHANGE BUBBLE DEBUG ===");
-    console.log("Current Index:", currentGroupIndex);
-    console.log("Next Index:", nextIndex);
+    console.log("Current Index before:", currentGroupIndex);
     console.log("Groups Length:", matchingGroups.length);
+
+    // Reset to 0 if current index is out of bounds (after group removal)
+    let nextIndex = currentGroupIndex;
+    if (currentGroupIndex >= matchingGroups.length) {
+      console.log("❌ Current index out of bounds, resetting to 0");
+      nextIndex = 0;
+    }
+
+    console.log("Next Index:", nextIndex);
     console.log("Next Group:", matchingGroups[nextIndex]);
 
-    // 배열 범위 체크 추가
-    if (nextIndex >= matchingGroups.length) {
-      console.log("❌ Index out of bounds, resetting to 0");
-      setCurrentGroupIndex(0);
-      return;
-    }
+    setCurrentGroupIndex(nextIndex);
 
     // Optimized animation timing for real data
     const animationDuration = 350; // Slightly faster for better UX

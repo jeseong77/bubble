@@ -13,7 +13,10 @@
       "bundleIdentifier": "com.playlounge.bubble",
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.applesignin": ["Default", "Default"]
+        "com.apple.developer.applesignin": [
+          "Default",
+          "Default"
+        ]
       },
       "associatedDomains": [
         "applinks:your-project.supabase.co",
@@ -62,8 +65,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "da919264-4069-4ddf-b59d-00af9bfb0a41"
+        "projectId": "48ecd53a-6924-4352-aed2-0dd3e1e01dfb"
       }
-    }
+    },
+    "owner": "playlounge"
   }
 }

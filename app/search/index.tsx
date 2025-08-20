@@ -283,19 +283,13 @@ export default function SearchScreen() {
         console.log(`[SearchScreen] - parameters:`, data.parameters);
         console.log(`[SearchScreen] - error:`, data.error);
 
-        if (data.success && data.verification_status === 'invited') {
-          console.log(`[SearchScreen] ✅ 초대 전송 및 검증 성공: ${userName}`);
-          // Only update UI if database verification passed
-          setSearchResults(prevResults => 
-            prevResults.map(user => 
-              user.id === userId 
-                ? { ...user, invitationStatus: "invited" as const }
-                : user
-            )
-          );
-        } else if (data.already_exists) {
-          console.log(`[SearchScreen] ⚠️ 이미 초대됨: ${userName}`);
-          // Still update UI since they're already invited
+        // More permissive UI update logic - update UI if invitation was successful OR already exists
+        if (data.success || data.already_exists) {
+          console.log(`[SearchScreen] ✅ 초대 성공 또는 이미 존재: ${userName}`);
+          console.log(`[SearchScreen] - success: ${data.success}, already_exists: ${data.already_exists}`);
+          console.log(`[SearchScreen] - verification_status: ${data.verification_status}`);
+          
+          // Update UI to show invitation sent
           setSearchResults(prevResults => 
             prevResults.map(user => 
               user.id === userId 
@@ -306,11 +300,12 @@ export default function SearchScreen() {
         } else {
           console.error(`[SearchScreen] ❌ 초대 전송 실패: ${userName}`, {
             success: data.success,
+            already_exists: data.already_exists,
             verification_status: data.verification_status,
             inserted_count: data.inserted_count,
             error: data.error
           });
-          Alert.alert("Error", `Failed to send invitation: ${data.error || "Verification failed"}`);
+          Alert.alert("Error", `Failed to send invitation: ${data.error || "Unknown error"}`);
         }
       } else {
         console.log(
