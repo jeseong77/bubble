@@ -6,23 +6,22 @@ import {
   Text,
   TouchableWithoutFeedback,
   Keyboard,
+  TouchableOpacity,
 } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
 
-interface NameInputStepProps {
-  firstName: string;
-  lastName: string;
-  onFirstNameChange: (value: string) => void;
-  onLastNameChange: (value: string) => void;
+interface LocationInputStepProps {
+  location: string | null;
+  onLocationChange: (value: string) => void;
+  onSkip: () => void;
 }
 
-const NameInputStep = ({
-  firstName,
-  lastName,
-  onFirstNameChange,
-  onLastNameChange,
-}: NameInputStepProps): JSX.Element => {
+const LocationInputStep = ({
+  location,
+  onLocationChange,
+  onSkip,
+}: LocationInputStepProps): JSX.Element => {
   const { colors } = useAppTheme();
 
   return (
@@ -35,7 +34,7 @@ const NameInputStep = ({
       >
         <View style={styles.questionTextBox}>
           <Text style={[styles.questionText, { color: colors.black }]}>
-            What's your name?
+            Current location?
           </Text>
         </View>
 
@@ -47,30 +46,10 @@ const NameInputStep = ({
               color: colors.bubbleFont,
             },
           ]}
-          placeholder="First Name"
+          placeholder="What city do you live in?"
           placeholderTextColor={colors.darkGray}
-          value={firstName}
-          onChangeText={onFirstNameChange}
-          autoCapitalize="words"
-          autoCorrect={false}
-          selectionColor={colors.primary}
-          returnKeyType="next"
-          blurOnSubmit={false}
-        />
-
-        <TextInput
-          style={[
-            styles.input,
-            {
-              marginTop: 16,
-              backgroundColor: colors.lightGray,
-              color: colors.bubbleFont,
-            },
-          ]}
-          placeholder="Last Name"
-          placeholderTextColor={colors.darkGray}
-          value={lastName}
-          onChangeText={onLastNameChange}
+          value={location || ""}
+          onChangeText={onLocationChange}
           autoCapitalize="words"
           autoCorrect={false}
           selectionColor={colors.primary}
@@ -78,10 +57,11 @@ const NameInputStep = ({
           onSubmitEditing={Keyboard.dismiss}
         />
 
-        <Text style={[styles.tipText, { color: colors.darkGray }]}>
-          Last name is only shared with matches.{" "}
-          <Text style={{ color: colors.navy }}>Why?</Text>
-        </Text>
+        <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
+          <Text style={[styles.skipButtonText, { color: colors.navy }]}>
+            Not Now
+          </Text>
+        </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -103,13 +83,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     fontSize: 16,
     fontFamily: "Quicksand-Regular",
+    marginBottom: 20,
   },
-  tipText: {
-    fontFamily: "Quicksand-Regular",
+  skipButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  skipButtonText: {
+    fontFamily: "Quicksand-Bold",
     fontSize: 14,
-    paddingTop: 12,
-    textAlign: "center",
+    fontWeight: "700",
   },
 });
 
-export default NameInputStep;
+export default LocationInputStep;

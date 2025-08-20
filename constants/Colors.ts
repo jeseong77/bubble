@@ -10,10 +10,13 @@ export const Colors = {
     secondary: "#80B7FF",
     onSecondary: "#2F2F42",
 
+    // Yellow tones
+    chatYellow: "#FFF1C5",
+    pointYellow: "#CEE3FF",
+
     // Accent colors
     navy: "#FFD95C",
     navyPin: "#FFD95C", // 디자인상 70% 투명도 적용 필요
-    pointYellow: "#CEE3FF",
 
     // Status colors
     error: "#EF4D24",
@@ -55,10 +58,13 @@ export const Colors = {
     secondary: "#80B7FF",
     onSecondary: "#2F2F42",
 
+    // Yellow tones
+    chatYellow: "#FFF1C5",
+    pointYellow: "#CEE3FF",
+
     // Accent colors
     navy: "#FFD95C",
     navyPin: "#FFD95C", // 디자인상 70% 투명도 적용 필요
-    pointYellow: "#CEE3FF",
 
     // Status colors
     error: "#EF4D24",

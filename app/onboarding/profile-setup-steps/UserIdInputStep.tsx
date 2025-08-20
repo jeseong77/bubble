@@ -10,19 +10,15 @@ import {
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
 
-interface NameInputStepProps {
-  firstName: string;
-  lastName: string;
-  onFirstNameChange: (value: string) => void;
-  onLastNameChange: (value: string) => void;
+interface UserIdInputStepProps {
+  username: string;
+  onUsernameChange: (value: string) => void;
 }
 
-const NameInputStep = ({
-  firstName,
-  lastName,
-  onFirstNameChange,
-  onLastNameChange,
-}: NameInputStepProps): JSX.Element => {
+const UserIdInputStep = ({
+  username,
+  onUsernameChange,
+}: UserIdInputStepProps): JSX.Element => {
   const { colors } = useAppTheme();
 
   return (
@@ -35,7 +31,13 @@ const NameInputStep = ({
       >
         <View style={styles.questionTextBox}>
           <Text style={[styles.questionText, { color: colors.black }]}>
-            What's your name?
+            Set Your User ID
+          </Text>
+        </View>
+
+        <View style={styles.descriptionBox}>
+          <Text style={[styles.descriptionText, { color: colors.darkGray }]}>
+            This will help others find and connect with you easily.
           </Text>
         </View>
 
@@ -47,41 +49,16 @@ const NameInputStep = ({
               color: colors.bubbleFont,
             },
           ]}
-          placeholder="First Name"
+          placeholder="Enter your user ID"
           placeholderTextColor={colors.darkGray}
-          value={firstName}
-          onChangeText={onFirstNameChange}
-          autoCapitalize="words"
-          autoCorrect={false}
-          selectionColor={colors.primary}
-          returnKeyType="next"
-          blurOnSubmit={false}
-        />
-
-        <TextInput
-          style={[
-            styles.input,
-            {
-              marginTop: 16,
-              backgroundColor: colors.lightGray,
-              color: colors.bubbleFont,
-            },
-          ]}
-          placeholder="Last Name"
-          placeholderTextColor={colors.darkGray}
-          value={lastName}
-          onChangeText={onLastNameChange}
-          autoCapitalize="words"
+          value={username}
+          onChangeText={onUsernameChange}
+          autoCapitalize="none"
           autoCorrect={false}
           selectionColor={colors.primary}
           returnKeyType="done"
           onSubmitEditing={Keyboard.dismiss}
         />
-
-        <Text style={[styles.tipText, { color: colors.darkGray }]}>
-          Last name is only shared with matches.{" "}
-          <Text style={{ color: colors.navy }}>Why?</Text>
-        </Text>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -89,13 +66,24 @@ const NameInputStep = ({
 
 const styles = StyleSheet.create({
   questionTextBox: {
-    marginBottom: 40,
+    marginBottom: 16,
     alignItems: "center",
   },
   questionText: {
     fontFamily: "Quicksand-Bold",
     fontSize: 32,
     textAlign: "center",
+  },
+  descriptionBox: {
+    marginBottom: 40,
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  descriptionText: {
+    fontFamily: "Quicksand-Regular",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
   },
   input: {
     borderRadius: 12,
@@ -104,12 +92,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Quicksand-Regular",
   },
-  tipText: {
-    fontFamily: "Quicksand-Regular",
-    fontSize: 14,
-    paddingTop: 12,
-    textAlign: "center",
-  },
 });
 
-export default NameInputStep;
+export default UserIdInputStep;

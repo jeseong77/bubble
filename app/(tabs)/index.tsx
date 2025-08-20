@@ -23,8 +23,9 @@ import Animated, {
   withTiming,
   runOnJS,
 } from "react-native-reanimated";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { useFocusEffect } from "@react-navigation/native";
 import { useMatchmakingContext } from "@/providers/MatchmakingProvider";
 import { MatchCard } from "@/components/matchmaking/MatchCard";
 import {
@@ -52,13 +53,13 @@ const centerBubbleOverlap = centerBubbleImageSize * 0.18;
 interface UserBubble {
   id: string;
   name: string;
-  members: Array<{
+  members: {
     id: string;
     first_name: string;
     last_name: string;
     avatar_url: string;
     signedUrl?: string;
-  }>;
+  }[];
 }
 
 export default function MatchScreen() {
@@ -75,9 +76,11 @@ export default function MatchScreen() {
     likeGroup,
     passGroup,
     currentUserGroup,
+    currentUserGroupStatus,
     hasMore,
     loadMore,
     refetch,
+    refreshAll,
   } = useMatchmakingContext();
 
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
@@ -93,103 +96,119 @@ export default function MatchScreen() {
   useEffect(() => {
     console.log("[MatchScreen] 🎯 Initial data loading...");
 
-    // 사용자 그룹 정보 가져오기
+    // 사용자 Active 그룹 정보 가져오기 (Profile Screen과 동일한 로직 사용)
     const fetchUserBubble = async () => {
       if (!session?.user) return;
 
       setUserBubbleLoading(true);
       try {
-        console.log("[MatchScreen] 사용자 그룹 정보 가져오기 시작");
+        console.log("[MatchScreen] 🔍 Active 버블 정보 가져오기 시작 (Profile Screen 로직 사용)");
 
-        // 먼저 Active 버블을 확인
-        console.log("[MatchScreen] Active 버블 확인 중...");
-        const { data: activeBubbleData, error: activeBubbleError } =
-          await supabase.rpc("get_user_active_bubble", {
-            p_user_id: session.user.id,
-          });
+        // Step 1: Get user's active_group_id from users table (same as profile screen)
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("active_group_id")
+          .eq("id", session.user.id)
+          .single();
 
-        console.log("[MatchScreen] Active 버블 조회 결과:", activeBubbleData);
-        console.log("[MatchScreen] Active 버블 에러:", activeBubbleError);
-
-        let targetBubble: any = null;
-
-        if (
-          !activeBubbleError &&
-          activeBubbleData &&
-          activeBubbleData.length > 0
-        ) {
-          // Active 버블이 있으면 사용
-          targetBubble = activeBubbleData[0];
-          console.log("[MatchScreen] Active 버블 사용:", targetBubble);
+        let activeBubbleId: string | null = null;
+        if (!userError && userData?.active_group_id) {
+          activeBubbleId = userData.active_group_id;
+          console.log("[MatchScreen] ✅ Found active_group_id:", activeBubbleId);
         } else {
-          // Active 버블이 없으면 get_my_bubbles에서 첫 번째 joined 그룹 사용
-          console.log("[MatchScreen] Active 버블 없음, get_my_bubbles 사용");
-          const { data, error } = await supabase.rpc("get_my_bubbles", {
-            p_user_id: session.user.id,
-          });
+          // Step 2: If no active bubble, get first joined bubble (same as profile screen fallback)
+          console.log("[MatchScreen] ❌ No active_group_id, finding first joined bubble");
+          const { data: basicBubbles, error: basicError } = await supabase
+            .from('group_members')
+            .select(`
+              groups!inner(id, name, status, max_size, creator_id),
+              status,
+              invited_at
+            `)
+            .eq('user_id', session.user.id)
+            .eq('status', 'joined')
+            .order('invited_at', { ascending: false })
+            .limit(1);
 
-          if (error) {
-            console.error("[MatchScreen] 사용자 버블 정보 조회 실패:", error);
-            throw error;
+          if (!basicError && basicBubbles && basicBubbles.length > 0) {
+            activeBubbleId = basicBubbles[0].groups.id;
+            console.log("[MatchScreen] 🔄 Using first joined bubble as fallback:", activeBubbleId);
           }
-
-          console.log("[MatchScreen] get_my_bubbles 응답:", data);
-
-          // joined 상태인 버블 중 첫 번째 것을 사용
-          targetBubble = data?.find(
-            (bubble: any) => bubble.user_status === "joined"
-          );
         }
 
-        if (targetBubble) {
-          console.log("[MatchScreen] 사용자 그룹 발견:", targetBubble);
-
-          // 멤버 정보 파싱 (새로운 구조에 맞게)
-          let members: Array<{
-            id: string;
-            first_name: string;
-            last_name: string;
-            images: Array<{ image_url: string; position: number }>;
-          }> = [];
-          if (targetBubble.members) {
-            try {
-              members = Array.isArray(targetBubble.members)
-                ? targetBubble.members
-                : JSON.parse(targetBubble.members);
-            } catch (parseError) {
-              members = [];
-            }
-          }
-
-          // 새로운 구조에 맞게 멤버 데이터 변환
-          const membersWithUrls = members.map((member) => {
-            // 첫 번째 이미지를 아바타로 사용
-            const avatarUrl =
-              member.images && member.images.length > 0
-                ? member.images[0].image_url
-                : null;
-
-            return {
-              id: member.id,
-              first_name: member.first_name,
-              last_name: member.last_name,
-              avatar_url: avatarUrl,
-              signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
-            };
-          });
-
-          const userBubbleData: UserBubble = {
-            id: targetBubble.id,
-            name: targetBubble.name,
-            members: membersWithUrls,
-          };
-
-          console.log("[MatchScreen] 사용자 그룹 데이터 설정:", userBubbleData);
-          setUserBubble(userBubbleData);
-        } else {
-          console.log("[MatchScreen] 사용자가 속한 그룹이 없습니다");
+        if (!activeBubbleId) {
+          console.log("[MatchScreen] ❌ No active bubble or joined bubbles found");
           setUserBubble(null);
+          return;
         }
+
+        // Step 3: Get complete bubble data using the SAME get_bubble RPC as profile screen
+        console.log("[MatchScreen] 🎯 Fetching complete bubble data using get_bubble RPC");
+        const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+          p_group_id: activeBubbleId,
+        });
+
+        if (bubbleError || !bubbleData || bubbleData.length === 0) {
+          console.error("[MatchScreen] ❌ get_bubble RPC failed:", bubbleError);
+          setUserBubble(null);
+          return;
+        }
+
+        const completeData = bubbleData[0];
+        console.log("[MatchScreen] ✅ get_bubble RPC success:", {
+          id: completeData.id,
+          name: completeData.name,
+          membersCount: completeData.members?.length || 0,
+          members: completeData.members
+        });
+
+        // Step 4: Transform data using EXACT same logic as profile screen
+        let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+        if (completeData.members) {
+          try {
+            members = Array.isArray(completeData.members)
+              ? completeData.members
+              : JSON.parse(completeData.members);
+          } catch (parseError) {
+            console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
+            members = [];
+          }
+        }
+
+        console.log(`[MatchScreen] 🔍 Processing bubble "${completeData.name}" with ${members.length} members:`);
+        members.forEach((member, idx) => {
+          console.log(`[MatchScreen] - Member ${idx}: ${member.first_name} ${member.last_name} (${member.id})`);
+        });
+
+        // Transform to UserBubble structure (same as profile screen transformation)
+        const transformedMembers = members.map((member) => {
+          return {
+            id: member.id,
+            first_name: member.first_name,
+            last_name: member.last_name,
+            avatar_url: member.avatar_url,
+            signedUrl: member.avatar_url, // 이미 공개 URL이므로 그대로 사용
+          };
+        });
+
+        const userBubbleData: UserBubble = {
+          id: completeData.id,
+          name: completeData.name,
+          members: transformedMembers,
+        };
+
+        console.log("[MatchScreen] 🎯 최종 사용자 그룹 데이터 설정:", {
+          id: userBubbleData.id,
+          name: userBubbleData.name,
+          totalMembers: userBubbleData.members.length,
+          memberDetails: userBubbleData.members.map(m => ({
+            id: m.id,
+            name: `${m.first_name} ${m.last_name}`,
+            hasAvatar: !!m.avatar_url
+          }))
+        });
+        setUserBubble(userBubbleData);
+
       } catch (error) {
         console.error("[MatchScreen] 사용자 그룹 정보 가져오기 실패:", error);
         setUserBubble(null);
@@ -200,6 +219,272 @@ export default function MatchScreen() {
 
     fetchUserBubble();
   }, [session?.user]); // session?.user가 변경될 때만 실행
+
+  // 사용자 버블 새로고침 함수 (버블 팝 후 상태 업데이트용)
+  const refreshUserBubble = async () => {
+    if (!session?.user) return;
+
+    setUserBubbleLoading(true);
+    try {
+      console.log("[MatchScreen] 🔄 Refreshing user bubble after pop...");
+
+      // Step 1: Get user's active_group_id from users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("active_group_id")
+        .eq("id", session.user.id)
+        .single();
+
+      let activeBubbleId: string | null = null;
+      if (!userError && userData?.active_group_id) {
+        activeBubbleId = userData.active_group_id;
+        console.log("[MatchScreen] ✅ Found active_group_id after refresh:", activeBubbleId);
+      } else {
+        // Step 2: If no active bubble, get first joined bubble
+        console.log("[MatchScreen] ❌ No active_group_id after pop, checking for other bubbles");
+        const { data: basicBubbles, error: basicError } = await supabase
+          .from('group_members')
+          .select(`
+            groups!inner(id, name, status, max_size, creator_id),
+            status,
+            invited_at
+          `)
+          .eq('user_id', session.user.id)
+          .eq('status', 'joined')
+          .order('invited_at', { ascending: false })
+          .limit(1);
+
+        if (!basicError && basicBubbles && basicBubbles.length > 0) {
+          activeBubbleId = basicBubbles[0].groups.id;
+          console.log("[MatchScreen] 🔄 Using first joined bubble as fallback:", activeBubbleId);
+        }
+      }
+
+      if (!activeBubbleId) {
+        console.log("[MatchScreen] ✅ No bubbles found after pop - user has no active bubbles");
+        setUserBubble(null);
+        return;
+      }
+
+      // Step 3: Get complete bubble data using get_bubble RPC
+      console.log("[MatchScreen] 🎯 Fetching updated bubble data");
+      const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+        p_group_id: activeBubbleId,
+      });
+
+      if (bubbleError || !bubbleData || bubbleData.length === 0) {
+        console.error("[MatchScreen] ❌ get_bubble RPC failed during refresh:", bubbleError);
+        setUserBubble(null);
+        return;
+      }
+
+      const completeData = bubbleData[0];
+      console.log("[MatchScreen] ✅ Bubble refresh successful:", completeData.name);
+
+      // Transform data same as initial load
+      let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+      if (completeData.members) {
+        try {
+          members = Array.isArray(completeData.members)
+            ? completeData.members
+            : JSON.parse(completeData.members);
+        } catch (parseError) {
+          console.error("[MatchScreen] 멤버 정보 파싱 실패 during refresh:", parseError);
+          members = [];
+        }
+      }
+
+      const transformedMembers = members.map((member) => ({
+        id: member.id,
+        first_name: member.first_name,
+        last_name: member.last_name,
+        avatar_url: member.avatar_url,
+        signedUrl: member.avatar_url,
+      }));
+
+      const userBubbleData: UserBubble = {
+        id: completeData.id,
+        name: completeData.name,
+        members: transformedMembers,
+      };
+
+      setUserBubble(userBubbleData);
+      console.log("[MatchScreen] 🎯 User bubble refreshed successfully");
+
+    } catch (error) {
+      console.error("[MatchScreen] Error refreshing user bubble:", error);
+      setUserBubble(null);
+    } finally {
+      setUserBubbleLoading(false);
+    }
+  };
+
+  // 버블 팝 함수 (프로필 화면과 동일한 로직)
+  const handlePopBubble = async (bubbleId: string) => {
+    if (!session?.user) return;
+    
+    Alert.alert(
+      "Do you want to pop this bubble?",
+      "Popped bubbles can't be restored.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Pop",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("[MatchScreen] 그룹 나가기 시작:", bubbleId);
+              
+              const { data, error } = await supabase.rpc("leave_group", {
+                p_user_id: session.user.id,
+                p_group_id: bubbleId,
+              });
+              
+              if (error) {
+                console.error("[MatchScreen] Failed to leave group:", error);
+                Alert.alert("Error", "Failed to pop bubble.");
+                return;
+              }
+              
+              if (!data || !data.success) {
+                console.error("[MatchScreen] Failed to pop bubble:", data?.message || "Unknown error");
+                Alert.alert("Error", data?.message || "Failed to pop bubble.");
+                return;
+              }
+
+              console.log(`[MatchScreen] Successfully popped bubble: "${data.group_name}" by ${data.popper_name}`);
+              
+              // 버블 목록 새로고침
+              await refreshUserBubble();
+              
+              Alert.alert(
+                "Bubble Popped! 💥", 
+                `"${data.group_name}" has been destroyed.`
+              );
+            } catch (error) {
+              console.error("[MatchScreen] Error while leaving group:", error);
+              Alert.alert("Error", "Failed to pop bubble.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Focus effect for automatic refresh when returning to first tab
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("[MatchScreen] 🔄 Tab focused - refreshing all data...");
+      
+      // Refresh user bubble data (may have new active group)
+      const refreshUserBubbleData = async () => {
+        if (!session?.user) return;
+
+        setUserBubbleLoading(true);
+        try {
+          console.log("[MatchScreen] 🔄 Refreshing user bubble on focus...");
+
+          // Step 1: Get user's active_group_id from users table
+          const { data: userData, error: userError } = await supabase
+            .from("users")
+            .select("active_group_id")
+            .eq("id", session.user.id)
+            .single();
+
+          let activeBubbleId: string | null = null;
+          if (!userError && userData?.active_group_id) {
+            activeBubbleId = userData.active_group_id;
+            console.log("[MatchScreen] ✅ Found active_group_id on focus:", activeBubbleId);
+          } else {
+            // Step 2: If no active bubble, get first joined bubble
+            console.log("[MatchScreen] ❌ No active_group_id on focus, checking for other bubbles");
+            const { data: basicBubbles, error: basicError } = await supabase
+              .from('group_members')
+              .select(`
+                groups!inner(id, name, status, max_size, creator_id),
+                status,
+                invited_at
+              `)
+              .eq('user_id', session.user.id)
+              .eq('status', 'joined')
+              .order('invited_at', { ascending: false })
+              .limit(1);
+
+            if (!basicError && basicBubbles && basicBubbles.length > 0) {
+              activeBubbleId = basicBubbles[0].groups.id;
+              console.log("[MatchScreen] 🔄 Using first joined bubble on focus:", activeBubbleId);
+            }
+          }
+
+          if (!activeBubbleId) {
+            console.log("[MatchScreen] ✅ No bubbles found on focus - user has no active bubbles");
+            setUserBubble(null);
+            return;
+          }
+
+          // Step 3: Get complete bubble data using get_bubble RPC
+          console.log("[MatchScreen] 🎯 Fetching bubble data on focus");
+          const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+            p_group_id: activeBubbleId,
+          });
+
+          if (bubbleError || !bubbleData || bubbleData.length === 0) {
+            console.error("[MatchScreen] ❌ get_bubble RPC failed on focus:", bubbleError);
+            setUserBubble(null);
+            return;
+          }
+
+          const completeData = bubbleData[0];
+          console.log("[MatchScreen] ✅ Bubble data refreshed on focus:", completeData.name);
+
+          // Transform data same as initial load
+          let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+          if (completeData.members) {
+            try {
+              members = Array.isArray(completeData.members)
+                ? completeData.members
+                : JSON.parse(completeData.members);
+            } catch (parseError) {
+              console.error("[MatchScreen] 멤버 정보 파싱 실패 on focus:", parseError);
+              members = [];
+            }
+          }
+
+          const transformedMembers = members.map((member) => ({
+            id: member.id,
+            first_name: member.first_name,
+            last_name: member.last_name,
+            avatar_url: member.avatar_url,
+            signedUrl: member.avatar_url,
+          }));
+
+          const userBubbleData: UserBubble = {
+            id: completeData.id,
+            name: completeData.name,
+            members: transformedMembers,
+          };
+
+          setUserBubble(userBubbleData);
+          console.log("[MatchScreen] 🎯 User bubble refreshed successfully on focus");
+
+        } catch (error) {
+          console.error("[MatchScreen] Error refreshing user bubble on focus:", error);
+          setUserBubble(null);
+        } finally {
+          setUserBubbleLoading(false);
+        }
+      };
+      
+      // Refresh matchmaking data (detects active group changes)
+      refreshAll();
+      
+      // Refresh user bubble data
+      refreshUserBubbleData();
+    }, [refreshAll, session?.user])
+  );
 
   // 🔍 DEBUG: 매칭 그룹 데이터 로깅
   useEffect(() => {
@@ -276,9 +561,10 @@ export default function MatchScreen() {
       return <LoadingState message="Loading your bubble..." />;
     }
 
-    // 사용자가 속한 그룹이 없음
-    if (!userBubble) {
-      console.log("❌ No user bubble - showing NoGroupState");
+    // 사용자가 속한 그룹이 없음 OR 그룹이 아직 형성중
+    if (!userBubble || currentUserGroupStatus === 'forming') {
+      console.log("❌ No user bubble or forming group - showing NoGroupState");
+      console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
         <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
       );
@@ -332,6 +618,15 @@ export default function MatchScreen() {
           style={StyleSheet.absoluteFill}
         />
         {/* User's bubble at top left */}
+        {(() => {
+          console.log("[MatchScreen] 🎨 Rendering user bubble:", {
+            hasBubble: !!userBubble,
+            bubbleName: userBubble?.name,
+            memberCount: userBubble?.members?.length || 0,
+            memberIds: userBubble?.members?.map(m => m.id) || []
+          });
+          return null;
+        })()}
         {userBubble && (
           <View
             style={[
@@ -355,34 +650,49 @@ export default function MatchScreen() {
             >
               <Text style={styles.userBubbleName}>{userBubble.name}</Text>
               <View style={styles.userBubbleRow}>
-                {userBubble.members.map((user, idx) => (
-                  <View
-                    key={user.id}
-                    style={{
-                      marginLeft:
-                        idx === 1 ? -userBubbleImageSize * overlapRatio : 0,
-                      zIndex: idx === 0 ? 2 : 1,
-                    }}
-                  >
-                    <Image
-                      source={{ uri: user.signedUrl || user.avatar_url }}
+                {userBubble.members.map((user, idx) => {
+                  console.log(`[MatchScreen] 🖼️ Rendering member ${idx}:`, {
+                    id: user.id,
+                    name: `${user.first_name} ${user.last_name}`,
+                    avatarUrl: user.avatar_url,
+                    signedUrl: user.signedUrl
+                  });
+                  
+                  return (
+                    <View
+                      key={user.id}
                       style={{
-                        width: userBubbleImageSize,
-                        height: userBubbleImageSize,
-                        borderRadius: userBubbleImageSize / 2,
-                        borderWidth: 2,
-                        borderColor: "#fff",
+                        marginLeft: idx > 0 ? -userBubbleImageSize * overlapRatio : 0,
+                        zIndex: userBubble.members.length - idx, // Highest index gets highest z-index
                       }}
-                    />
-                  </View>
-                ))}
+                    >
+                      <Image
+                        source={{ uri: user.signedUrl || user.avatar_url }}
+                        style={{
+                          width: userBubbleImageSize,
+                          height: userBubbleImageSize,
+                          borderRadius: userBubbleImageSize / 2,
+                          borderWidth: 2,
+                          borderColor: "#fff",
+                        }}
+                        onError={() => console.log(`[MatchScreen] ❌ Image load error for member ${idx}:`, user.signedUrl || user.avatar_url)}
+                        onLoad={() => console.log(`[MatchScreen] ✅ Image loaded for member ${idx}`)}
+                      />
+                    </View>
+                  );
+                })}
               </View>
             </BlurView>
-            <View style={styles.pinIconWrap}>
+            <TouchableOpacity 
+              style={styles.pinIconWrap}
+              onPress={() => userBubble && handlePopBubble(userBubble.id)}
+              activeOpacity={0.7}
+              disabled={!userBubble || userBubbleLoading}
+            >
               <View style={styles.pinCircle}>
                 <Feather name="feather" size={18} color="#fff" />
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -565,7 +875,7 @@ export default function MatchScreen() {
     } else {
       // Visual feedback for pass action
       console.log(`[MatchScreen] Passing group: ${currentGroup.group_name}`);
-      passGroup(currentGroup.group_id);
+      await passGroup(currentGroup.group_id);
     }
 
     // Animate OUT
