@@ -478,7 +478,6 @@ export default function LikesYouScreen() {
       console.log("📭 No incoming likes - showing EmptyState");
       return (
         <EmptyState
-          message="No likes yet. Someone awesome will like you soon!"
           onRefresh={() => {
             console.log("[LikesYouScreen] Refreshing empty state...");
             refetch();
@@ -746,7 +745,7 @@ const styles = StyleSheet.create({
   header: {
     width: "100%",
     position: "absolute",
-    top: 44,
+    top: 59,
     height: 71,
     zIndex: 10,
   },

@@ -87,7 +87,7 @@ interface BubbleMember {
 
 export default function BubbleFormScreen() {
   const router = useRouter();
-  // const { session } = useAuth(); // Not needed for current implementation
+  const { session } = useAuth(); // Needed for handlePopBubble
 
   // 이전 화면에서 전달된 파라미터 가져오기
   const {
@@ -321,8 +321,8 @@ export default function BubbleFormScreen() {
                 [{ text: "OK" }]
               );
 
-              // Navigate back to profile
-              router.replace("/(tabs)");
+              // Navigate back to profile and trigger refresh
+              router.replace("/(tabs)/profile");
             } catch (error) {
               console.error("Error in handlePopBubble:", error);
               Alert.alert("Error", "Failed to pop bubble. Please try again.");

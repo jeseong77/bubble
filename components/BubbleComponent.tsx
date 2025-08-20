@@ -70,7 +70,7 @@ const BubbleComponent: React.FC<BubbleComponentProps> = ({ bubble }) => {
     ({
       viewableItems,
     }: {
-      viewableItems: Array<{ item: HorizontalFeedItem; index: number | null }>;
+      viewableItems: { item: HorizontalFeedItem; index: number | null }[];
     }) => {
       if (viewableItems.length > 0 && viewableItems[0].index !== null) {
         setActiveIndex(viewableItems[0].index);

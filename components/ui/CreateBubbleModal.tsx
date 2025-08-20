@@ -18,12 +18,14 @@ interface CreateBubbleModalProps {
   visible: boolean;
   onClose: () => void;
   onCreate?: (bubbleType: "2-2" | "3-3" | "4-4") => void; // Made optional since we'll handle creation internally
+  onRefresh?: () => void; // Add refresh callback
 }
 
 const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
   visible,
   onClose,
   onCreate,
+  onRefresh,
 }) => {
   const router = useRouter();
   const { session } = useAuth();
@@ -102,6 +104,11 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
       }
 
       console.log("[CreateBubbleModal] ✅ Bubble created with ID:", newGroup);
+
+      // Refresh the MyBubble list
+      if (onRefresh) {
+        onRefresh();
+      }
 
       // Navigate to the form page to show the bubble
       router.push({

@@ -153,9 +153,9 @@ BEGIN
   FROM groups WHERE id = p_group_id;
   
   -- Debug: Log current group info
-  RAISE NOTICE 'Current group: id=%, name=%, group_gender=%, preferred_gender=%, status=%', 
+  RAISE NOTICE 'Current group: id=%, name=%, group_gender=%, preferred_gender=%, status=%, max_size=%', 
     v_current_group.id, v_current_group.name, v_current_group.group_gender, 
-    v_current_group.preferred_gender, v_current_group.status;
+    v_current_group.preferred_gender, v_current_group.status, v_current_group.max_size;
   
   -- Debug: Count total available groups (ONLY FULL groups)
   SELECT COUNT(*) INTO v_total_groups
@@ -165,20 +165,21 @@ BEGIN
   
   RAISE NOTICE 'Total available groups (excluding current): %', v_total_groups;
   
-  -- Debug: Count groups that match exact opposite preferences (ONLY FULL groups)
+  -- Debug: Count groups that match exact opposite preferences AND same size (ONLY FULL groups)
   SELECT COUNT(*) INTO v_matching_groups
   FROM groups g
   WHERE g.id != p_group_id
     AND g.status = 'full'
+    AND g.max_size = v_current_group.max_size  -- Same group size only
     AND (
       -- Exact opposite match only: my group gender = their preference AND their group gender = my preference
       g.group_gender = v_current_group.preferred_gender 
       AND v_current_group.group_gender = g.preferred_gender
     );
   
-  RAISE NOTICE 'Groups matching gender preferences: %', v_matching_groups;
+  RAISE NOTICE 'Groups matching gender preferences and size: %', v_matching_groups;
   
-  -- Return matching groups based on exact opposite matching rules
+  -- Return matching groups based on exact opposite matching rules AND same size
   RETURN QUERY
   SELECT 
     g.id as group_id,
@@ -189,6 +190,7 @@ BEGIN
   FROM groups g
   WHERE g.id != p_group_id
     AND g.status = 'full'  -- Only show fully formed groups
+    AND g.max_size = v_current_group.max_size  -- Same group size only
     AND g.id NOT IN (
       SELECT DISTINCT group_1_id FROM matches WHERE group_2_id = p_group_id
       UNION
@@ -476,8 +478,10 @@ RETURNS JSON AS $$
 DECLARE
   insert_success BOOLEAN := FALSE;
   conflict_occurred BOOLEAN := FALSE;
+  verification_record RECORD;
+  inserted_count INTEGER;
 BEGIN
-  -- Log parameters
+  -- Log parameters with detailed info
   RAISE NOTICE 'send_invitation called: group_id=%, invited_user_id=%, invited_by=%', 
     p_group_id, p_invited_user_id, p_invited_by_user_id;
 
@@ -486,17 +490,36 @@ BEGIN
     conflict_occurred := TRUE;
     RAISE NOTICE 'Record already exists for group_id=%, user_id=%', p_group_id, p_invited_user_id;
   ELSE
-    -- Insert the invitation (without invited_by column since it doesn't exist in schema)
+    -- Insert the invitation
     INSERT INTO group_members (group_id, user_id, status, invited_at)
     VALUES (p_group_id, p_invited_user_id, 'invited', NOW());
     
-    insert_success := TRUE;
-    RAISE NOTICE 'Successfully inserted invitation record';
+    GET DIAGNOSTICS inserted_count = ROW_COUNT;
+    RAISE NOTICE 'INSERT completed. Row count: %', inserted_count;
+    
+    -- Verify the record was actually inserted
+    SELECT group_id, user_id, status, invited_at INTO verification_record
+    FROM group_members 
+    WHERE group_id = p_group_id AND user_id = p_invited_user_id;
+    
+    IF verification_record.group_id IS NOT NULL THEN
+      insert_success := TRUE;
+      RAISE NOTICE 'Verification successful: Found record with status=%, invited_at=%', 
+        verification_record.status, verification_record.invited_at;
+    ELSE
+      insert_success := FALSE;
+      RAISE NOTICE 'Verification failed: No record found after insert';
+    END IF;
   END IF;
   
   RETURN json_build_object(
     'success', insert_success,
     'already_exists', conflict_occurred,
+    'inserted_count', COALESCE(inserted_count, 0),
+    'verification_status', CASE 
+      WHEN verification_record.group_id IS NOT NULL THEN verification_record.status 
+      ELSE NULL 
+    END,
     'parameters', json_build_object(
       'group_id', p_group_id,
       'invited_user_id', p_invited_user_id,
@@ -518,83 +541,175 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 취소 (Enhanced with debugging)
+-- 초대 취소 (Diagnostic Debug)
 CREATE OR REPLACE FUNCTION cancel_invitation(p_group_id UUID, p_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
   deleted_count INTEGER;
-  found_record RECORD;
-  exact_match_count INTEGER;
-  invited_records_count INTEGER;
-  all_user_records RECORD;
+  found_any INTEGER;
+  found_exact INTEGER;
+  found_string_comparison INTEGER;
+  found_raw_text INTEGER;
+  sample_record RECORD;
+  all_users_in_table INTEGER;
 BEGIN
-  -- Log parameters 
-  RAISE NOTICE 'cancel_invitation called with group_id: %, user_id: %', p_group_id, p_user_id;
+  -- Basic info
+  RAISE NOTICE '[RPC] === UUID DIAGNOSTIC DEBUG ===';
+  RAISE NOTICE '[RPC] Received group_id: % (length: %)', p_group_id, LENGTH(p_group_id::text);
+  RAISE NOTICE '[RPC] Received user_id: % (length: %)', p_user_id, LENGTH(p_user_id::text);
   
-  -- Check for exact match with both conditions
-  SELECT COUNT(*) INTO exact_match_count 
-  FROM group_members 
-  WHERE group_id = p_group_id AND user_id = p_user_id;
+  -- Count total users in table
+  SELECT COUNT(*) INTO all_users_in_table FROM group_members;
+  RAISE NOTICE '[RPC] Total records in group_members table: %', all_users_in_table;
   
-  -- Check for exact match with invited status
-  SELECT COUNT(*) INTO invited_records_count 
-  FROM group_members 
-  WHERE group_id = p_group_id AND user_id = p_user_id AND status = 'invited';
+  -- Test 1: Standard UUID comparison
+  SELECT COUNT(*) INTO found_any FROM group_members WHERE user_id = p_user_id;
+  RAISE NOTICE '[RPC] Test 1 - Standard UUID comparison: % records found', found_any;
   
-  -- Get the actual record if it exists
-  SELECT group_id, user_id, status, invited_at, joined_at 
-  INTO found_record 
-  FROM group_members 
-  WHERE group_id = p_group_id AND user_id = p_user_id
-  LIMIT 1;
+  -- Test 2: String comparison
+  SELECT COUNT(*) INTO found_string_comparison FROM group_members WHERE user_id::text = p_user_id::text;
+  RAISE NOTICE '[RPC] Test 2 - String comparison: % records found', found_string_comparison;
   
-  -- Count all user invites across all groups
-  SELECT count(*) as total_invites INTO all_user_records 
-  FROM group_members 
-  WHERE user_id = p_user_id AND status = 'invited';
+  -- Test 3: Raw text comparison (no casting)
+  EXECUTE format('SELECT COUNT(*) FROM group_members WHERE user_id::text = %L', p_user_id::text) INTO found_raw_text;
+  RAISE NOTICE '[RPC] Test 3 - Raw text comparison: % records found', found_raw_text;
   
-  RAISE NOTICE 'Exact match count (any status): %', exact_match_count;
-  RAISE NOTICE 'Invited status count: %', invited_records_count;
-  RAISE NOTICE 'Found record: group_id=%, user_id=%, status=%', 
-    found_record.group_id, found_record.user_id, found_record.status;
-  RAISE NOTICE 'User has % total invited records across all groups', all_user_records.total_invites;
+  -- Test 4: Get actual record to compare UUIDs
+  SELECT user_id, group_id, status INTO sample_record FROM group_members LIMIT 1;
+  IF sample_record.user_id IS NOT NULL THEN
+    RAISE NOTICE '[RPC] === ACTUAL DATABASE RECORD ===';
+    RAISE NOTICE '[RPC] DB user_id: % (length: %)', sample_record.user_id, LENGTH(sample_record.user_id::text);
+    RAISE NOTICE '[RPC] DB group_id: % (length: %)', sample_record.group_id, LENGTH(sample_record.group_id::text);
+    RAISE NOTICE '[RPC] DB status: %', sample_record.status;
+    RAISE NOTICE '[RPC] === RECEIVED PARAMETERS ===';
+    RAISE NOTICE '[RPC] RX user_id: % (length: %)', p_user_id, LENGTH(p_user_id::text);
+    RAISE NOTICE '[RPC] RX group_id: % (length: %)', p_group_id, LENGTH(p_group_id::text);
+    RAISE NOTICE '[RPC] === DIRECT COMPARISON ===';
+    RAISE NOTICE '[RPC] user_id match: %', (sample_record.user_id = p_user_id);
+    RAISE NOTICE '[RPC] group_id match: %', (sample_record.group_id = p_group_id);
+    RAISE NOTICE '[RPC] user_id string match: %', (sample_record.user_id::text = p_user_id::text);
+    RAISE NOTICE '[RPC] group_id string match: %', (sample_record.group_id::text = p_group_id::text);
+  END IF;
   
-  -- Delete the invitation (only if status is 'invited')
+  -- Test 5: Check exact match with all methods
+  SELECT COUNT(*) INTO found_exact FROM group_members WHERE group_id = p_group_id AND user_id = p_user_id AND status = 'invited';
+  RAISE NOTICE '[RPC] Test 5 - Exact match (UUID): % records found', found_exact;
+  
+  -- Test 6: Force string matching for exact record
+  EXECUTE format('SELECT COUNT(*) FROM group_members WHERE group_id::text = %L AND user_id::text = %L AND status = %L', 
+    p_group_id::text, p_user_id::text, 'invited') INTO found_raw_text;
+  RAISE NOTICE '[RPC] Test 6 - Exact match (string): % records found', found_raw_text;
+  
+  -- Actual delete attempt
   DELETE FROM group_members 
   WHERE group_id = p_group_id 
     AND user_id = p_user_id 
     AND status = 'invited';
   
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
-  RAISE NOTICE 'Deleted % records', deleted_count;
+  RAISE NOTICE '[RPC] Deletion result: % records deleted', deleted_count;
   
-  -- Return detailed JSON response
+  -- Return diagnostic info
   RETURN json_build_object(
     'success', deleted_count > 0,
     'deleted_count', deleted_count,
-    'exact_match_count', exact_match_count,
-    'invited_records_count', invited_records_count,
-    'found_record', CASE 
-      WHEN found_record.group_id IS NOT NULL THEN row_to_json(found_record)
-      ELSE NULL 
-    END,
-    'total_user_invites', all_user_records.total_invites,
-    'parameters', json_build_object(
-      'group_id', p_group_id, 
-      'user_id', p_user_id
-    )
+    'total_records_in_table', all_users_in_table,
+    'found_uuid_comparison', found_any,
+    'found_string_comparison', found_string_comparison,
+    'found_exact_uuid', found_exact,
+    'found_exact_string', found_raw_text,
+    'group_id_received', p_group_id::text,
+    'user_id_received', p_user_id::text,
+    'group_id_length', LENGTH(p_group_id::text),
+    'user_id_length', LENGTH(p_user_id::text)
   );
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE NOTICE 'Exception in cancel_invitation: %', SQLERRM;
-    RETURN json_build_object(
-      'success', false,
-      'error', SQLERRM,
-      'parameters', json_build_object(
-        'group_id', p_group_id, 
-        'user_id', p_user_id
-      )
-    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- NUCLEAR OPTION: Force delete with dynamic SQL
+CREATE OR REPLACE FUNCTION force_delete_invitation(p_group_id TEXT, p_user_id TEXT)
+RETURNS JSON AS $$
+DECLARE
+  deleted_count INTEGER;
+  sql_query TEXT;
+BEGIN
+  -- Build the SQL query dynamically
+  sql_query := format('DELETE FROM group_members WHERE group_id::text = %L AND user_id::text = %L AND status = %L', 
+    p_group_id, p_user_id, 'invited');
+    
+  RAISE NOTICE '[FORCE] Executing SQL: %', sql_query;
+  
+  -- Execute the dynamic SQL
+  EXECUTE sql_query;
+  
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  
+  RAISE NOTICE '[FORCE] Deleted % records', deleted_count;
+  
+  RETURN json_build_object(
+    'success', deleted_count > 0,
+    'deleted_count', deleted_count,
+    'sql_executed', sql_query
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Show what's actually in the table RIGHT NOW
+CREATE OR REPLACE FUNCTION debug_table_contents()
+RETURNS JSON AS $$
+DECLARE
+  all_records JSON;
+  record_count INTEGER;
+BEGIN
+  -- Get count
+  SELECT COUNT(*) INTO record_count FROM group_members;
+  
+  -- Get all records
+  SELECT json_agg(
+    json_build_object(
+      'group_id', group_id::text,
+      'user_id', user_id::text,
+      'status', status,
+      'invited_at', invited_at,
+      'joined_at', joined_at
+    )
+  ) INTO all_records FROM group_members;
+  
+  RAISE NOTICE '[DEBUG] Total records in table: %', record_count;
+  RAISE NOTICE '[DEBUG] All records: %', all_records;
+  
+  RETURN json_build_object(
+    'total_count', record_count,
+    'all_records', all_records,
+    'timestamp', NOW()
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Test function to verify parameter passing
+CREATE OR REPLACE FUNCTION test_cancel_params(p_group_id UUID, p_user_id UUID)
+RETURNS JSON AS $$
+DECLARE
+  direct_count INTEGER;
+BEGIN
+  -- Test the exact same query that worked in SQL editor
+  SELECT COUNT(*) INTO direct_count
+  FROM group_members 
+  WHERE group_id::text = p_group_id::text 
+    AND user_id::text = p_user_id::text 
+    AND status = 'invited';
+    
+  RAISE NOTICE '[TEST] Parameters received: group_id=%, user_id=%', p_group_id, p_user_id;
+  RAISE NOTICE '[TEST] Direct query result: % records found', direct_count;
+  
+  RETURN json_build_object(
+    'parameters_received', json_build_object(
+      'group_id', p_group_id::text,
+      'user_id', p_user_id::text
+    ),
+    'direct_query_count', direct_count,
+    'should_work', direct_count > 0
+  );
 END;
 $$ LANGUAGE plpgsql;
 
@@ -652,7 +767,8 @@ RETURNS TABLE (
   mbti TEXT,
   gender TEXT,
   bio TEXT,
-  location TEXT
+  location TEXT,
+  avatar_url TEXT
 ) AS $$
 BEGIN
   RETURN QUERY
@@ -666,7 +782,14 @@ BEGIN
     u.mbti,
     u.gender,
     u.bio,
-    u.location
+    u.location,
+    (
+      SELECT ui.image_url
+      FROM user_images ui
+      WHERE ui.user_id = u.id
+      ORDER BY ui.position ASC
+      LIMIT 1
+    ) as avatar_url
   FROM users u
   WHERE u.id != p_exclude_user_id
     AND u.profile_setup_completed = TRUE
@@ -1219,5 +1342,122 @@ BEGIN
   
   RAISE NOTICE 'Returned incoming likes with limit=%, offset=%', p_limit, p_offset;
   
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- CHAT ROOM MEMBERS RPC FUNCTION
+-- =====================================================
+-- Get all members from both groups in a chat room for profile display
+CREATE OR REPLACE FUNCTION get_chat_room_members(p_chat_room_id UUID)
+RETURNS JSON AS $$
+DECLARE
+  v_match_id UUID;
+  v_group_1_id UUID;
+  v_group_2_id UUID;
+  v_my_group_id UUID;
+  v_other_group_id UUID;
+  v_current_user_id UUID;
+  result JSON;
+  member_count INTEGER;
+  member_record RECORD;
+BEGIN
+  -- Get current user
+  SELECT auth.uid() INTO v_current_user_id;
+  
+  RAISE NOTICE '[get_chat_room_members] Called for chat room: % by user: %', p_chat_room_id, v_current_user_id;
+  
+  -- Get match info from chat room
+  SELECT cr.match_id, m.group_1_id, m.group_2_id
+  INTO v_match_id, v_group_1_id, v_group_2_id
+  FROM chat_rooms cr
+  JOIN matches m ON cr.match_id = m.id
+  WHERE cr.id = p_chat_room_id;
+  
+  IF v_match_id IS NULL THEN
+    RAISE NOTICE '[get_chat_room_members] Chat room not found or no match';
+    RETURN json_build_object(
+      'success', false,
+      'error', 'Chat room not found or no associated match',
+      'all_members', '[]'::json,
+      'total_members', 0
+    );
+  END IF;
+  
+  RAISE NOTICE '[get_chat_room_members] Group 1: %, Group 2: %', v_group_1_id, v_group_2_id;
+  
+  -- Debug: Show ALL members from both groups regardless of status
+  FOR member_record IN 
+    SELECT u.first_name, u.last_name, gm.status, gm.group_id
+    FROM group_members gm 
+    JOIN users u ON gm.user_id = u.id 
+    WHERE gm.group_id IN (v_group_1_id, v_group_2_id)
+  LOOP
+    RAISE NOTICE '[get_chat_room_members] Found member: % % (status: %, group: %)', 
+      member_record.first_name, member_record.last_name, member_record.status, member_record.group_id;
+  END LOOP;
+  
+  -- Simply get ALL members from BOTH groups with status = 'joined'
+  SELECT json_build_object(
+    'success', true,
+    'match_id', v_match_id,
+    'all_members', (
+      SELECT COALESCE(json_agg(
+        json_build_object(
+          'id', u.id,
+          'first_name', u.first_name,
+          'last_name', u.last_name,
+          'birth_date', u.birth_date,
+          'age', EXTRACT(YEAR FROM age(CURRENT_DATE, u.birth_date)),
+          'gender', u.gender,
+          'bio', u.bio,
+          'group_id', gm.group_id,
+          'images', (
+            SELECT COALESCE(json_agg(
+              json_build_object(
+                'id', ui.id,
+                'image_url', ui.image_url,
+                'position', ui.position
+              ) ORDER BY ui.position
+            ), '[]'::json)
+            FROM user_images ui
+            WHERE ui.user_id = u.id
+          ),
+          'primary_image', (
+            SELECT ui.image_url 
+            FROM user_images ui 
+            WHERE ui.user_id = u.id 
+            ORDER BY ui.position ASC 
+            LIMIT 1
+          )
+        ) ORDER BY gm.joined_at ASC
+      ), '[]'::json)
+      FROM group_members gm
+      JOIN users u ON gm.user_id = u.id
+      WHERE gm.group_id IN (v_group_1_id, v_group_2_id)
+        AND gm.status = 'joined'
+    ),
+    'total_members', (
+      SELECT COUNT(*)
+      FROM group_members gm
+      WHERE gm.group_id IN (v_group_1_id, v_group_2_id) 
+        AND gm.status = 'joined'
+    )
+  ) INTO result;
+  
+  RAISE NOTICE '[get_chat_room_members] Returning result for % total members', 
+    (SELECT COUNT(*) FROM group_members WHERE group_id IN (v_group_1_id, v_group_2_id) AND status = 'joined');
+  
+  RETURN result;
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE '[get_chat_room_members] Exception: %', SQLERRM;
+    RETURN json_build_object(
+      'success', false,
+      'error', SQLERRM,
+      'all_members', '[]'::json,
+      'total_members', 0
+    );
 END;
 $$ LANGUAGE plpgsql;

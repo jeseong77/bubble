@@ -19,7 +19,7 @@ const CustomView: React.FC<CustomViewProps> = ({
 
   const RootElement = useSafeAreaTop ? SafeAreaView : View;
   const rootElementProps = useSafeAreaTop
-    ? { edges: ["top"] as ReadonlyArray<Edge> }
+    ? { edges: ["top"] as readonly Edge[] }
     : {};
 
   return (

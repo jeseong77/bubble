@@ -7,7 +7,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { NotificationBadge } from "@/components/ui/NotificationBadge";
 
 export default function TabLayout() {
-  const { showTabBar, hideTabBar, unreadLikesCount } = useUIStore();
+  const { showTabBar, hideTabBar, unreadLikesCount, totalUnreadMessages } = useUIStore();
   const { colors } = useAppTheme();
 
   useFocusEffect(
@@ -93,11 +93,14 @@ export default function TabLayout() {
           title: "",
           animation: "none",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name="chatbubble"
-              color={focused ? colors.primary : color}
-              size={28}
-            />
+            <View style={{ position: 'relative' }}>
+              <Ionicons
+                name="chatbubble"
+                color={focused ? colors.primary : color}
+                size={28}
+              />
+              <NotificationBadge count={totalUnreadMessages} />
+            </View>
           ),
         }}
       />

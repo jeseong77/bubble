@@ -6,10 +6,9 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
-} from "react-native";
+ Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Platform } from "react-native";
 import { MatchingGroup, GroupMember } from "@/hooks/useMatchmaking";
 import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
 

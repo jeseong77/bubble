@@ -6,6 +6,7 @@ import styled from "@emotion/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { ChatRoomProfile } from "@/components/chat/ChatRoomProfile";
 
 interface ChatMessage {
   message_id: number;
@@ -47,6 +48,8 @@ export default function ChatRoomScreen() {
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // Fetch chat room details and messages
   useEffect(() => {
@@ -226,6 +229,29 @@ export default function ChatRoomScreen() {
     router.back();
   };
 
+  // Fetch profile data for the chat room
+  const fetchProfileData = async () => {
+    if (!chatRoomId || profileData) return; // Don't fetch if already loaded
+    
+    setProfileLoading(true);
+    try {
+      console.log('📊 [ChatRoomScreen] Fetching profile data for room:', chatRoomId);
+      
+      const { data, error } = await supabase.rpc('get_chat_room_members', {
+        p_chat_room_id: chatRoomId
+      });
+      
+      if (error) throw error;
+      
+      console.log('✅ [ChatRoomScreen] Profile data loaded:', data);
+      setProfileData(data);
+    } catch (err) {
+      console.error('❌ [ChatRoomScreen] Failed to fetch profile data:', err);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   // Send typing indicator
   const sendTypingIndicator = (isTyping: boolean) => {
     if (realtimeChannel) {
@@ -359,6 +385,13 @@ export default function ChatRoomScreen() {
     };
   }, []);
 
+  // Fetch profile data when profile tab becomes active
+  useEffect(() => {
+    if (activeTab === 'profile' && chatRoomId && !profileData) {
+      fetchProfileData();
+    }
+  }, [activeTab, chatRoomId]);
+
   return (
     <Container>
       <Stack.Screen options={{ headerShown: false }} />
@@ -406,7 +439,7 @@ export default function ChatRoomScreen() {
           <ChatKeyboardContainer style={{ paddingBottom: Platform.OS === 'ios' ? keyboardHeight - insets.bottom : 0 }}>
             {isLoading ? (
               <LoadingContainer>
-                <TestText>Loading chat...</TestText>
+                <LoadingText>Loading chat...</LoadingText>
               </LoadingContainer>
             ) : (
               <ChatInnerContainer>
@@ -485,10 +518,10 @@ export default function ChatRoomScreen() {
             )}
           </ChatKeyboardContainer>
         ) : (
-          <ProfileContent>
-            <TestText>👥 Group Profile</TestText>
-            <TestText>Profile content will go here</TestText>
-          </ProfileContent>
+          <ChatRoomProfile 
+            data={profileData} 
+            isLoading={profileLoading} 
+          />
         )}
       </ContentArea>
     </Container>
@@ -579,6 +612,12 @@ const LoadingContainer = styled.View`
   align-items: center;
   padding-horizontal: 20px;
   background-color: #f5f5f5;
+`;
+
+const LoadingText = styled.Text`
+  font-size: 16px;
+  color: #7A7A7A;
+  font-family: Quicksand-Medium;
 `;
 
 const MessagesContainer = styled.View`
@@ -701,20 +740,6 @@ const SendButton = styled.TouchableOpacity`
   border-radius: 20px;
   justify-content: center;
   align-items: center;
-`;
-
-const ProfileContent = styled.View`
-  flex: 1;
-  justify-content: center;
-  align-items: center;
-  padding-horizontal: 20px;
-`;
-
-const TestText = styled.Text`
-  font-size: 16px;
-  margin-bottom: 10px;
-  text-align: center;
-  color: #333;
 `;
 
 const TypingIndicator = styled.View`
