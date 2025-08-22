@@ -20,74 +20,85 @@ import { useUIStore } from "@/stores/uiStore";
 export default function MessageListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { setTotalUnreadMessages } = useUIStore();
+  const { setTotalUnreadMessages, setRefreshMessagesCount } = useUIStore();
   const [matches, setMatches] = useState<MatchData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Extract fetchMatches as a stable function for reuse
+  const fetchMatches = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('🔍 [ChatsScreen] Fetching matches...');
+      
+      // Debug: Check current user
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('👤 [ChatsScreen] Current user:', user?.id);
+      
+      // Debug: Check user's groups
+      const { data: userGroups, error: groupError } = await supabase
+        .from('group_members')
+        .select('*, groups(name)')
+        .eq('user_id', user?.id);
+      console.log('👥 [ChatsScreen] User groups:', userGroups);
+      
+      // Debug: Try both functions
+      console.log('🔧 [ChatsScreen] Testing debug function first...');
+      const { data: debugData, error: debugError } = await supabase.rpc(
+        "get_my_matches_debug",
+        { p_debug_user_id: user?.id }
+      );
+      console.log('🔧 [ChatsScreen] Debug RPC result:', { debugData, debugError });
+      
+      // get_my_matches_enhanced RPC를 호출하여 채팅 목록 데이터를 가져옵니다.
+      const { data, error: rpcError } = await supabase.rpc(
+        "get_my_matches_enhanced"
+      );
+
+      console.log('📊 [ChatsScreen] Enhanced RPC result:', { data, error: rpcError });
+      
+      // Use debug data if available, otherwise use regular data
+      const finalData = debugData && debugData.length > 0 ? debugData : data;
+
+      if (rpcError) {
+        throw rpcError;
+      }
+
+      const matchesData = finalData || [];
+      setMatches(matchesData);
+      
+      // Calculate total unread messages across all chat rooms
+      const totalUnread = matchesData.reduce((sum: number, match: MatchData) => {
+        return sum + (match.unread_count || 0);
+      }, 0);
+      
+      console.log(`📊 [ChatsScreen] Total unread messages: ${totalUnread}`);
+      setTotalUnreadMessages(totalUnread);
+    } catch (err: any) {
+      console.error("Failed to fetch matches:", err);
+      setError("채팅 목록을 불러오는 데 실패했습니다.");
+      setTotalUnreadMessages(0); // Reset count on error
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setTotalUnreadMessages]);
+
+  // Register the refresh function with UIStore for global access
+  useEffect(() => {
+    const refreshForUser = async (userId: string) => {
+      console.log(`[ChatsScreen] Global refresh called for user: ${userId}`);
+      await fetchMatches();
+    };
+
+    setRefreshMessagesCount(refreshForUser);
+  }, [fetchMatches, setRefreshMessagesCount]);
+
   // useFocusEffect를 사용하여 화면이 포커될 때마다 데이터를 새로고침합니다.
   useFocusEffect(
     useCallback(() => {
-      const fetchMatches = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-          console.log('🔍 [ChatsScreen] Fetching matches...');
-          
-          // Debug: Check current user
-          const { data: { user } } = await supabase.auth.getUser();
-          console.log('👤 [ChatsScreen] Current user:', user?.id);
-          
-          // Debug: Check user's groups
-          const { data: userGroups, error: groupError } = await supabase
-            .from('group_members')
-            .select('*, groups(name)')
-            .eq('user_id', user?.id);
-          console.log('👥 [ChatsScreen] User groups:', userGroups);
-          
-          // Debug: Try both functions
-          console.log('🔧 [ChatsScreen] Testing debug function first...');
-          const { data: debugData, error: debugError } = await supabase.rpc(
-            "get_my_matches_debug",
-            { p_debug_user_id: user?.id }
-          );
-          console.log('🔧 [ChatsScreen] Debug RPC result:', { debugData, debugError });
-          
-          // get_my_matches_enhanced RPC를 호출하여 채팅 목록 데이터를 가져옵니다.
-          const { data, error: rpcError } = await supabase.rpc(
-            "get_my_matches_enhanced"
-          );
-
-          console.log('📊 [ChatsScreen] Enhanced RPC result:', { data, error: rpcError });
-          
-          // Use debug data if available, otherwise use regular data
-          const finalData = debugData && debugData.length > 0 ? debugData : data;
-
-          if (rpcError) {
-            throw rpcError;
-          }
-
-          const matchesData = finalData || [];
-          setMatches(matchesData);
-          
-          // Calculate total unread messages across all chat rooms
-          const totalUnread = matchesData.reduce((sum: number, match: MatchData) => {
-            return sum + (match.unread_count || 0);
-          }, 0);
-          
-          console.log(`📊 [ChatsScreen] Total unread messages: ${totalUnread}`);
-          setTotalUnreadMessages(totalUnread);
-        } catch (err: any) {
-          console.error("Failed to fetch matches:", err);
-          setError("채팅 목록을 불러오는 데 실패했습니다.");
-          setTotalUnreadMessages(0); // Reset count on error
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
       fetchMatches();
-    }, [])
+    }, [fetchMatches])
   );
 
   const handleChatItemPress = (chatRoomId: string, otherGroupName: string) => {

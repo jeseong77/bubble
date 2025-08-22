@@ -18,6 +18,12 @@ interface UIState {
   totalUnreadMessages: number;
   setTotalUnreadMessages: (count: number) => void;
 
+  // --- Global notification refresh functions ---
+  refreshLikesCount: ((userId: string) => Promise<void>) | null;
+  refreshMessagesCount: ((userId: string) => Promise<void>) | null;
+  setRefreshLikesCount: (fn: (userId: string) => Promise<void>) => void;
+  setRefreshMessagesCount: (fn: (userId: string) => Promise<void>) => void;
+
   // 여기에 다른 UI 요소들의 가시성 상태 및 제어 함수들을 추가할 수 있습니다.
 }
 
@@ -67,6 +73,18 @@ export const useUIStore = create<UIState>((set) => ({
   setTotalUnreadMessages: (count) => {
     console.log(`UIStore: Setting total unread messages to ${count}`);
     set({ totalUnreadMessages: Math.max(0, count) }); // 음수 방지
+  },
+
+  // --- Global notification refresh functions ---
+  refreshLikesCount: null,
+  refreshMessagesCount: null,
+  setRefreshLikesCount: (fn) => {
+    console.log('UIStore: Setting refresh likes count function');
+    set({ refreshLikesCount: fn });
+  },
+  setRefreshMessagesCount: (fn) => {
+    console.log('UIStore: Setting refresh messages count function');
+    set({ refreshMessagesCount: fn });
   },
 }));
 
