@@ -341,6 +341,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
     color: "#000",
+    fontFamily: "Quicksand-Bold",
   },
   bubbleTypeContainer: {
     flexDirection: "row",
@@ -382,6 +383,7 @@ const styles = StyleSheet.create({
     color: "#000",
     textAlign: "center",
     flex: 1,
+    fontFamily: "Quicksand-Regular",
   },
   buttonContainer: {
     flexDirection: "row",
