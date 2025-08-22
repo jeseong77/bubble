@@ -79,8 +79,7 @@ const NameInputStep = ({
         />
 
         <Text style={[styles.tipText, { color: colors.darkGray }]}>
-          Last name is only shared with matches.{" "}
-          <Text style={{ color: colors.navy }}>Why?</Text>
+          Last name is only shared with matches.
         </Text>
       </View>
     </TouchableWithoutFeedback>

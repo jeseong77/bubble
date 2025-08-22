@@ -265,7 +265,7 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
             <View style={styles.nameInputContainer}>
               <TextInput
                 style={styles.nameInput}
-                placeholder="Enter bubble name..."
+                placeholder="Name your bubble"
                 value={bubbleName}
                 onChangeText={setBubbleName}
                 placeholderTextColor="#999"
