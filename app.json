@@ -14,12 +14,10 @@
       "usesAppleSignIn": true,
       "entitlements": {
         "com.apple.developer.applesignin": [
-          "Default",
           "Default"
         ]
       },
       "associatedDomains": [
-        "applinks:your-project.supabase.co",
         "applinks:your-project.supabase.co"
       ],
       "infoPlist": {
@@ -68,6 +66,12 @@
         "projectId": "48ecd53a-6924-4352-aed2-0dd3e1e01dfb"
       }
     },
-    "owner": "playlounge"
+    "owner": "playlounge",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/48ecd53a-6924-4352-aed2-0dd3e1e01dfb"
+    }
   }
 }
