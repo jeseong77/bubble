@@ -19,6 +19,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
+import InviteModal from "@/components/InviteModal";
 
 interface SearchUser {
   id: string;
@@ -45,6 +46,7 @@ export default function SearchScreen() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [signedUrls, setSignedUrls] = useState<{ [key: string]: string }>({});
   const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
   // URL 유효성 검사 함수
   const isValidUrl = (url: string): boolean => {
@@ -543,9 +545,13 @@ export default function SearchScreen() {
     <CustomView style={styles.container}>
       <CustomAppBar
         leftComponent={
-          <View style={styles.profileIconContainer}>
-            <Ionicons name="person-add-outline" size={24} color={colors.black} />
-          </View>
+          <TouchableOpacity 
+            style={styles.profileIconContainer}
+            onPress={() => setInviteModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="qr-code-outline" size={24} color={colors.black} />
+          </TouchableOpacity>
         }
         centerComponent={
           <Text style={[styles.title, { color: colors.black }]}>
@@ -593,6 +599,15 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
         />
       </View>
+
+      {/* Invite Modal */}
+      <InviteModal
+        visible={inviteModalVisible}
+        onClose={() => setInviteModalVisible(false)}
+        groupId={groupId || ""}
+        groupName="My Bubble"
+        bubbleSize="2:2"
+      />
     </CustomView>
   );
 }

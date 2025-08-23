@@ -55,6 +55,12 @@
     "experiments": {
       "typedRoutes": true
     },
+    "linking": {
+      "prefixes": [
+        "bubble://",
+        "https://bubble.app/"
+      ]
+    },
     "splash": {
       "image": "./assets/images/bg.png",
       "resizeMode": "cover",
