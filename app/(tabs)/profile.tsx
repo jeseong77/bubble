@@ -906,7 +906,7 @@ function ProfileScreen() {
       if (data) {
         setActiveBubbleId(bubbleId);
         console.log("[ProfileScreen] Active 버블 설정 성공:", bubbleId);
-        Alert.alert("성공", "Active 버블이 설정되었습니다.");
+        Alert.alert("Success!", "Active bubble has been set");
       }
     } catch (error) {
       console.error("[ProfileScreen] Active 버블 설정 중 에러:", error);

@@ -561,7 +561,7 @@ export default function LikesYouScreen() {
       {/* Likes You Header - Always shown */}
       <View style={styles.header}>
         <View style={styles.headerBackground} />
-        <Text style={styles.headerTitle}>Likes You</Text>
+        <Text style={styles.headerTitle}>Likes</Text>
       </View>
 
       {/* Main content area */}

@@ -1461,3 +1461,572 @@ EXCEPTION
     );
 END;
 $$ LANGUAGE plpgsql;
+
+-- ====================================
+-- DAILY SWIPE LIMITS SYSTEM
+-- Updated group-based swiping with daily limits
+-- ====================================
+
+-- Updated like_group function with swipe limits (replaces old user-based version)
+CREATE OR REPLACE FUNCTION like_group(
+  p_from_group_id UUID,
+  p_to_group_id UUID
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_swipe_limit_info JSON;
+  v_can_swipe BOOLEAN;
+  v_existing_like_id UUID;
+  v_reverse_like_id UUID;
+  v_match_id UUID;
+  v_chat_room_id UUID;
+  v_result JSON;
+BEGIN
+  -- Check daily swipe limit first
+  SELECT check_daily_swipe_limit(p_from_group_id) INTO v_swipe_limit_info;
+  v_can_swipe := (v_swipe_limit_info->>'can_swipe')::BOOLEAN;
+  
+  -- Return limit exceeded error if no swipes remaining
+  IF NOT v_can_swipe THEN
+    RETURN json_build_object(
+      'status', 'limit_exceeded',
+      'message', 'Daily swipe limit reached',
+      'swipe_info', v_swipe_limit_info
+    );
+  END IF;
+  
+  -- Increment swipe count
+  SELECT increment_daily_swipe_count(p_from_group_id) INTO v_swipe_limit_info;
+  
+  -- Check if this like already exists
+  SELECT id INTO v_existing_like_id
+  FROM likes
+  WHERE from_group_id = p_from_group_id 
+    AND to_group_id = p_to_group_id;
+
+  -- If like doesn't exist, create it
+  IF v_existing_like_id IS NULL THEN
+    INSERT INTO likes (from_group_id, to_group_id, created_at)
+    VALUES (p_from_group_id, p_to_group_id, NOW())
+    RETURNING id INTO v_existing_like_id;
+  END IF;
+
+  -- Check if the target group already liked us back (mutual like)
+  SELECT id INTO v_reverse_like_id
+  FROM likes
+  WHERE from_group_id = p_to_group_id 
+    AND to_group_id = p_from_group_id;
+
+  -- If mutual like exists, create a match and chat room
+  IF v_reverse_like_id IS NOT NULL THEN
+    -- Check if match already exists
+    SELECT id INTO v_match_id
+    FROM matches
+    WHERE (group_1_id = p_from_group_id AND group_2_id = p_to_group_id)
+       OR (group_1_id = p_to_group_id AND group_2_id = p_from_group_id);
+
+    -- Create match if it doesn't exist
+    IF v_match_id IS NULL THEN
+      INSERT INTO matches (group_1_id, group_2_id, status, created_at)
+      VALUES (p_from_group_id, p_to_group_id, 'active', NOW())
+      RETURNING id INTO v_match_id;
+    END IF;
+
+    -- Check if chat room already exists
+    SELECT id INTO v_chat_room_id
+    FROM chat_rooms
+    WHERE match_id = v_match_id;
+
+    -- Create chat room if it doesn't exist
+    IF v_chat_room_id IS NULL THEN
+      INSERT INTO chat_rooms (match_id, created_at)
+      VALUES (v_match_id, NOW())
+      RETURNING id INTO v_chat_room_id;
+    END IF;
+
+    -- Return matched status with chat room ID and updated swipe info
+    v_result := json_build_object(
+      'status', 'matched',
+      'chat_room_id', v_chat_room_id,
+      'match_id', v_match_id,
+      'swipe_info', v_swipe_limit_info
+    );
+  ELSE
+    -- Return liked status (no match yet) with updated swipe info
+    v_result := json_build_object(
+      'status', 'liked',
+      'like_id', v_existing_like_id,
+      'swipe_info', v_swipe_limit_info
+    );
+  END IF;
+
+  RETURN v_result;
+
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Return error status
+    RETURN json_build_object(
+      'status', 'error',
+      'message', SQLERRM
+    );
+END;
+$$;
+
+-- Updated pass_group function with swipe limits
+CREATE OR REPLACE FUNCTION pass_group(
+  p_from_group_id UUID, 
+  p_to_group_id UUID
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_swipe_limit_info JSON;
+  v_can_swipe BOOLEAN;
+  v_result JSON;
+BEGIN
+  -- Check daily swipe limit first
+  SELECT check_daily_swipe_limit(p_from_group_id) INTO v_swipe_limit_info;
+  v_can_swipe := (v_swipe_limit_info->>'can_swipe')::BOOLEAN;
+  
+  -- Return limit exceeded error if no swipes remaining
+  IF NOT v_can_swipe THEN
+    RETURN json_build_object(
+      'status', 'limit_exceeded',
+      'message', 'Daily swipe limit reached',
+      'swipe_info', v_swipe_limit_info
+    );
+  END IF;
+  
+  -- Increment swipe count
+  SELECT increment_daily_swipe_count(p_from_group_id) INTO v_swipe_limit_info;
+  
+  -- Insert pass record (create group_passes table if it doesn't exist)
+  INSERT INTO group_passes (from_group_id, to_group_id)
+  VALUES (p_from_group_id, p_to_group_id)
+  ON CONFLICT (from_group_id, to_group_id) DO NOTHING;
+  
+  -- Return success with updated swipe info
+  RETURN json_build_object(
+    'status', 'passed',
+    'swipe_info', v_swipe_limit_info
+  );
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object(
+      'status', 'error',
+      'message', SQLERRM
+    );
+END;
+$$;
+
+-- Grant necessary permissions for updated functions
+GRANT EXECUTE ON FUNCTION like_group(UUID, UUID) TO anon;
+GRANT EXECUTE ON FUNCTION like_group(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION pass_group(UUID, UUID) TO anon;
+GRANT EXECUTE ON FUNCTION pass_group(UUID, UUID) TO authenticated;
+
+-- =====================================================
+-- QR CODE / LINK INVITATION: Tables and Functions
+-- =====================================================
+
+-- Create invitation tokens table for secure QR/link invitations
+CREATE TABLE IF NOT EXISTS invitation_tokens (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days'),
+  used_at TIMESTAMPTZ NULL,
+  used_by UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+  is_active BOOLEAN DEFAULT true,
+  
+  -- Indexes for performance
+  INDEX idx_invitation_tokens_token ON invitation_tokens(token),
+  INDEX idx_invitation_tokens_group_id ON invitation_tokens(group_id),
+  INDEX idx_invitation_tokens_expires_at ON invitation_tokens(expires_at)
+);
+
+-- Function to generate secure invitation token
+CREATE OR REPLACE FUNCTION generate_invitation_token(
+  p_group_id UUID,
+  p_created_by UUID,
+  p_expires_hours INTEGER DEFAULT 168 -- Default 7 days (168 hours)
+)
+RETURNS JSON AS $$
+DECLARE
+  v_token TEXT;
+  v_token_id UUID;
+  v_group_name TEXT;
+  v_expires_at TIMESTAMPTZ;
+BEGIN
+  RAISE NOTICE '[generate_invitation_token] 🎫 Generating token for group: %, created_by: %', p_group_id, p_created_by;
+  
+  -- Check if group exists and user is a member
+  SELECT name INTO v_group_name
+  FROM groups g
+  WHERE g.id = p_group_id
+  AND EXISTS (
+    SELECT 1 FROM group_members gm 
+    WHERE gm.group_id = p_group_id 
+    AND gm.user_id = p_created_by 
+    AND gm.status = 'joined'
+  );
+  
+  IF NOT FOUND THEN
+    RAISE NOTICE '[generate_invitation_token] ❌ Group not found or user not a member';
+    RETURN json_build_object(
+      'success', false,
+      'error', 'UNAUTHORIZED',
+      'message', 'You must be a member of this bubble to generate invitations'
+    );
+  END IF;
+  
+  -- Generate unique token (8-character alphanumeric)
+  v_token := upper(substring(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+  v_expires_at := NOW() + (p_expires_hours * INTERVAL '1 hour');
+  
+  -- Deactivate any existing tokens for this group (optional - allows only one active token per group)
+  UPDATE invitation_tokens 
+  SET is_active = false 
+  WHERE group_id = p_group_id AND is_active = true;
+  
+  -- Insert new token
+  INSERT INTO invitation_tokens (group_id, token, created_by, expires_at)
+  VALUES (p_group_id, v_token, p_created_by, v_expires_at)
+  RETURNING id INTO v_token_id;
+  
+  RAISE NOTICE '[generate_invitation_token] ✅ Token generated: % (expires: %)', v_token, v_expires_at;
+  
+  RETURN json_build_object(
+    'success', true,
+    'token_id', v_token_id,
+    'token', v_token,
+    'group_id', p_group_id,
+    'group_name', v_group_name,
+    'expires_at', v_expires_at,
+    'invite_link', format('bubble://join/%s/%s', p_group_id::text, v_token)
+  );
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE '[generate_invitation_token] ❌ Exception: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
+    RETURN json_build_object(
+      'success', false,
+      'error', 'INTERNAL_ERROR',
+      'message', 'Failed to generate invitation token',
+      'sql_error', SQLERRM
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to validate and consume invitation token
+CREATE OR REPLACE FUNCTION validate_invitation_token(
+  p_group_id UUID,
+  p_token TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+  v_token_record RECORD;
+BEGIN
+  RAISE NOTICE '[validate_invitation_token] 🔍 Validating token: % for group: %', p_token, p_group_id;
+  
+  -- Find and validate token
+  SELECT 
+    id, group_id, token, created_by, expires_at, used_at, used_by, is_active
+  INTO v_token_record
+  FROM invitation_tokens
+  WHERE token = p_token AND group_id = p_group_id;
+  
+  IF NOT FOUND THEN
+    RAISE NOTICE '[validate_invitation_token] ❌ Token not found';
+    RETURN json_build_object(
+      'valid', false,
+      'error', 'TOKEN_NOT_FOUND',
+      'message', 'Invalid invitation link'
+    );
+  END IF;
+  
+  -- Check if token is active
+  IF NOT v_token_record.is_active THEN
+    RAISE NOTICE '[validate_invitation_token] ❌ Token is inactive';
+    RETURN json_build_object(
+      'valid', false,
+      'error', 'TOKEN_INACTIVE',
+      'message', 'This invitation link has been deactivated'
+    );
+  END IF;
+  
+  -- Check if token has expired
+  IF NOW() > v_token_record.expires_at THEN
+    RAISE NOTICE '[validate_invitation_token] ❌ Token expired: %', v_token_record.expires_at;
+    RETURN json_build_object(
+      'valid', false,
+      'error', 'TOKEN_EXPIRED',
+      'message', 'This invitation link has expired'
+    );
+  END IF;
+  
+  -- Check if token has already been used
+  IF v_token_record.used_at IS NOT NULL THEN
+    RAISE NOTICE '[validate_invitation_token] ❌ Token already used at: %', v_token_record.used_at;
+    RETURN json_build_object(
+      'valid', false,
+      'error', 'TOKEN_USED',
+      'message', 'This invitation link has already been used'
+    );
+  END IF;
+  
+  RAISE NOTICE '[validate_invitation_token] ✅ Token is valid';
+  RETURN json_build_object(
+    'valid', true,
+    'token_id', v_token_record.id,
+    'created_by', v_token_record.created_by,
+    'expires_at', v_token_record.expires_at
+  );
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE '[validate_invitation_token] ❌ Exception: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
+    RETURN json_build_object(
+      'valid', false,
+      'error', 'INTERNAL_ERROR',
+      'message', 'Error validating invitation token'
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Updated direct join function with token validation
+CREATE OR REPLACE FUNCTION join_bubble_direct(
+  p_group_id UUID, 
+  p_user_id UUID, 
+  p_invite_token TEXT DEFAULT NULL
+)
+RETURNS JSON AS $$
+DECLARE
+  v_group_record RECORD;
+  v_user_record RECORD;
+  v_joined_count INTEGER;
+  v_cleaned_up_count INTEGER := 0;
+  v_final_joined_count INTEGER;
+  v_token_validation JSON;
+  v_token_id UUID;
+BEGIN
+  RAISE NOTICE '[join_bubble_direct] 🎯 Direct join attempt: user=%, group=%, token=%', p_user_id, p_group_id, p_invite_token;
+  
+  -- If token is provided, validate it first
+  IF p_invite_token IS NOT NULL THEN
+    RAISE NOTICE '[join_bubble_direct] 🔐 Validating invitation token';
+    SELECT validate_invitation_token(p_group_id, p_invite_token) INTO v_token_validation;
+    
+    RAISE NOTICE '[join_bubble_direct] Token validation result: %', v_token_validation;
+    
+    IF NOT (v_token_validation->>'valid')::BOOLEAN THEN
+      RAISE NOTICE '[join_bubble_direct] ❌ Token validation failed';
+      RETURN json_build_object(
+        'success', false,
+        'error', v_token_validation->>'error',
+        'message', v_token_validation->>'message'
+      );
+    END IF;
+    
+    -- Extract token_id for later use
+    v_token_id := (v_token_validation->>'token_id')::UUID;
+    RAISE NOTICE '[join_bubble_direct] ✅ Token validated successfully, token_id: %', v_token_id;
+  END IF;
+  
+  -- Lock group row to prevent race conditions
+  SELECT id, name, status, max_size, creator_id INTO v_group_record
+  FROM groups 
+  WHERE id = p_group_id 
+  FOR UPDATE;
+  
+  -- Check if group exists
+  IF NOT FOUND THEN
+    RAISE NOTICE '[join_bubble_direct] ❌ Group not found: %', p_group_id;
+    RETURN json_build_object(
+      'success', false,
+      'error', 'GROUP_NOT_FOUND',
+      'message', 'This bubble no longer exists'
+    );
+  END IF;
+  
+  RAISE NOTICE '[join_bubble_direct] 📋 Group found: name=%, status=%, max_size=%', 
+    v_group_record.name, v_group_record.status, v_group_record.max_size;
+  
+  -- Check if group is still accepting members
+  IF v_group_record.status != 'forming' THEN
+    RAISE NOTICE '[join_bubble_direct] ❌ Group not forming: status=%', v_group_record.status;
+    RETURN json_build_object(
+      'success', false,
+      'error', 'GROUP_NOT_FORMING',
+      'message', 'This bubble is no longer accepting new members',
+      'group_status', v_group_record.status
+    );
+  END IF;
+  
+  -- Get user info
+  SELECT id, first_name, last_name, gender INTO v_user_record
+  FROM users 
+  WHERE id = p_user_id;
+  
+  IF NOT FOUND THEN
+    RAISE NOTICE '[join_bubble_direct] ❌ User not found: %', p_user_id;
+    RETURN json_build_object(
+      'success', false,
+      'error', 'USER_NOT_FOUND',
+      'message', 'User does not exist'
+    );
+  END IF;
+  
+  RAISE NOTICE '[join_bubble_direct] 👤 User found: name=% %, gender=%', 
+    v_user_record.first_name, v_user_record.last_name, v_user_record.gender;
+  
+  -- Check if user is already a member of this group
+  IF EXISTS (
+    SELECT 1 FROM group_members 
+    WHERE group_id = p_group_id AND user_id = p_user_id 
+    AND status IN ('joined', 'invited')
+  ) THEN
+    RAISE NOTICE '[join_bubble_direct] ⚠️ User already member of group';
+    RETURN json_build_object(
+      'success', false,
+      'error', 'ALREADY_MEMBER',
+      'message', 'You are already a member of this bubble'
+    );
+  END IF;
+  
+  -- Check if user is already in another active group
+  IF EXISTS (
+    SELECT 1 FROM users WHERE id = p_user_id AND active_group_id IS NOT NULL
+  ) THEN
+    RAISE NOTICE '[join_bubble_direct] ⚠️ User already in another active group';
+    RETURN json_build_object(
+      'success', false,
+      'error', 'ALREADY_IN_GROUP',
+      'message', 'You can only be in one bubble at a time. Please leave your current bubble first.'
+    );
+  END IF;
+  
+  -- Count current joined members
+  SELECT COUNT(*) INTO v_joined_count
+  FROM group_members
+  WHERE group_id = p_group_id AND status = 'joined';
+  
+  RAISE NOTICE '[join_bubble_direct] 📊 Current members: %/%, creator_id=%', 
+    v_joined_count, v_group_record.max_size, v_group_record.creator_id;
+  
+  -- Check if group is already full
+  IF v_joined_count >= v_group_record.max_size THEN
+    RAISE NOTICE '[join_bubble_direct] ❌ Group is full: %/%', v_joined_count, v_group_record.max_size;
+    RETURN json_build_object(
+      'success', false,
+      'error', 'GROUP_FULL',
+      'message', 'This bubble is already full',
+      'current_size', v_joined_count,
+      'max_size', v_group_record.max_size
+    );
+  END IF;
+  
+  -- All checks passed - add user to group with 'joined' status directly
+  INSERT INTO group_members (group_id, user_id, status, joined_at)
+  VALUES (p_group_id, p_user_id, 'joined', NOW())
+  ON CONFLICT (group_id, user_id) DO UPDATE 
+  SET status = 'joined', joined_at = NOW();
+  
+  RAISE NOTICE '[join_bubble_direct] ✅ User added to group successfully';
+  
+  -- Update user's active_group_id
+  UPDATE users 
+  SET active_group_id = p_group_id
+  WHERE id = p_user_id;
+  
+  RAISE NOTICE '[join_bubble_direct] ✅ User active_group_id updated';
+  
+  -- Mark token as used if it was provided
+  IF v_token_id IS NOT NULL THEN
+    UPDATE invitation_tokens 
+    SET used_at = NOW(), used_by = p_user_id, is_active = false
+    WHERE id = v_token_id;
+    RAISE NOTICE '[join_bubble_direct] 🎫 Token marked as used: %', v_token_id;
+  END IF;
+  
+  -- Count final joined members
+  SELECT COUNT(*) INTO v_final_joined_count
+  FROM group_members
+  WHERE group_id = p_group_id AND status = 'joined';
+  
+  RAISE NOTICE '[join_bubble_direct] 📊 Final member count: %/%', v_final_joined_count, v_group_record.max_size;
+  
+  -- Check if group is now full
+  IF v_final_joined_count >= v_group_record.max_size THEN
+    -- Update group status to 'full'
+    UPDATE groups 
+    SET status = 'full', updated_at = NOW()
+    WHERE id = p_group_id;
+    
+    RAISE NOTICE '[join_bubble_direct] 🎉 Group is now FULL! Status updated.';
+    
+    -- Clean up any remaining pending invitations
+    DELETE FROM group_members 
+    WHERE group_id = p_group_id AND status = 'invited';
+    
+    GET DIAGNOSTICS v_cleaned_up_count = ROW_COUNT;
+    RAISE NOTICE '[join_bubble_direct] 🧹 Cleaned up % pending invitations', v_cleaned_up_count;
+    
+    RETURN json_build_object(
+      'success', true,
+      'message', format('Successfully joined "%s"! The bubble is now full! 🎉', v_group_record.name),
+      'group_id', p_group_id,
+      'group_name', v_group_record.name,
+      'user_name', format('%s %s', v_user_record.first_name, v_user_record.last_name),
+      'group_full', true,
+      'new_group_status', 'full',
+      'final_size', v_final_joined_count,
+      'max_size', v_group_record.max_size,
+      'cleaned_up_invitations', v_cleaned_up_count,
+      'join_type', 'direct'
+    );
+  ELSE
+    RAISE NOTICE '[join_bubble_direct] ⏳ Group not yet full (%/%)', v_final_joined_count, v_group_record.max_size;
+    
+    RETURN json_build_object(
+      'success', true,
+      'message', format('Successfully joined "%s"!', v_group_record.name),
+      'group_id', p_group_id,
+      'group_name', v_group_record.name,
+      'user_name', format('%s %s', v_user_record.first_name, v_user_record.last_name),
+      'group_full', false,
+      'new_group_status', 'forming',
+      'current_size', v_final_joined_count,
+      'max_size', v_group_record.max_size,
+      'cleaned_up_invitations', 0,
+      'join_type', 'direct'
+    );
+  END IF;
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE '[join_bubble_direct] ❌ Exception: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
+    RETURN json_build_object(
+      'success', false,
+      'error', 'INTERNAL_ERROR',
+      'message', 'An internal error occurred while joining the bubble',
+      'sql_error', SQLERRM,
+      'sql_state', SQLSTATE
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Grant permissions for all invitation token functions
+GRANT EXECUTE ON FUNCTION generate_invitation_token(UUID, UUID, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION validate_invitation_token(UUID, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION validate_invitation_token(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION join_bubble_direct(UUID, UUID, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION join_bubble_direct(UUID, UUID, TEXT) TO authenticated;

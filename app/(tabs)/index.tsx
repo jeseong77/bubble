@@ -81,6 +81,10 @@ export default function MatchScreen() {
     loadMore,
     refetch,
     refreshAll,
+    // Swipe limit data
+    swipeLimitInfo,
+    isLoadingSwipeLimit,
+    checkSwipeLimit,
   } = useMatchmakingContext();
 
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
@@ -88,6 +92,55 @@ export default function MatchScreen() {
   const [recentMatches, setRecentMatches] = useState<string[]>([]);
   const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
   const [userBubbleLoading, setUserBubbleLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Helper function to format reset time for small display
+  const formatResetTime = (resetTimeISO: string) => {
+    const resetTime = new Date(resetTimeISO);
+    const now = new Date();
+    const diff = resetTime.getTime() - now.getTime();
+    
+    if (diff <= 0) return "Resetting soon";
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `Resets in ${hours}h ${minutes}m`;
+    } else {
+      return `Resets in ${minutes}m`;
+    }
+  };
+
+  // Helper function to format countdown timer (HH:MM format)
+  const formatCountdownTime = (resetTimeISO: string) => {
+    const resetTime = new Date(resetTimeISO);
+    const diff = resetTime.getTime() - currentTime.getTime();
+    
+    if (diff <= 0) return "00:00";
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Update timer every minute for countdown
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Safety check: Reset index if it goes out of bounds after group removal
+  useEffect(() => {
+    if (matchingGroups.length > 0 && currentGroupIndex >= matchingGroups.length) {
+      console.log(`[MatchScreen] 🔧 Index ${currentGroupIndex} out of bounds (length: ${matchingGroups.length}), resetting to 0`);
+      setCurrentGroupIndex(0);
+    }
+  }, [matchingGroups.length, currentGroupIndex]);
 
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
@@ -590,6 +643,109 @@ export default function MatchScreen() {
       );
     }
 
+    // Check if daily swipe limit is reached
+    if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
+      console.log("🚫 Daily swipe limit reached - showing limit reached state");
+      return (
+        <SafeAreaView
+          style={[styles.safeArea, { paddingTop: insets.top }]}
+          edges={["top"]}
+        >
+          <LinearGradient
+            colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* User's bubble at top left */}
+          {userBubble && (
+            <View
+              style={[
+                styles.userBubbleContainer,
+                {
+                  left: Math.max(
+                    0,
+                    (screenWidth - centerBubbleDiameter) / 2 -
+                      userBubbleDiameter * 0.18
+                  ),
+                  top: insets.top + 24,
+                  width: userBubbleDiameter,
+                  height: userBubbleDiameter + 24,
+                },
+              ]}
+            >
+              <BlurView
+                style={styles.userBubbleBlur}
+                intensity={Platform.OS === "ios" ? 60 : 80}
+                tint="light"
+              >
+                <Text style={styles.userBubbleName}>{userBubble.name}</Text>
+                <View style={styles.userBubbleRow}>
+                  {userBubble.members.map((user, idx) => (
+                    <View
+                      key={user.id}
+                      style={{
+                        marginLeft: idx > 0 ? -userBubbleImageSize * overlapRatio : 0,
+                        zIndex: userBubble.members.length - idx,
+                      }}
+                    >
+                      <Image
+                        source={{ uri: user.signedUrl || user.avatar_url }}
+                        style={{
+                          width: userBubbleImageSize,
+                          height: userBubbleImageSize,
+                          borderRadius: userBubbleImageSize / 2,
+                          borderWidth: 2,
+                          borderColor: "#fff",
+                        }}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </BlurView>
+              <TouchableOpacity 
+                style={styles.pinIconWrap}
+                onPress={() => userBubble && handlePopBubble(userBubble.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.pinCircle}>
+                  <Feather name="feather" size={18} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Large Countdown Display */}
+          <View style={styles.limitReachedContainer}>
+            <Text style={styles.limitReachedMessage}>
+              You've used all your swipes for today.{'\n'}
+              Please wait for new Bubbles tomorrow!
+            </Text>
+            <Text style={styles.countdownTimer}>
+              {formatCountdownTime(swipeLimitInfo.reset_time)}
+            </Text>
+          </View>
+
+          {/* Disabled Swipe Controls */}
+          <View style={styles.swipeControls}>
+            <TouchableOpacity
+              style={[styles.xButton, styles.disabledButton]}
+              disabled={true}
+            >
+              <Feather name="x" size={32} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.checkButton, styles.disabledButton]}
+              disabled={true}
+            >
+              <Feather name="heart" size={32} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
     // 매칭 그룹이 없음
     if (matchingGroups.length === 0 && !isLoading) {
       console.log("📭 No matching groups - showing EmptyState");
@@ -721,19 +877,49 @@ export default function MatchScreen() {
           <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
+        {/* Swipe Counter and Limit Info */}
+        {swipeLimitInfo && (
+          <View style={styles.swipeCounterContainer}>
+            <BlurView
+              style={styles.swipeCounterBlur}
+              intensity={Platform.OS === "ios" ? 60 : 80}
+              tint="light"
+            >
+              <Text style={styles.swipeCounterText}>
+                {swipeLimitInfo.remaining_swipes}/{swipeLimitInfo.daily_limit} swipes remaining
+              </Text>
+              {swipeLimitInfo.remaining_swipes === 0 && (
+                <Text style={styles.resetTimeText}>
+                  {formatResetTime(swipeLimitInfo.reset_time)}
+                </Text>
+              )}
+            </BlurView>
+          </View>
+        )}
+
         {/* Swipe Controls */}
         <View style={styles.swipeControls}>
           <TouchableOpacity
-            style={styles.xButton}
+            style={[
+              styles.xButton,
+              (swipeLimitInfo && !swipeLimitInfo.can_swipe) || isAnimating 
+                ? styles.disabledButton 
+                : null
+            ]}
             onPress={() => handleSwipe("left")}
-            disabled={isAnimating}
+            disabled={isAnimating || (swipeLimitInfo && !swipeLimitInfo.can_swipe)}
           >
             <Feather name="x" size={32} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.checkButton}
+            style={[
+              styles.checkButton,
+              (swipeLimitInfo && !swipeLimitInfo.can_swipe) || isAnimating 
+                ? styles.disabledButton 
+                : null
+            ]}
             onPress={() => handleSwipe("right")}
-            disabled={isAnimating}
+            disabled={isAnimating || (swipeLimitInfo && !swipeLimitInfo.can_swipe)}
           >
             <Feather name="heart" size={32} color="#fff" />
           </TouchableOpacity>
@@ -771,28 +957,28 @@ export default function MatchScreen() {
 
   // Animate and switch bubble data
   const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
-    // Handle real data cycling
-    const nextIndex = (currentGroupIndex + 1) % matchingGroups.length;
-    setCurrentGroupIndex(nextIndex);
-
     // Handle empty state when no more groups
     if (matchingGroups.length === 0) {
+      console.log("❌ No more groups available");
       return;
     }
 
     // 🔍 DEBUG: 배열 범위 체크
     console.log("=== 🔄 CHANGE BUBBLE DEBUG ===");
-    console.log("Current Index:", currentGroupIndex);
-    console.log("Next Index:", nextIndex);
+    console.log("Current Index before:", currentGroupIndex);
     console.log("Groups Length:", matchingGroups.length);
+
+    // Reset to 0 if current index is out of bounds (after group removal)
+    let nextIndex = currentGroupIndex;
+    if (currentGroupIndex >= matchingGroups.length) {
+      console.log("❌ Current index out of bounds, resetting to 0");
+      nextIndex = 0;
+    }
+
+    console.log("Next Index:", nextIndex);
     console.log("Next Group:", matchingGroups[nextIndex]);
 
-    // 배열 범위 체크 추가
-    if (nextIndex >= matchingGroups.length) {
-      console.log("❌ Index out of bounds, resetting to 0");
-      setCurrentGroupIndex(0);
-      return;
-    }
+    setCurrentGroupIndex(nextIndex);
 
     // Optimized animation timing for real data
     const animationDuration = 350; // Slightly faster for better UX
@@ -818,9 +1004,18 @@ export default function MatchScreen() {
   };
 
   // Handler for X and Heart
-  // Handler for X and Heart
   const handleSwipe = async (direction: "left" | "right") => {
     if (isAnimating || !currentGroup) return;
+
+    // Check if swipes are available before attempting to swipe
+    if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
+      Alert.alert(
+        "Daily Limit Reached 🚫",
+        `You've used all ${swipeLimitInfo.daily_limit} swipes today. ${formatResetTime(swipeLimitInfo.reset_time)}.`,
+        [{ text: "OK", style: "default" }]
+      );
+      return;
+    }
 
     // Add haptic feedback
     if (Platform.OS === "ios") {
@@ -829,56 +1024,88 @@ export default function MatchScreen() {
 
     setIsAnimating(true);
 
-    if (direction === "right") {
-      // Visual feedback for like action
-      console.log(`[MatchScreen] Liking group: ${currentGroup.group_name}`);
+    try {
+      if (direction === "right") {
+        // Visual feedback for like action
+        console.log(`[MatchScreen] Liking group: ${currentGroup.group_name}`);
 
-      // [수정 1] 새로운 likeGroup 함수를 호출하고 그 결과를 response 변수에 저장합니다.
-      const response = await likeGroup(currentGroup.group_id);
+        const response = await likeGroup(currentGroup.group_id);
 
-      // [수정 2] 반환된 객체의 status 값으로 매칭 성공 여부를 확인합니다.
-      if (response?.status === "matched") {
-        // Enhanced match notification with haptic feedback
-        if (Platform.OS === "ios") {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        // Handle different response statuses
+        if (response?.status === "limit_exceeded") {
+          Alert.alert(
+            "Daily Limit Reached 🚫",
+            `You've used all your swipes today. ${response.swipe_info?.reset_time ? formatResetTime(response.swipe_info.reset_time) : 'Resets at midnight EST'}.`,
+            [{ text: "OK", style: "default" }]
+          );
+          setIsAnimating(false);
+          return;
+        } else if (response?.status === "matched") {
+          // Enhanced match notification with haptic feedback
+          if (Platform.OS === "ios") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
 
-        setRecentMatches((prev) => [...prev, currentGroup.group_id]);
-        Alert.alert(
-          "It's a Match! 🎉",
-          `You and ${currentGroup.group_name} liked each other!`,
-          [
-            {
-              text: "Continue Swiping",
-              style: "default",
-            },
-            {
-              text: "View Matches",
-              style: "default",
-              onPress: () => {
-                // [수정 3] 채팅 목록 화면으로 이동하는 로직을 추가할 수 있습니다.
-                // 예: router.push('/(tabs)/chats');
-                console.log(
-                  "Navigate to matches/chats screen. Chat Room ID:",
-                  response.chat_room_id
-                );
+          setRecentMatches((prev) => [...prev, currentGroup.group_id]);
+          Alert.alert(
+            "It's a Match! 🎉",
+            `You and ${currentGroup.group_name} liked each other!`,
+            [
+              {
+                text: "Continue Swiping",
+                style: "default",
               },
-            },
-          ]
-        );
+              {
+                text: "View Matches",
+                style: "default",
+                onPress: () => {
+                  // Navigate to chats screen
+                  console.log(
+                    "Navigate to matches/chats screen. Chat Room ID:",
+                    response.chat_room_id
+                  );
+                  router.push('/(tabs)/chats');
+                },
+              },
+            ]
+          );
+        } else if (response?.status === "error") {
+          Alert.alert("Error", response.message || "Failed to like group");
+          setIsAnimating(false);
+          return;
+        } else {
+          // 'liked' status - normal like without match
+          console.log(`[MatchScreen] Liked ${currentGroup.group_name} (no match yet)`);
+        }
       } else {
-        // 'liked' 상태이거나 null일 경우 (매칭 안됨)
-        console.log(
-          `[MatchScreen] Liked ${currentGroup.group_name} (no match yet)`
-        );
+        // Visual feedback for pass action
+        console.log(`[MatchScreen] Passing group: ${currentGroup.group_name}`);
+        
+        const response = await passGroup(currentGroup.group_id);
+        
+        // Handle different response statuses for pass
+        if (response?.status === "limit_exceeded") {
+          Alert.alert(
+            "Daily Limit Reached 🚫",
+            `You've used all your swipes today. ${response.swipe_info?.reset_time ? formatResetTime(response.swipe_info.reset_time) : 'Resets at midnight EST'}.`,
+            [{ text: "OK", style: "default" }]
+          );
+          setIsAnimating(false);
+          return;
+        } else if (response?.status === "error") {
+          Alert.alert("Error", response.message || "Failed to pass group");
+          setIsAnimating(false);
+          return;
+        }
       }
-    } else {
-      // Visual feedback for pass action
-      console.log(`[MatchScreen] Passing group: ${currentGroup.group_name}`);
-      await passGroup(currentGroup.group_id);
+    } catch (error) {
+      console.error("Error in handleSwipe:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
+      setIsAnimating(false);
+      return;
     }
 
-    // Animate OUT
+    // Animate OUT (only if swipe was successful)
     const targetX =
       direction === "left" ? -screenWidth * 0.5 : screenWidth * 0.5;
     translateX.value = withTiming(targetX, { duration: 400 });
@@ -1099,5 +1326,59 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 32,
+  },
+
+  // Swipe counter styles
+  swipeCounterContainer: {
+    position: "absolute",
+    bottom: 140,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 10,
+  },
+  swipeCounterBlur: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.3)",
+  },
+  swipeCounterText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#303030",
+  },
+  resetTimeText: {
+    fontSize: 12,
+    color: "#7A7A7A",
+    marginTop: 2,
+  },
+  disabledButton: {
+    opacity: 0.4,
+  },
+
+  // Limit reached state styles
+  limitReachedContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  limitReachedMessage: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#303030",
+    textAlign: "center",
+    lineHeight: 26,
+    marginBottom: 60,
+  },
+  countdownTimer: {
+    fontSize: 120,
+    fontWeight: "300",
+    color: "#80B7FF",
+    letterSpacing: 4,
+    textAlign: "center",
+    fontFamily: "System",
   },
 });

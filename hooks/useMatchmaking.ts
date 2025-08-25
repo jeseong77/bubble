@@ -30,8 +30,26 @@ export interface GroupMember {
 
 // [수정 1] like_group RPC의 새로운 응답 타입을 정의합니다.
 export interface LikeResponse {
-  status: "liked" | "matched";
+  status: "liked" | "matched" | "limit_exceeded" | "error";
   chat_room_id?: string; // 'matched' 상태일 때만 존재합니다.
+  message?: string; // Error message if status is error or limit_exceeded
+  swipe_info?: SwipeLimitInfo; // Daily swipe limit information
+}
+
+export interface PassResponse {
+  status: "passed" | "limit_exceeded" | "error";
+  message?: string; // Error message if status is error or limit_exceeded
+  swipe_info?: SwipeLimitInfo; // Daily swipe limit information
+}
+
+// Daily swipe limit information
+export interface SwipeLimitInfo {
+  remaining_swipes: number;
+  used_swipes: number;
+  daily_limit: number;
+  can_swipe: boolean;
+  reset_time: string; // ISO timestamp of next reset (midnight NYC)
+  limit_reached?: boolean; // True if just reached limit
 }
 
 // --- The Hook ---
@@ -46,6 +64,37 @@ export const useMatchmaking = () => {
   const [hasMore, setHasMore] = useState(true);
   const [currentOffset, setCurrentOffset] = useState(0);
   const [batchSize] = useState(5);
+  
+  // Daily swipe limit state
+  const [swipeLimitInfo, setSwipeLimitInfo] = useState<SwipeLimitInfo | null>(null);
+  const [isLoadingSwipeLimit, setIsLoadingSwipeLimit] = useState(false);
+
+  // Function to check daily swipe limits
+  const checkSwipeLimit = useCallback(async (groupId?: string) => {
+    const targetGroupId = groupId || currentUserGroup;
+    if (!targetGroupId) return null;
+
+    setIsLoadingSwipeLimit(true);
+    try {
+      const { data, error } = await supabase.rpc("check_daily_swipe_limit", {
+        p_group_id: targetGroupId,
+      });
+
+      if (error) {
+        console.error("Error checking swipe limit:", error);
+        return null;
+      }
+
+      const swipeInfo = data as SwipeLimitInfo;
+      setSwipeLimitInfo(swipeInfo);
+      return swipeInfo;
+    } catch (err) {
+      console.error("Error in checkSwipeLimit:", err);
+      return null;
+    } finally {
+      setIsLoadingSwipeLimit(false);
+    }
+  }, [currentUserGroup]);
 
   const fetchCurrentUserGroup = useCallback(async () => {
     if (!session?.user) return null;
@@ -203,16 +252,26 @@ export const useMatchmaking = () => {
 
         if (error) throw error;
 
-        setMatchingGroups((prev) =>
-          prev.filter((group) => group.group_id !== targetGroupId)
-        );
+        const response = data as LikeResponse;
 
-        if (matchingGroups.length <= 3 && hasMore) {
-          await loadMore();
+        // Update swipe limit info if provided
+        if (response.swipe_info) {
+          setSwipeLimitInfo(response.swipe_info);
+        }
+
+        // Only remove from UI if the swipe was successful (not limit exceeded)
+        if (response.status !== 'limit_exceeded') {
+          setMatchingGroups((prev) =>
+            prev.filter((group) => group.group_id !== targetGroupId)
+          );
+
+          if (matchingGroups.length <= 3 && hasMore) {
+            await loadMore();
+          }
         }
 
         // [수정 3] RPC 결과를 명시적 타입으로 변환하여 반환합니다.
-        return data as LikeResponse;
+        return response;
       } catch (err) {
         console.error("Error liking group:", err);
         return null;
@@ -222,36 +281,45 @@ export const useMatchmaking = () => {
   );
 
   const passGroup = useCallback(
-    async (targetGroupId: string) => {
-      if (!currentUserGroup) return;
+    async (targetGroupId: string): Promise<PassResponse | null> => {
+      if (!currentUserGroup) return null;
 
       try {
         // Call the pass_group RPC to store the pass in database
-        const { error } = await supabase.rpc("pass_group", {
+        const { data, error } = await supabase.rpc("pass_group", {
           p_from_group_id: currentUserGroup,
           p_to_group_id: targetGroupId,
         });
 
         if (error) {
           console.error("Error recording pass:", error);
-          // Continue with UI removal even if RPC fails
+          return null;
         }
 
-        // Remove from UI immediately for user feedback
-        setMatchingGroups((prev) =>
-          prev.filter((group) => group.group_id !== targetGroupId)
-        );
+        const response = data as PassResponse;
 
-        // Load more if running low on groups
-        if (matchingGroups.length <= 3 && hasMore) {
-          loadMore();
+        // Update swipe limit info if provided
+        if (response.swipe_info) {
+          setSwipeLimitInfo(response.swipe_info);
         }
+
+        // Only remove from UI if the swipe was successful (not limit exceeded)
+        if (response.status !== 'limit_exceeded') {
+          // Remove from UI immediately for user feedback
+          setMatchingGroups((prev) =>
+            prev.filter((group) => group.group_id !== targetGroupId)
+          );
+
+          // Load more if running low on groups
+          if (matchingGroups.length <= 3 && hasMore) {
+            loadMore();
+          }
+        }
+
+        return response;
       } catch (err) {
         console.error("Error in passGroup:", err);
-        // Still remove from UI even if database operation fails
-        setMatchingGroups((prev) =>
-          prev.filter((group) => group.group_id !== targetGroupId)
-        );
+        return null;
       }
     },
     [currentUserGroup, matchingGroups.length, hasMore, loadMore]
@@ -261,12 +329,16 @@ export const useMatchmaking = () => {
     const initialize = async () => {
       const groupId = await fetchCurrentUserGroup();
       if (groupId) {
-        await fetchMatchingGroups(groupId, 0, false);
+        // Check swipe limits and fetch matching groups in parallel
+        await Promise.all([
+          checkSwipeLimit(groupId),
+          fetchMatchingGroups(groupId, 0, false)
+        ]);
       }
     };
 
     initialize();
-  }, [fetchCurrentUserGroup, fetchMatchingGroups]);
+  }, [fetchCurrentUserGroup, fetchMatchingGroups, checkSwipeLimit]);
 
   // Full refresh method that re-detects active group and refreshes everything
   const refreshAll = useCallback(async () => {
@@ -278,15 +350,19 @@ export const useMatchmaking = () => {
     setHasMore(true);
     setError(null);
     setIsLoading(true);
+    setSwipeLimitInfo(null); // Reset swipe limit info
     
     try {
       // Re-fetch current user group (may have changed)
       const groupId = await fetchCurrentUserGroup();
       console.log("[useMatchmaking] Active group after refresh:", groupId, "Previous:", currentUserGroup);
       
-      // Fetch matching groups for the (possibly new) active group
+      // Fetch matching groups and swipe limits for the (possibly new) active group
       if (groupId) {
-        await fetchMatchingGroups(groupId, 0, false);
+        await Promise.all([
+          checkSwipeLimit(groupId),
+          fetchMatchingGroups(groupId, 0, false)
+        ]);
       } else {
         // No active group - clear everything
         setIsLoading(false);
@@ -297,7 +373,7 @@ export const useMatchmaking = () => {
       setError("Failed to refresh matchmaking data");
       setIsLoading(false);
     }
-  }, [fetchCurrentUserGroup, fetchMatchingGroups, currentUserGroup]);
+  }, [fetchCurrentUserGroup, fetchMatchingGroups, checkSwipeLimit, currentUserGroup]);
 
   return {
     matchingGroups,
@@ -314,8 +390,13 @@ export const useMatchmaking = () => {
       if (currentUserGroup) {
         setCurrentOffset(0);
         fetchMatchingGroups(currentUserGroup, 0, false);
+        checkSwipeLimit(currentUserGroup); // Also refresh swipe limits
       }
     },
     refreshAll,
+    // Swipe limit related functions and state
+    swipeLimitInfo,
+    isLoadingSwipeLimit,
+    checkSwipeLimit,
   };
 };

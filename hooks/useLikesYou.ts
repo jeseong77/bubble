@@ -38,7 +38,7 @@ export interface LikeResponse {
 // --- The Hook ---
 export const useLikesYou = () => {
   const { session } = useAuth();
-  const { setUnreadLikesCount, decrementUnreadLikes } = useUIStore();
+  const { setUnreadLikesCount, decrementUnreadLikes, setRefreshLikesCount } = useUIStore();
   const [incomingLikes, setIncomingLikes] = useState<IncomingLikeGroup[]>([]);
   const [currentUserGroup, setCurrentUserGroup] = useState<string | null>(null);
   const [currentUserGroupStatus, setCurrentUserGroupStatus] = useState<string | null>(null);
@@ -270,6 +270,18 @@ export const useLikesYou = () => {
     },
     [currentUserGroup, incomingLikes.length, hasMore, loadMore]
   );
+
+  // Register the refresh function with UIStore for global access
+  useEffect(() => {
+    const refreshForUser = async (userId: string) => {
+      console.log(`[useLikesYou] Global refresh called for user: ${userId}`);
+      if (currentUserGroup) {
+        await fetchIncomingLikes(currentUserGroup, 0, false);
+      }
+    };
+
+    setRefreshLikesCount(refreshForUser);
+  }, [currentUserGroup, fetchIncomingLikes, setRefreshLikesCount]);
 
   useEffect(() => {
     const initialize = async () => {
