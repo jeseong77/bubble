@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // useEffect 추가
+import React, { useState, useEffect } from "react"; // useEffect added
 import {
   View,
   Text,
@@ -15,10 +15,10 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase"; // supabase 클라이언트 추가
+import { supabase } from "@/lib/supabase"; // supabase client added
 import { useAuth } from "@/providers/AuthProvider";
 
-// 스켈레톤 컴포넌트들
+// Skeleton components
 const SkeletonView = ({
   width,
   height,
@@ -77,7 +77,7 @@ const SkeletonText = ({
   />
 );
 
-// 멤버 타입 정의 (간단한 버전)
+// Member type definition (simple version)
 interface BubbleMember {
   id: string;
   first_name: string;
@@ -89,27 +89,27 @@ export default function BubbleFormScreen() {
   const router = useRouter();
   const { session } = useAuth(); // Needed for handlePopBubble
 
-  // 이전 화면에서 전달된 파라미터 가져오기
+  // Get parameters passed from previous screen
   const {
-    groupId, // groupId를 받음
-    isExistingBubble, // 기존 버블인지 여부
+    groupId, // Receive groupId
+    isExistingBubble, // Whether it's an existing bubble
   } = useLocalSearchParams<{
     groupId: string;
     isExistingBubble?: string;
   }>();
 
-  // 버블 이름은 이 화면에서 관리
+  // Bubble name is managed in this screen
   const [bubbleName, setBubbleName] = useState("");
-  const [creatorSignedUrl, setCreatorSignedUrl] = useState<string | null>(null); // 이미지 URL 상태 추가
-  const [bubbleMembers, setBubbleMembers] = useState<BubbleMember[]>([]); // 버블 멤버 정보
+  const [creatorSignedUrl, setCreatorSignedUrl] = useState<string | null>(null); // Image URL state added
+  const [bubbleMembers, setBubbleMembers] = useState<BubbleMember[]>([]); // Bubble member info
   const [memberSignedUrls, setMemberSignedUrls] = useState<{
     [key: string]: string;
-  }>({}); // 멤버별 Signed URL
-  const [bubbleInfo, setBubbleInfo] = useState<any>(null); // 전체 버블 정보
-  const [isLoading, setIsLoading] = useState(false); // 로딩 상태
-  const [isMembersLoading, setIsMembersLoading] = useState(false); // 멤버 로딩 상태
+  }>({}); // Signed URL per member
+  const [bubbleInfo, setBubbleInfo] = useState<any>(null); // Complete bubble info
+  const [isLoading, setIsLoading] = useState(false); // Loading state
+  const [isMembersLoading, setIsMembersLoading] = useState(false); // Members loading state
 
-  // get_bubble RPC를 사용하여 버블 정보 가져오기
+  // Fetch bubble info using get_bubble RPC
   useEffect(() => {
     const fetchBubbleInfo = async () => {
       if (groupId) { // Fetch for both new and existing bubbles
@@ -146,13 +146,13 @@ export default function BubbleFormScreen() {
             console.log("Members field:", bubbleInfo.members);
             console.log("Members field type:", typeof bubbleInfo.members);
 
-            // 버블 이름 설정
+            // Set bubble name
             setBubbleName(bubbleInfo.name || "");
 
-            // 전체 버블 정보 저장
+            // Store complete bubble info
             setBubbleInfo(bubbleInfo);
 
-            // 멤버 정보 설정 (JSON 파싱)
+            // Set member info (JSON parsing)
             if (bubbleInfo.members) {
               try {
                 const members = Array.isArray(bubbleInfo.members)
@@ -163,7 +163,7 @@ export default function BubbleFormScreen() {
                 console.log("Parsed members:", members);
                 console.log("Members count:", members.length);
               } catch (parseError) {
-                console.error("멤버 정보 파싱 실패:", parseError);
+                console.error("Failed to parse member info:", parseError);
                 console.log("Raw members data:", bubbleInfo.members);
                 setBubbleMembers([]);
               }
@@ -185,7 +185,7 @@ export default function BubbleFormScreen() {
     fetchBubbleInfo();
   }, [isExistingBubble, groupId]);
 
-  // 멤버들의 프로필 이미지 URL 설정 (새로운 구조에 맞게)
+  // Set member profile image URLs (according to new structure)
   useEffect(() => {
     if (bubbleMembers.length === 0) return;
 
@@ -193,7 +193,7 @@ export default function BubbleFormScreen() {
     const urls: { [key: string]: string } = {};
 
     for (const member of bubbleMembers) {
-      // 간단한 구조: member.avatar_url을 직접 사용
+      // Simple structure: use member.avatar_url directly
       if (member.avatar_url) {
         urls[member.id] = member.avatar_url;
       }
@@ -203,20 +203,20 @@ export default function BubbleFormScreen() {
     setIsMembersLoading(false);
   }, [bubbleMembers]);
 
-  // 버블 크기 계산 (기존 버블의 경우 max_size 사용, 새 버블의 경우 기본값 2)
+  // Calculate bubble size (use max_size for existing bubbles, default 2 for new bubbles)
   const bubbleMemberCount = bubbleInfo?.max_size || 2;
 
-  // 생성자 이미지 URL 설정 (간단한 구조에 맞게)
+  // Set creator image URL (according to simple structure)
   useEffect(() => {
     if (bubbleMembers.length > 0 && bubbleMembers[0]?.avatar_url) {
-      // 생성자 이미지 URL 설정
+      // Set creator image URL
       setCreatorSignedUrl(bubbleMembers[0].avatar_url);
     }
   }, [bubbleMembers]);
 
-  // 기존 버블의 멤버 정보는 이미 파라미터로 전달받았으므로 별도 RPC 호출 불필요
+  // Member info for existing bubbles already passed as parameters, no need for separate RPC call
 
-  // ... (기존 bubbleSize 계산 로직)
+  // ... (existing bubbleSize calculation logic)
   const screenWidth = Dimensions.get("window").width;
   const totalBubblesWidth = screenWidth * 0.9;
   const overlapRatio = 0.18;
@@ -227,16 +227,16 @@ export default function BubbleFormScreen() {
 
   const handleInviteFriend = async () => {
     if (!bubbleName.trim()) {
-      alert("버블 이름을 입력해주세요.");
+      alert("Please enter a bubble name.");
       return;
     }
 
     try {
-      // 기존 버블인지 새 버블인지 확인
+      // Check if it's an existing bubble or new bubble
       const isExisting = isExistingBubble === "true";
 
       if (isExisting) {
-        // 기존 버블의 경우 이름만 업데이트
+        // For existing bubbles, only update the name
         const { error } = await supabase
           .from("groups")
           .update({ name: bubbleName })
@@ -244,11 +244,11 @@ export default function BubbleFormScreen() {
 
         if (error) throw error;
 
-        console.log("기존 버블 이름 업데이트 완료:", bubbleName);
-        // TODO: 기존 버블의 경우 멤버 관리 화면으로 이동하거나 다른 처리
-        alert("버블 이름이 업데이트되었습니다.");
+        console.log("Existing bubble name update complete:", bubbleName);
+        // TODO: For existing bubbles, navigate to member management screen or other handling
+        alert("Bubble name has been updated.");
       } else {
-        // 새 버블의 경우 이름 업데이트 후 친구 초대 화면으로 이동
+        // For new bubbles, update name then navigate to friend invitation screen
         const { error } = await supabase
           .from("groups")
           .update({ name: bubbleName })
@@ -266,7 +266,7 @@ export default function BubbleFormScreen() {
       }
     } catch (error) {
       console.error("Error updating bubble name:", error);
-      alert("버블 이름 저장에 실패했습니다. 다시 시도해주세요.");
+      alert("Failed to save bubble name. Please try again.");
     }
   };
 
@@ -438,20 +438,20 @@ export default function BubbleFormScreen() {
               position: "relative",
             }}
           >
-            {/* 모든 버블 슬롯을 나란히 표시 */}
+            {/* Display all bubble slots side by side */}
             {Array.from({ length: bubbleMemberCount }).map((_, index) => {
               const isExisting = isExistingBubble === "true";
 
-              // 기존 버블의 경우: 멤버 배열에서 해당 인덱스의 멤버를 찾거나 빈 슬롯
-              // 새 버블의 경우: 첫 번째는 생성자, 나머지는 초대 슬롯
+              // For existing bubbles: find member at corresponding index in member array or empty slot
+              // For new bubbles: first is creator, rest are invitation slots
               let member = null;
               let isCreator = false;
 
               if (isExisting) {
-                // 기존 버블: 모든 슬롯이 나란히 표시
+                // Existing bubble: all slots displayed side by side
                 member = bubbleMembers[index];
               } else {
-                // 새 버블: 첫 번째는 생성자
+                // New bubble: first is creator
                 if (index === 0) {
                   isCreator = true;
                 }
@@ -466,13 +466,13 @@ export default function BubbleFormScreen() {
                       position: "absolute",
                       left: index * overlapOffset,
                       top: 0,
-                      zIndex: bubbleMemberCount - index, // zIndex를 다르게 주어 겹치게 함
+                      zIndex: bubbleMemberCount - index, // Different zIndex to overlap
                       alignItems: "center",
                     },
                   ]}
                 >
                   {isCreator ? (
-                    // 생성자 표시 (새 버블의 첫 번째 슬롯)
+                    // Display creator (first slot of new bubble)
                     <View style={styles.bubbleContent}>
                       {isLoading || isMembersLoading ? (
                         <>
@@ -530,7 +530,7 @@ export default function BubbleFormScreen() {
                       )}
                     </View>
                   ) : isExisting && member ? (
-                    // 기존 멤버 표시
+                    // Display existing member
                     <View style={styles.bubbleContent}>
                       {isMembersLoading ? (
                         <>
@@ -554,7 +554,7 @@ export default function BubbleFormScreen() {
                                 color:
                                   member.status === "invited"
                                     ? "#D9D9D9"
-                                    : "#222", // invited면 disabledButton 색
+                                    : "#222", // disabledButton color if invited
                               },
                             ]}
                           >
@@ -576,7 +576,7 @@ export default function BubbleFormScreen() {
                                   borderRadius: bubbleSize / 2,
                                   marginBottom: 0,
                                   opacity:
-                                    member.status === "invited" ? 0.6 : 1, // invited면 0.6 opacity
+                                    member.status === "invited" ? 0.6 : 1, // 0.6 opacity if invited
                                 },
                               ]}
                             />
@@ -604,7 +604,7 @@ export default function BubbleFormScreen() {
                       )}
                     </View>
                   ) : isExisting ? (
-                    // 기존 버블의 빈 슬롯 (멤버가 없는 경우)
+                    // Empty slot for existing bubble (when no member)
                     <View style={styles.bubbleContent}>
                       {isLoading ? (
                         <>
@@ -658,7 +658,7 @@ export default function BubbleFormScreen() {
                       )}
                     </View>
                   ) : (
-                    // 새 버블의 초대 슬롯
+                    // Invitation slot for new bubble
                     <TouchableOpacity
                       onPress={() => {
                         router.push({

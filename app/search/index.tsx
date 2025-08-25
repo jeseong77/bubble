@@ -48,7 +48,7 @@ export default function SearchScreen() {
   const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
-  // URL 유효성 검사 함수
+  // URL validity check function
   const isValidUrl = (url: string): boolean => {
     try {
       const urlObj = new URL(url);
@@ -59,7 +59,7 @@ export default function SearchScreen() {
     }
   };
 
-  // 안전한 이미지 URL 가져오기 (Supabase Storage 최적화)
+  // Get safe image URL (Supabase Storage optimized)
   const getSafeImageUrl = (userId: string, avatarUrl: string | null): string => {
     const fallbackUrl = "https://via.placeholder.com/50/CCCCCC/FFFFFF?text=User";
     
@@ -70,20 +70,20 @@ export default function SearchScreen() {
       hasAvatarUrl: !!avatarUrl
     });
     
-    // 1. Signed URL이 있고 유효한 경우
+    // 1. If Signed URL exists and is valid
     const signedUrl = signedUrls[userId];
     if (signedUrl && isValidUrl(signedUrl)) {
       console.log(`[getSafeImageUrl] Using signed URL for user ${userId}`);
       return signedUrl;
     }
     
-    // 2. Avatar URL이 있고 유효한 경우
+    // 2. If Avatar URL exists and is valid
     if (avatarUrl && isValidUrl(avatarUrl)) {
       console.log(`[getSafeImageUrl] Using avatar URL for user ${userId}`);
       return avatarUrl;
     }
     
-    // 3. 모든 URL이 유효하지 않으면 fallback 사용
+    // 3. If all URLs are invalid, use fallback
     console.log(`[getSafeImageUrl] Using fallback for user ${userId}`);
     return fallbackUrl;
   };
@@ -110,7 +110,7 @@ export default function SearchScreen() {
     fetchCurrentUserGender();
   }, [session?.user?.id]);
 
-  // 디바운싱 효과
+  // Debouncing effect
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -119,7 +119,7 @@ export default function SearchScreen() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 검색 실행
+  // Execute search
   useEffect(() => {
     if (debouncedSearchTerm.trim().length >= 2) {
       searchUsers(debouncedSearchTerm);
@@ -148,14 +148,14 @@ export default function SearchScreen() {
           const signedUrl = await createSignedUrlForAvatar(user.avatar_url, 3600);
           
           if (signedUrl && isValidUrl(signedUrl)) {
-            console.log(`[generateSignedUrls] Signed URL 생성 성공 for user ${user.id}`);
+            console.log(`[generateSignedUrls] Signed URL generation successful for user ${user.id}`);
             urls[user.id] = signedUrl;
           } else {
-            console.warn(`[generateSignedUrls] Signed URL 생성 실패, 원본 URL 사용 for user ${user.id}`);
+            console.warn(`[generateSignedUrls] Signed URL generation failed, using original URL for user ${user.id}`);
             if (isValidUrl(user.avatar_url)) {
               urls[user.id] = user.avatar_url;
             } else {
-              console.error(`[generateSignedUrls] 원본 avatar_url도 유효하지 않음 for user ${user.id}: ${user.avatar_url}`);
+              console.error(`[generateSignedUrls] Original avatar_url is also invalid for user ${user.id}: ${user.avatar_url}`);
             }
           }
         } catch (error) {
@@ -169,7 +169,7 @@ export default function SearchScreen() {
       }
     }
 
-    console.log(`[generateSignedUrls] 생성된 URLs:`, Object.keys(urls).length, urls);
+    console.log(`[generateSignedUrls] Generated URLs:`, Object.keys(urls).length, urls);
     setSignedUrls(urls);
   };
 
@@ -179,27 +179,27 @@ export default function SearchScreen() {
       return;
     }
 
-    console.log(`[SearchScreen] 검색 시작: "${searchTerm}"`);
-    console.log(`[SearchScreen] 제외할 유저 ID: ${session.user.id}`);
-    console.log(`[SearchScreen] 제외할 그룹 ID: ${groupId}`);
+    console.log(`[SearchScreen] Search started: "${searchTerm}"`);
+    console.log(`[SearchScreen] Excluding User ID: ${session.user.id}`);
+    console.log(`[SearchScreen] Excluding Group ID: ${groupId}`);
 
     setIsSearching(true);
     try {
-      // 1. 먼저 모든 유저를 검색 (초대 상태와 관계없이)
+      // 1. First search all users (regardless of invitation status)
       const { data: allUsers, error: searchError } = await supabase.rpc(
         "search_users",
         {
           p_search_term: searchTerm.trim(),
           p_exclude_user_id: session.user.id,
-          p_exclude_group_id: null, // 그룹 제외 없이 검색
+          p_exclude_group_id: null, // Search without excluding groups
         }
       );
 
-      console.log(`[SearchScreen] 전체 검색 결과:`, { allUsers, searchError });
+      console.log(`[SearchScreen] Complete search results:`, { allUsers, searchError });
 
       if (searchError) throw searchError;
 
-      // 2. 현재 그룹의 멤버 정보 가져오기 (간단한 RPC 사용)
+      // 2. Get current group member information (using simple RPC)
       const { data: groupMembers, error: membersError } = await supabase.rpc(
         "get_group_member_statuses",
         {
@@ -207,28 +207,28 @@ export default function SearchScreen() {
         }
       );
 
-      console.log(`[SearchScreen] 그룹 멤버 정보:`, {
+      console.log(`[SearchScreen] Group member information:`, {
         groupMembers,
         membersError,
       });
 
       if (membersError) throw membersError;
 
-      // 3. 멤버 상태 매핑
+      // 3. Member status mapping
       const memberStatusMap = new Map();
       groupMembers?.forEach((member) => {
         memberStatusMap.set(member.user_id, member.status);
       });
 
-      // 4. 검색 결과에 초대 상태 추가
+      // 4. Add invitation status to search results
       const usersWithStatus =
         allUsers?.map((user) => ({
           ...user,
           displayName: user.username,
-          invitationStatus: memberStatusMap.get(user.id) || null, // 'invited', 'joined', 'declined' 또는 null
+          invitationStatus: memberStatusMap.get(user.id) || null, // 'invited', 'joined', 'declined' or null
         })) || [];
 
-      console.log(`[SearchScreen] 상태가 추가된 검색 결과:`, usersWithStatus);
+      console.log(`[SearchScreen] Search results with status added:`, usersWithStatus);
       
       // Log avatar URLs to debug format
       usersWithStatus.forEach(user => {
@@ -237,12 +237,12 @@ export default function SearchScreen() {
 
       setSearchResults(usersWithStatus);
 
-      // Signed URL 생성
+      // Generate Signed URLs
       if (usersWithStatus.length > 0) {
         generateSignedUrls(usersWithStatus);
       }
     } catch (error) {
-      console.error("[SearchScreen] 검색 에러:", error);
+      console.error("[SearchScreen] Search error:", error);
       Alert.alert("Error", "Failed to search users");
     } finally {
       setIsSearching(false);
@@ -257,9 +257,9 @@ export default function SearchScreen() {
       return;
     }
 
-    console.log(`[SearchScreen] 초대 전송 시도: ${userName} (ID: ${userId})`);
-    console.log(`[SearchScreen] 그룹 ID: ${groupId}`);
-    console.log(`[SearchScreen] 초대자 ID: ${session.user.id}`);
+    console.log(`[SearchScreen] Attempting to send invitation: ${userName} (ID: ${userId})`);
+    console.log(`[SearchScreen] Group ID: ${groupId}`);
+    console.log(`[SearchScreen] Inviter ID: ${session.user.id}`);
 
     try {
       const { data, error } = await supabase.rpc("send_invitation", {
@@ -268,15 +268,15 @@ export default function SearchScreen() {
         p_invited_by_user_id: session.user.id,
       });
 
-      console.log(`[SearchScreen] RPC 응답:`, { data, error });
+      console.log(`[SearchScreen] RPC response:`, { data, error });
 
       if (error) {
-        console.error(`[SearchScreen] 초대 전송 에러:`, error);
+        console.error(`[SearchScreen] Invitation sending error:`, error);
         throw error;
       }
 
       if (data) {
-        console.log(`[SearchScreen] ==================== 초대 전송 응답 분석 ====================`);
+        console.log(`[SearchScreen] ==================== Invitation Sending Response Analysis ====================`);
         console.log(`[SearchScreen] Raw response:`, JSON.stringify(data, null, 2));
         console.log(`[SearchScreen] - success: ${data.success}`);
         console.log(`[SearchScreen] - already_exists: ${data.already_exists}`);
@@ -287,7 +287,7 @@ export default function SearchScreen() {
 
         // More permissive UI update logic - update UI if invitation was successful OR already exists
         if (data.success || data.already_exists) {
-          console.log(`[SearchScreen] ✅ 초대 성공 또는 이미 존재: ${userName}`);
+          console.log(`[SearchScreen] ✅ Invitation successful or already exists: ${userName}`);
           console.log(`[SearchScreen] - success: ${data.success}, already_exists: ${data.already_exists}`);
           console.log(`[SearchScreen] - verification_status: ${data.verification_status}`);
           
@@ -300,7 +300,7 @@ export default function SearchScreen() {
             )
           );
         } else {
-          console.error(`[SearchScreen] ❌ 초대 전송 실패: ${userName}`, {
+          console.error(`[SearchScreen] ❌ Invitation sending failed: ${userName}`, {
             success: data.success,
             already_exists: data.already_exists,
             verification_status: data.verification_status,
@@ -311,7 +311,7 @@ export default function SearchScreen() {
         }
       } else {
         console.log(
-          `[SearchScreen] 초대 전송 실패: ${userName} - 이미 초대됨 또는 그룹이 가득참`
+          `[SearchScreen] Invitation sending failed: ${userName} - Already invited or group is full`
         );
         Alert.alert(
           "Error",
@@ -319,7 +319,7 @@ export default function SearchScreen() {
         );
       }
     } catch (error) {
-      console.error(`[SearchScreen] 초대 전송 중 예외 발생:`, error);
+      console.error(`[SearchScreen] Exception during invitation sending:`, error);
       Alert.alert("Error", "Failed to send invitation");
     }
   };
@@ -344,7 +344,7 @@ export default function SearchScreen() {
     const isGroupIdValid = uuidRegex.test(groupId);
     const isUserIdValid = uuidRegex.test(userId);
     
-    console.log(`[SearchScreen] UUID 검증 - groupId: ${isGroupIdValid}, userId: ${isUserIdValid}`);
+    console.log(`[SearchScreen] UUID validation - groupId: ${isGroupIdValid}, userId: ${isUserIdValid}`);
     
     if (!isGroupIdValid || !isUserIdValid) {
       console.error(`[SearchScreen] Invalid UUID format`, { groupId, userId });
@@ -371,12 +371,12 @@ export default function SearchScreen() {
       };
       const { data, error } = await supabase.rpc("force_delete_invitation", forceParams);
 
-      console.log(`[SearchScreen] ==================== RPC 응답 ====================`);
+      console.log(`[SearchScreen] ==================== RPC Response ====================`);
       console.log(`[SearchScreen] Raw data:`, JSON.stringify(data, null, 2));
       console.log(`[SearchScreen] Raw error:`, JSON.stringify(error, null, 2));
       
       if (error) {
-        console.error(`[SearchScreen] 에러 발생:`, {
+        console.error(`[SearchScreen] Error occurred:`, {
           message: error.message,
           code: error.code,
           details: error.details,
@@ -389,14 +389,14 @@ export default function SearchScreen() {
 
       // Handle force delete response
       if (data) {
-        console.log(`[SearchScreen] ==================== FORCE DELETE 응답 ====================`);
+        console.log(`[SearchScreen] ==================== FORCE DELETE Response ====================`);
         console.log(`[SearchScreen] - success: ${data.success}`);
         console.log(`[SearchScreen] - deleted_count: ${data.deleted_count}`);
         console.log(`[SearchScreen] - sql_executed: ${data.sql_executed}`);
 
         if (data.success) {
-          console.log(`[SearchScreen] 🔥 FORCE DELETE 성공: ${userName} (${data.deleted_count}개 레코드 삭제됨)`);
-          console.log(`[SearchScreen] 실행된 SQL: ${data.sql_executed}`);
+          console.log(`[SearchScreen] 🔥 FORCE DELETE successful: ${userName} (${data.deleted_count} records deleted)`);
+          console.log(`[SearchScreen] Executed SQL: ${data.sql_executed}`);
           // Update the user's invitation status back to null (no invitation)
           setSearchResults(prevResults => 
             prevResults.map(user => 
@@ -407,8 +407,8 @@ export default function SearchScreen() {
           );
           Alert.alert("Success!", `Invitation cancelled for ${userName}`);
         } else {
-          console.error(`[SearchScreen] ❌ FORCE DELETE도 실패: ${userName}`);
-          console.error(`[SearchScreen] 실행된 SQL: ${data.sql_executed}`);
+          console.error(`[SearchScreen] ❌ Even FORCE DELETE failed: ${userName}`);
+          console.error(`[SearchScreen] Executed SQL: ${data.sql_executed}`);
           Alert.alert("Error", `Even force delete failed for ${userName}. This shouldn't happen!`);
         }
       } else {
@@ -418,8 +418,8 @@ export default function SearchScreen() {
       
       console.log(`[SearchScreen] ==================== CANCEL INVITATION END ====================`);
     } catch (error) {
-      console.error(`[SearchScreen] 예외 발생:`, error);
-      console.error(`[SearchScreen] 예외 전체 객체:`, JSON.stringify(error, null, 2));
+      console.error(`[SearchScreen] Exception occurred:`, error);
+      console.error(`[SearchScreen] Complete exception object:`, JSON.stringify(error, null, 2));
       Alert.alert("Error", `Exception during cancel: ${error}`);
     }
   };
@@ -428,7 +428,7 @@ export default function SearchScreen() {
     const isInvited = item.invitationStatus === "invited";
     const isJoined = item.invitationStatus === "joined";
     const isDeclined = item.invitationStatus === "declined";
-    const canInvite = !item.invitationStatus; // 초대 상태가 없을 때만 초대 가능
+    const canInvite = !item.invitationStatus; // Can only invite when there's no invitation status
 
     return (
       <View
@@ -444,11 +444,11 @@ export default function SearchScreen() {
           defaultSource={{ uri: "https://via.placeholder.com/50/CCCCCC/FFFFFF?text=User" }}
           onError={(error) => {
             console.error(
-              `유저 ${item.id} 이미지 로드 실패:`,
+              `User ${item.id} image load failed:`,
               error.nativeEvent,
-              `사용된 URL: ${getSafeImageUrl(item.id, item.avatar_url)}`
+              `Used URL: ${getSafeImageUrl(item.id, item.avatar_url)}`
             );
-            // 이미지 로드 실패시 해당 유저의 signedUrl을 제거하여 다시 fallback 사용
+            // When image load fails, remove that user's signedUrl to use fallback again
             setSignedUrls(prev => {
               const updated = { ...prev };
               delete updated[item.id];
@@ -457,7 +457,7 @@ export default function SearchScreen() {
           }}
           onLoad={() => {
             console.log(
-              `유저 ${item.id} 이미지 로드 성공:`,
+              `User ${item.id} image load successful:`,
               getSafeImageUrl(item.id, item.avatar_url)
             );
           }}
@@ -485,7 +485,7 @@ export default function SearchScreen() {
           </Text>
         </View>
 
-        {/* 초대 버튼 또는 상태 표시 */}
+        {/* Invite button or status display */}
         {canInvite ? (
           <TouchableOpacity
             style={styles.inviteButton}
@@ -498,16 +498,13 @@ export default function SearchScreen() {
             />
           </TouchableOpacity>
         ) : isInvited ? (
-          <TouchableOpacity
-            style={styles.inviteButton}
-            onPress={() => cancelInvitation(item.id, item.displayName)}
-          >
+          <View style={styles.inviteButton}>
             <Ionicons
               name="checkmark-circle"
               size={24}
               color={colors.primary}
             />
-          </TouchableOpacity>
+          </View>
         ) : isJoined ? (
           <View style={styles.inviteButton}>
             <Ionicons
@@ -571,7 +568,7 @@ export default function SearchScreen() {
       />
 
       <View style={styles.content}>
-        {/* 검색 입력 */}
+        {/* Search input */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color={colors.darkGray} />
           <TextInput
@@ -589,7 +586,7 @@ export default function SearchScreen() {
           )}
         </View>
 
-        {/* 검색 결과 */}
+        {/* Search results */}
         <FlatList
           data={searchResults}
           renderItem={renderUserRow}

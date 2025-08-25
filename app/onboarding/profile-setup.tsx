@@ -51,12 +51,21 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
       if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31)
         return false;
       const date = new Date(yearNum, monthNum - 1, dayNum);
-      return (
-        date.getFullYear() === yearNum &&
-        date.getMonth() === monthNum - 1 &&
-        date.getDate() === dayNum &&
-        date <= new Date()
-      );
+      const today = new Date();
+      
+      // Check if date is valid and not in the future
+      if (
+        date.getFullYear() !== yearNum ||
+        date.getMonth() !== monthNum - 1 ||
+        date.getDate() !== dayNum ||
+        date > today
+      ) {
+        return false;
+      }
+      
+      // Calculate age and check maximum (99 years old)
+      const age = calculateAge(date);
+      return age <= 99;
     case 3:
       return true; // Height is optional, always valid
     case 4:

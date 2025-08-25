@@ -20,7 +20,7 @@
 -- WHERE current_num_users >= max_size AND status = 'forming';
 -- =====================================================
 
--- 사용자가 속한 그룹 조회 (joined 상태 유저만, 디버그 추가) - NEW VERSION
+-- Get user's groups (joined users only, debug added) - NEW VERSION
 CREATE OR REPLACE FUNCTION get_my_bubbles_v2(p_user_id UUID)
 RETURNS TABLE(
     id UUID,
@@ -53,22 +53,22 @@ BEGIN
     g.name,
     g.status,
     g.max_size,
-    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 - ALL members including joined and invited
+    -- Create member list for each group as JSON array - ALL members including joined and invited
     COALESCE(
       (
         SELECT json_agg(
-          -- 각 멤버 정보를 JSON 객체로 만듭니다.
+          -- Create each member info as JSON object.
           json_build_object(
             'id', u.id,
             'first_name', u.first_name,
             'last_name', u.last_name,
             'status', gm2.status,
-            -- 각 멤버의 이미지 목록을 다시 JSON 배열로 만듭니다.
+            -- Create image list for each member as JSON array again.
             'images', (
               SELECT COALESCE(json_agg(
                 json_build_object(
                   'id', ui.id,
-                  -- 직접 공개 URL 사용 (storage.get_public_url() 제거)
+                  -- Use public URL directly (remove storage.get_public_url())
                   'image_url', ui.image_url,
                   'position', ui.position
                 ) ORDER BY ui.position
@@ -90,7 +90,7 @@ BEGIN
     ) as members,
     gm.status as user_status,
     gm.invited_at,
-    -- 그룹 생성자 정보 추가
+    -- Add group creator info
     COALESCE(
       (
         SELECT json_build_object(
@@ -130,7 +130,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 매칭 그룹 찾기
+-- Find matching groups
 CREATE OR REPLACE FUNCTION find_matching_group(
   p_group_id UUID, 
   p_limit INTEGER DEFAULT 10,
@@ -206,7 +206,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 특정 그룹 정보 조회 (joined 상태 유저만)
+-- Get specific group info (joined users only)
 DROP FUNCTION IF EXISTS get_bubble(uuid);
 
 CREATE OR REPLACE FUNCTION get_bubble(p_group_id UUID)
@@ -249,7 +249,7 @@ BEGIN
 END;
 $$;
 
--- 사용자 상세 정보 조회
+-- Get user detail info
 CREATE OR REPLACE FUNCTION fetch_user(p_user_id UUID)
 RETURNS TABLE (
   id UUID,
@@ -293,7 +293,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 그룹 좋아요
+-- Group like
 CREATE OR REPLACE FUNCTION like_group(p_user_id UUID, p_target_group_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -308,7 +308,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 수락
+-- Accept invitation
 CREATE OR REPLACE FUNCTION accept_invitation(p_group_id UUID, p_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -457,7 +457,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 거절
+-- Decline invitation
 CREATE OR REPLACE FUNCTION decline_invitation(p_group_id UUID, p_user_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -472,7 +472,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 전송 (Fixed schema mismatch)
+-- Send invitation (Fixed schema mismatch)
 CREATE OR REPLACE FUNCTION send_invitation(p_group_id UUID, p_invited_user_id UUID, p_invited_by_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -541,7 +541,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 취소 (Diagnostic Debug)
+-- Cancel invitation (Diagnostic Debug)
 CREATE OR REPLACE FUNCTION cancel_invitation(p_group_id UUID, p_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -713,7 +713,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 그룹 생성
+-- Create group
 CREATE OR REPLACE FUNCTION create_group(p_creator_id UUID, p_max_size INTEGER, p_group_name TEXT, p_preferred_gender TEXT)
 RETURNS UUID AS $$
 DECLARE
@@ -755,7 +755,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 사용자 검색
+-- Search users
 CREATE OR REPLACE FUNCTION search_users(p_search_term TEXT, p_exclude_user_id UUID, p_exclude_group_id UUID)
 RETURNS TABLE (
   id UUID,
@@ -800,7 +800,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 그룹 멤버 상태 조회
+-- Get group member status
 CREATE OR REPLACE FUNCTION get_group_member_statuses(p_group_id UUID)
 RETURNS TABLE (
   user_id UUID,
@@ -814,7 +814,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 테스트용 그룹 생성 (개발용)
+-- Create test group (for development)
 CREATE OR REPLACE FUNCTION test_create_group()
 RETURNS UUID AS $$
 DECLARE
@@ -836,10 +836,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
--- 그룹 나가기 관련 RPC 함수들
+-- Group leave related RPC functions
 -- =====================================================
 
--- 사용자가 그룹에서 나가기 (버블 터뜨리기)
+-- User leaves group (bubble popping)
 -- Note: "Popping" a bubble destroys it for ALL members
 CREATE OR REPLACE FUNCTION leave_group(p_user_id UUID, p_group_id UUID)
 RETURNS JSON AS $$
@@ -949,10 +949,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
--- 활성 그룹 관련 RPC 함수들
+-- Active group related RPC functions
 -- =====================================================
 
--- 사용자의 활성 그룹 조회
+-- Get user's active group
 CREATE OR REPLACE FUNCTION get_user_active_bubble(p_user_id UUID)
 RETURNS TABLE(
     id UUID,
@@ -971,22 +971,22 @@ BEGIN
     g.id,
     g.name,
     g.status,
-    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 (joined 상태만)
+    -- Create member list for each group as JSON array (joined status only)
     COALESCE(
       (
         SELECT json_agg(
-          -- 각 멤버 정보를 JSON 객체로 만듭니다.
+          -- Create each member info as JSON object.
           json_build_object(
             'id', u.id,
             'first_name', u.first_name,
             'last_name', u.last_name,
             'status', gm2.status,
-            -- 각 멤버의 이미지 목록을 다시 JSON 배열로 만듭니다.
+            -- Create image list for each member as JSON array again.
             'images', (
               SELECT COALESCE(json_agg(
                 json_build_object(
                   'id', ui.id,
-                  -- 직접 공개 URL 사용 (storage.get_public_url() 제거)
+                  -- Use public URL directly (remove storage.get_public_url())
                   'image_url', ui.image_url,
                   'position', ui.position
                 ) ORDER BY ui.position
@@ -1018,7 +1018,7 @@ BEGIN
 END;
 $$;
 
--- 사용자의 활성 그룹 설정
+-- Set user's active group
 CREATE OR REPLACE FUNCTION set_user_active_bubble(p_user_id UUID, p_group_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -1029,19 +1029,19 @@ DECLARE
   group_exists BOOLEAN;
   user_in_group BOOLEAN;
 BEGIN
-  -- 사용자가 존재하는지 확인
+  -- Check if user exists
   SELECT EXISTS(SELECT 1 FROM users WHERE id = p_user_id) INTO user_exists;
   IF NOT user_exists THEN
     RETURN FALSE;
   END IF;
 
-  -- 그룹이 존재하는지 확인
+  -- Check if group exists
   SELECT EXISTS(SELECT 1 FROM groups WHERE id = p_group_id) INTO group_exists;
   IF NOT group_exists THEN
     RETURN FALSE;
   END IF;
 
-  -- 사용자가 해당 그룹에 속해있는지 확인
+  -- Check if user belongs to the group
   SELECT EXISTS(
     SELECT 1 FROM group_members 
     WHERE user_id = p_user_id 
@@ -1053,7 +1053,7 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  -- 활성 그룹 설정
+  -- Set active group
   UPDATE users 
   SET active_group_id = p_group_id, 
       updated_at = NOW()

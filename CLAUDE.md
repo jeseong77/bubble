@@ -125,7 +125,7 @@ app/
 ## Recent Changes & Fixes (August 2025)
 
 ### Bubble Creation Error Fix (August 9, 2025)
-**Issue**: "Create Bubble" button was failing with error "❌ 그룹 ID가 반환되지 않음" - RPC function returning NULL.
+**Issue**: "Create Bubble" button was failing with error "❌ Group ID not returned" - RPC function returning NULL.
 
 **Root Cause Analysis**:
 - `create_group` RPC function was silently failing and returning NULL

@@ -130,7 +130,7 @@ const BubbleComponent: React.FC<BubbleComponentProps> = ({ bubble }) => {
   let ageHeightGenderLine = "";
   if (displayProfile) {
     if (displayProfile.age !== null)
-      ageHeightGenderLine += `${displayProfile.age}세`;
+      ageHeightGenderLine += `${displayProfile.age} years old`;
     if (displayProfile.height !== null)
       ageHeightGenderLine += `${ageHeightGenderLine ? " · " : ""}${
         displayProfile.height
