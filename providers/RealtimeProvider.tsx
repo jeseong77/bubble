@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/providers/AuthProvider";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { useUIStore } from "@/stores/uiStore";
 
 /**
  * `public.group_members` 테이블의 데이터 구조와 일치하는 타입
@@ -32,6 +33,7 @@ type RealtimeContextType = {
   invitations: GroupMember[];
   connectionStatus: RealtimeStatus;
   clearInvitations: () => void;
+  refreshNotifications: () => Promise<void>;
 };
 
 const RealtimeContext = createContext<RealtimeContextType | undefined>(
@@ -41,6 +43,7 @@ const RealtimeContext = createContext<RealtimeContextType | undefined>(
 export default function RealtimeProvider({ children }: PropsWithChildren) {
   const { session } = useAuth();
   const netInfo = useNetInfo();
+  const { setUnreadLikesCount, setTotalUnreadMessages } = useUIStore();
 
   const [invitations, setInvitations] = useState<GroupMember[]>([]);
   const [connectionStatus, setConnectionStatus] =
@@ -93,6 +96,89 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
     }
   };
 
+  // Refresh incoming likes count
+  const refreshLikesCount = async (userId: string) => {
+    try {
+      console.log("[RealtimeProvider] Refreshing likes count...");
+      
+      // Get user's active group
+      const { data: activeBubbleData, error: activeBubbleError } =
+        await supabase.rpc("get_user_active_bubble", {
+          p_user_id: userId,
+        });
+
+      if (activeBubbleError || !activeBubbleData || activeBubbleData.length === 0) {
+        console.log("[RealtimeProvider] No active bubble found for likes count");
+        setUnreadLikesCount(0);
+        return;
+      }
+
+      const activeBubble = activeBubbleData[0];
+      if (activeBubble.status !== 'full') {
+        console.log("[RealtimeProvider] Active bubble not full, no likes count");
+        setUnreadLikesCount(0);
+        return;
+      }
+
+      // Get incoming likes count
+      const { data: likesData, error: likesError } = await supabase.rpc("get_incoming_likes", {
+        p_group_id: activeBubble.id,
+        p_limit: 50,
+        p_offset: 0,
+      });
+
+      if (!likesError && likesData) {
+        const likesCount = likesData.length;
+        console.log(`[RealtimeProvider] Updated likes count: ${likesCount}`);
+        setUnreadLikesCount(likesCount);
+      } else {
+        console.error("[RealtimeProvider] Error fetching likes count:", likesError);
+        setUnreadLikesCount(0);
+      }
+    } catch (error) {
+      console.error("[RealtimeProvider] Error refreshing likes count:", error);
+      setUnreadLikesCount(0);
+    }
+  };
+
+  // Refresh chat messages count
+  const refreshMessagesCount = async (userId: string) => {
+    try {
+      console.log("[RealtimeProvider] Refreshing messages count...");
+      
+      const { data, error } = await supabase.rpc("get_my_matches_enhanced");
+
+      if (error) {
+        console.error("[RealtimeProvider] Error fetching matches:", error);
+        setTotalUnreadMessages(0);
+        return;
+      }
+
+      const matchesData = data || [];
+      const totalUnread = matchesData.reduce((sum: number, match: any) => {
+        return sum + (match.unread_count || 0);
+      }, 0);
+      
+      console.log(`[RealtimeProvider] Updated messages count: ${totalUnread}`);
+      setTotalUnreadMessages(totalUnread);
+    } catch (error) {
+      console.error("[RealtimeProvider] Error refreshing messages count:", error);
+      setTotalUnreadMessages(0);
+    }
+  };
+
+  // Global refresh function for all notifications
+  const refreshNotifications = async () => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    console.log("[RealtimeProvider] Refreshing all notifications...");
+    await Promise.all([
+      refreshLikesCount(userId),
+      refreshMessagesCount(userId),
+    ]);
+  };
+
   useEffect(() => {
     // Supabase Realtime 채널을 저장할 변수
     let channel: RealtimeChannel | undefined;
@@ -114,8 +200,9 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      // Load existing invitations first using RPC
+      // Load existing invitations and notifications first using RPC
       loadExistingInvitations(userId);
+      refreshNotifications();
 
       // 이미 채널이 있다면 중복 생성을 방지
       if (channel) {
@@ -129,8 +216,8 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
       setConnectionStatus("CONNECTED");
 
       try {
-        channel = supabase.channel(`group_invites:${userId}`);
-        console.log(`[RealtimeProvider] 채널 생성됨: group_invites:${userId}`);
+        channel = supabase.channel(`realtime_notifications:${userId}`);
+        console.log(`[RealtimeProvider] 채널 생성됨: realtime_notifications:${userId}`);
 
         channel
           .on<GroupMember>(
@@ -197,6 +284,45 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
               );
             }
           )
+          // Subscribe to likes table changes to refresh likes count
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "likes",
+            },
+            (payload) => {
+              console.log("[RealtimeProvider] Likes table changed, refreshing count...", payload);
+              refreshLikesCount(userId);
+            }
+          )
+          // Subscribe to chat_messages table changes to refresh message count
+          .on(
+            "postgres_changes", 
+            {
+              event: "*",
+              schema: "public",
+              table: "chat_messages",
+            },
+            (payload) => {
+              console.log("[RealtimeProvider] Chat messages changed, refreshing count...", payload);
+              refreshMessagesCount(userId);
+            }
+          )
+          // Subscribe to matches table changes to refresh both counts
+          .on(
+            "postgres_changes",
+            {
+              event: "*", 
+              schema: "public",
+              table: "matches",
+            },
+            (payload) => {
+              console.log("[RealtimeProvider] Matches table changed, refreshing counts...", payload);
+              refreshNotifications();
+            }
+          )
           .subscribe((status, err) => {
             console.log(`[RealtimeProvider] 구독 상태 변경: ${status}`);
 
@@ -259,10 +385,12 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
         console.log(`[RealtimeProvider] 앱 상태 변경: ${nextAppState}`);
 
         if (nextAppState === "active") {
-          console.log("[RealtimeProvider] 앱 활성화 감지, 연결 재시도.");
+          console.log("[RealtimeProvider] 앱 활성화 감지, 연결 재시도 및 알림 새로고침.");
           // Supabase 클라이언트가 자동으로 재연결을 시도하므로,
           // 수동으로 재구독할 필요 없이 상태만 확인합니다.
           setupChannel();
+          // Refresh notifications when app comes to foreground
+          refreshNotifications();
         } else if (nextAppState === "background") {
           console.log("[RealtimeProvider] 앱이 백그라운드로 이동");
           // 백그라운드에서는 연결을 유지하거나 끊을 수 있습니다.
@@ -292,6 +420,7 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
     invitations,
     connectionStatus,
     clearInvitations: () => setInvitations([]),
+    refreshNotifications,
   };
 
   return (

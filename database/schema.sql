@@ -6,6 +6,7 @@
 CREATE TABLE public.users (
   id uuid NOT NULL,
   phone_number text UNIQUE,
+  username text UNIQUE,
   first_name text,
   last_name text,
   birth_date date,
@@ -14,7 +15,7 @@ CREATE TABLE public.users (
   gender text,
   preferred_gender text,
   bio text,
-  location USER-DEFINED,
+  location text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   profile_setup_completed boolean NOT NULL DEFAULT false,

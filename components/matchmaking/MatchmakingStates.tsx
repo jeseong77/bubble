@@ -1,7 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator , TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { TouchableOpacity } from "react-native";
 
 interface LoadingStateProps {
   message?: string;
@@ -42,13 +41,13 @@ interface EmptyStateProps {
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
-  message = "No more matches available",
+  message = "Someone awesome will like you soon!",
   onRefresh,
 }) => {
   return (
     <View style={styles.container}>
       <Feather name="heart" size={48} color="#8ec3ff" />
-      <Text style={styles.emptyTitle}>No More Matches</Text>
+      <Text style={styles.emptyTitle}>No likes yet.</Text>
       <Text style={styles.emptyMessage}>{message}</Text>
       {onRefresh && (
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>

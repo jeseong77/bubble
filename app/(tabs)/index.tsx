@@ -23,8 +23,9 @@ import Animated, {
   withTiming,
   runOnJS,
 } from "react-native-reanimated";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { useFocusEffect } from "@react-navigation/native";
 import { useMatchmakingContext } from "@/providers/MatchmakingProvider";
 import { MatchCard } from "@/components/matchmaking/MatchCard";
 import {
@@ -52,13 +53,13 @@ const centerBubbleOverlap = centerBubbleImageSize * 0.18;
 interface UserBubble {
   id: string;
   name: string;
-  members: Array<{
+  members: {
     id: string;
     first_name: string;
     last_name: string;
     avatar_url: string;
     signedUrl?: string;
-  }>;
+  }[];
 }
 
 export default function MatchScreen() {
@@ -75,9 +76,15 @@ export default function MatchScreen() {
     likeGroup,
     passGroup,
     currentUserGroup,
+    currentUserGroupStatus,
     hasMore,
     loadMore,
     refetch,
+    refreshAll,
+    // Swipe limit data
+    swipeLimitInfo,
+    isLoadingSwipeLimit,
+    checkSwipeLimit,
   } = useMatchmakingContext();
 
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
@@ -85,6 +92,55 @@ export default function MatchScreen() {
   const [recentMatches, setRecentMatches] = useState<string[]>([]);
   const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
   const [userBubbleLoading, setUserBubbleLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Helper function to format reset time for small display
+  const formatResetTime = (resetTimeISO: string) => {
+    const resetTime = new Date(resetTimeISO);
+    const now = new Date();
+    const diff = resetTime.getTime() - now.getTime();
+    
+    if (diff <= 0) return "Resetting soon";
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `Resets in ${hours}h ${minutes}m`;
+    } else {
+      return `Resets in ${minutes}m`;
+    }
+  };
+
+  // Helper function to format countdown timer (HH:MM format)
+  const formatCountdownTime = (resetTimeISO: string) => {
+    const resetTime = new Date(resetTimeISO);
+    const diff = resetTime.getTime() - currentTime.getTime();
+    
+    if (diff <= 0) return "00:00";
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Update timer every minute for countdown
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Safety check: Reset index if it goes out of bounds after group removal
+  useEffect(() => {
+    if (matchingGroups.length > 0 && currentGroupIndex >= matchingGroups.length) {
+      console.log(`[MatchScreen] 🔧 Index ${currentGroupIndex} out of bounds (length: ${matchingGroups.length}), resetting to 0`);
+      setCurrentGroupIndex(0);
+    }
+  }, [matchingGroups.length, currentGroupIndex]);
 
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
@@ -93,103 +149,119 @@ export default function MatchScreen() {
   useEffect(() => {
     console.log("[MatchScreen] 🎯 Initial data loading...");
 
-    // 사용자 그룹 정보 가져오기
+    // 사용자 Active 그룹 정보 가져오기 (Profile Screen과 동일한 로직 사용)
     const fetchUserBubble = async () => {
       if (!session?.user) return;
 
       setUserBubbleLoading(true);
       try {
-        console.log("[MatchScreen] 사용자 그룹 정보 가져오기 시작");
+        console.log("[MatchScreen] 🔍 Active 버블 정보 가져오기 시작 (Profile Screen 로직 사용)");
 
-        // 먼저 Active 버블을 확인
-        console.log("[MatchScreen] Active 버블 확인 중...");
-        const { data: activeBubbleData, error: activeBubbleError } =
-          await supabase.rpc("get_user_active_bubble", {
-            p_user_id: session.user.id,
-          });
+        // Step 1: Get user's active_group_id from users table (same as profile screen)
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("active_group_id")
+          .eq("id", session.user.id)
+          .single();
 
-        console.log("[MatchScreen] Active 버블 조회 결과:", activeBubbleData);
-        console.log("[MatchScreen] Active 버블 에러:", activeBubbleError);
-
-        let targetBubble: any = null;
-
-        if (
-          !activeBubbleError &&
-          activeBubbleData &&
-          activeBubbleData.length > 0
-        ) {
-          // Active 버블이 있으면 사용
-          targetBubble = activeBubbleData[0];
-          console.log("[MatchScreen] Active 버블 사용:", targetBubble);
+        let activeBubbleId: string | null = null;
+        if (!userError && userData?.active_group_id) {
+          activeBubbleId = userData.active_group_id;
+          console.log("[MatchScreen] ✅ Found active_group_id:", activeBubbleId);
         } else {
-          // Active 버블이 없으면 get_my_bubbles에서 첫 번째 joined 그룹 사용
-          console.log("[MatchScreen] Active 버블 없음, get_my_bubbles 사용");
-          const { data, error } = await supabase.rpc("get_my_bubbles", {
-            p_user_id: session.user.id,
-          });
+          // Step 2: If no active bubble, get first joined bubble (same as profile screen fallback)
+          console.log("[MatchScreen] ❌ No active_group_id, finding first joined bubble");
+          const { data: basicBubbles, error: basicError } = await supabase
+            .from('group_members')
+            .select(`
+              groups!inner(id, name, status, max_size, creator_id),
+              status,
+              invited_at
+            `)
+            .eq('user_id', session.user.id)
+            .eq('status', 'joined')
+            .order('invited_at', { ascending: false })
+            .limit(1);
 
-          if (error) {
-            console.error("[MatchScreen] 사용자 버블 정보 조회 실패:", error);
-            throw error;
+          if (!basicError && basicBubbles && basicBubbles.length > 0) {
+            activeBubbleId = basicBubbles[0].groups.id;
+            console.log("[MatchScreen] 🔄 Using first joined bubble as fallback:", activeBubbleId);
           }
-
-          console.log("[MatchScreen] get_my_bubbles 응답:", data);
-
-          // joined 상태인 버블 중 첫 번째 것을 사용
-          targetBubble = data?.find(
-            (bubble: any) => bubble.user_status === "joined"
-          );
         }
 
-        if (targetBubble) {
-          console.log("[MatchScreen] 사용자 그룹 발견:", targetBubble);
-
-          // 멤버 정보 파싱 (새로운 구조에 맞게)
-          let members: Array<{
-            id: string;
-            first_name: string;
-            last_name: string;
-            images: Array<{ image_url: string; position: number }>;
-          }> = [];
-          if (targetBubble.members) {
-            try {
-              members = Array.isArray(targetBubble.members)
-                ? targetBubble.members
-                : JSON.parse(targetBubble.members);
-            } catch (parseError) {
-              members = [];
-            }
-          }
-
-          // 새로운 구조에 맞게 멤버 데이터 변환
-          const membersWithUrls = members.map((member) => {
-            // 첫 번째 이미지를 아바타로 사용
-            const avatarUrl =
-              member.images && member.images.length > 0
-                ? member.images[0].image_url
-                : null;
-
-            return {
-              id: member.id,
-              first_name: member.first_name,
-              last_name: member.last_name,
-              avatar_url: avatarUrl,
-              signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
-            };
-          });
-
-          const userBubbleData: UserBubble = {
-            id: targetBubble.id,
-            name: targetBubble.name,
-            members: membersWithUrls,
-          };
-
-          console.log("[MatchScreen] 사용자 그룹 데이터 설정:", userBubbleData);
-          setUserBubble(userBubbleData);
-        } else {
-          console.log("[MatchScreen] 사용자가 속한 그룹이 없습니다");
+        if (!activeBubbleId) {
+          console.log("[MatchScreen] ❌ No active bubble or joined bubbles found");
           setUserBubble(null);
+          return;
         }
+
+        // Step 3: Get complete bubble data using the SAME get_bubble RPC as profile screen
+        console.log("[MatchScreen] 🎯 Fetching complete bubble data using get_bubble RPC");
+        const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+          p_group_id: activeBubbleId,
+        });
+
+        if (bubbleError || !bubbleData || bubbleData.length === 0) {
+          console.error("[MatchScreen] ❌ get_bubble RPC failed:", bubbleError);
+          setUserBubble(null);
+          return;
+        }
+
+        const completeData = bubbleData[0];
+        console.log("[MatchScreen] ✅ get_bubble RPC success:", {
+          id: completeData.id,
+          name: completeData.name,
+          membersCount: completeData.members?.length || 0,
+          members: completeData.members
+        });
+
+        // Step 4: Transform data using EXACT same logic as profile screen
+        let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+        if (completeData.members) {
+          try {
+            members = Array.isArray(completeData.members)
+              ? completeData.members
+              : JSON.parse(completeData.members);
+          } catch (parseError) {
+            console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
+            members = [];
+          }
+        }
+
+        console.log(`[MatchScreen] 🔍 Processing bubble "${completeData.name}" with ${members.length} members:`);
+        members.forEach((member, idx) => {
+          console.log(`[MatchScreen] - Member ${idx}: ${member.first_name} ${member.last_name} (${member.id})`);
+        });
+
+        // Transform to UserBubble structure (same as profile screen transformation)
+        const transformedMembers = members.map((member) => {
+          return {
+            id: member.id,
+            first_name: member.first_name,
+            last_name: member.last_name,
+            avatar_url: member.avatar_url,
+            signedUrl: member.avatar_url, // 이미 공개 URL이므로 그대로 사용
+          };
+        });
+
+        const userBubbleData: UserBubble = {
+          id: completeData.id,
+          name: completeData.name,
+          members: transformedMembers,
+        };
+
+        console.log("[MatchScreen] 🎯 최종 사용자 그룹 데이터 설정:", {
+          id: userBubbleData.id,
+          name: userBubbleData.name,
+          totalMembers: userBubbleData.members.length,
+          memberDetails: userBubbleData.members.map(m => ({
+            id: m.id,
+            name: `${m.first_name} ${m.last_name}`,
+            hasAvatar: !!m.avatar_url
+          }))
+        });
+        setUserBubble(userBubbleData);
+
       } catch (error) {
         console.error("[MatchScreen] 사용자 그룹 정보 가져오기 실패:", error);
         setUserBubble(null);
@@ -200,6 +272,272 @@ export default function MatchScreen() {
 
     fetchUserBubble();
   }, [session?.user]); // session?.user가 변경될 때만 실행
+
+  // 사용자 버블 새로고침 함수 (버블 팝 후 상태 업데이트용)
+  const refreshUserBubble = async () => {
+    if (!session?.user) return;
+
+    setUserBubbleLoading(true);
+    try {
+      console.log("[MatchScreen] 🔄 Refreshing user bubble after pop...");
+
+      // Step 1: Get user's active_group_id from users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("active_group_id")
+        .eq("id", session.user.id)
+        .single();
+
+      let activeBubbleId: string | null = null;
+      if (!userError && userData?.active_group_id) {
+        activeBubbleId = userData.active_group_id;
+        console.log("[MatchScreen] ✅ Found active_group_id after refresh:", activeBubbleId);
+      } else {
+        // Step 2: If no active bubble, get first joined bubble
+        console.log("[MatchScreen] ❌ No active_group_id after pop, checking for other bubbles");
+        const { data: basicBubbles, error: basicError } = await supabase
+          .from('group_members')
+          .select(`
+            groups!inner(id, name, status, max_size, creator_id),
+            status,
+            invited_at
+          `)
+          .eq('user_id', session.user.id)
+          .eq('status', 'joined')
+          .order('invited_at', { ascending: false })
+          .limit(1);
+
+        if (!basicError && basicBubbles && basicBubbles.length > 0) {
+          activeBubbleId = basicBubbles[0].groups.id;
+          console.log("[MatchScreen] 🔄 Using first joined bubble as fallback:", activeBubbleId);
+        }
+      }
+
+      if (!activeBubbleId) {
+        console.log("[MatchScreen] ✅ No bubbles found after pop - user has no active bubbles");
+        setUserBubble(null);
+        return;
+      }
+
+      // Step 3: Get complete bubble data using get_bubble RPC
+      console.log("[MatchScreen] 🎯 Fetching updated bubble data");
+      const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+        p_group_id: activeBubbleId,
+      });
+
+      if (bubbleError || !bubbleData || bubbleData.length === 0) {
+        console.error("[MatchScreen] ❌ get_bubble RPC failed during refresh:", bubbleError);
+        setUserBubble(null);
+        return;
+      }
+
+      const completeData = bubbleData[0];
+      console.log("[MatchScreen] ✅ Bubble refresh successful:", completeData.name);
+
+      // Transform data same as initial load
+      let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+      if (completeData.members) {
+        try {
+          members = Array.isArray(completeData.members)
+            ? completeData.members
+            : JSON.parse(completeData.members);
+        } catch (parseError) {
+          console.error("[MatchScreen] 멤버 정보 파싱 실패 during refresh:", parseError);
+          members = [];
+        }
+      }
+
+      const transformedMembers = members.map((member) => ({
+        id: member.id,
+        first_name: member.first_name,
+        last_name: member.last_name,
+        avatar_url: member.avatar_url,
+        signedUrl: member.avatar_url,
+      }));
+
+      const userBubbleData: UserBubble = {
+        id: completeData.id,
+        name: completeData.name,
+        members: transformedMembers,
+      };
+
+      setUserBubble(userBubbleData);
+      console.log("[MatchScreen] 🎯 User bubble refreshed successfully");
+
+    } catch (error) {
+      console.error("[MatchScreen] Error refreshing user bubble:", error);
+      setUserBubble(null);
+    } finally {
+      setUserBubbleLoading(false);
+    }
+  };
+
+  // 버블 팝 함수 (프로필 화면과 동일한 로직)
+  const handlePopBubble = async (bubbleId: string) => {
+    if (!session?.user) return;
+    
+    Alert.alert(
+      "Do you want to pop this bubble?",
+      "Popped bubbles can't be restored.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Pop",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("[MatchScreen] 그룹 나가기 시작:", bubbleId);
+              
+              const { data, error } = await supabase.rpc("leave_group", {
+                p_user_id: session.user.id,
+                p_group_id: bubbleId,
+              });
+              
+              if (error) {
+                console.error("[MatchScreen] Failed to leave group:", error);
+                Alert.alert("Error", "Failed to pop bubble.");
+                return;
+              }
+              
+              if (!data || !data.success) {
+                console.error("[MatchScreen] Failed to pop bubble:", data?.message || "Unknown error");
+                Alert.alert("Error", data?.message || "Failed to pop bubble.");
+                return;
+              }
+
+              console.log(`[MatchScreen] Successfully popped bubble: "${data.group_name}" by ${data.popper_name}`);
+              
+              // 버블 목록 새로고침
+              await refreshUserBubble();
+              
+              Alert.alert(
+                "Bubble Popped! 💥", 
+                `"${data.group_name}" has been destroyed.`
+              );
+            } catch (error) {
+              console.error("[MatchScreen] Error while leaving group:", error);
+              Alert.alert("Error", "Failed to pop bubble.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Focus effect for automatic refresh when returning to first tab
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("[MatchScreen] 🔄 Tab focused - refreshing all data...");
+      
+      // Refresh user bubble data (may have new active group)
+      const refreshUserBubbleData = async () => {
+        if (!session?.user) return;
+
+        setUserBubbleLoading(true);
+        try {
+          console.log("[MatchScreen] 🔄 Refreshing user bubble on focus...");
+
+          // Step 1: Get user's active_group_id from users table
+          const { data: userData, error: userError } = await supabase
+            .from("users")
+            .select("active_group_id")
+            .eq("id", session.user.id)
+            .single();
+
+          let activeBubbleId: string | null = null;
+          if (!userError && userData?.active_group_id) {
+            activeBubbleId = userData.active_group_id;
+            console.log("[MatchScreen] ✅ Found active_group_id on focus:", activeBubbleId);
+          } else {
+            // Step 2: If no active bubble, get first joined bubble
+            console.log("[MatchScreen] ❌ No active_group_id on focus, checking for other bubbles");
+            const { data: basicBubbles, error: basicError } = await supabase
+              .from('group_members')
+              .select(`
+                groups!inner(id, name, status, max_size, creator_id),
+                status,
+                invited_at
+              `)
+              .eq('user_id', session.user.id)
+              .eq('status', 'joined')
+              .order('invited_at', { ascending: false })
+              .limit(1);
+
+            if (!basicError && basicBubbles && basicBubbles.length > 0) {
+              activeBubbleId = basicBubbles[0].groups.id;
+              console.log("[MatchScreen] 🔄 Using first joined bubble on focus:", activeBubbleId);
+            }
+          }
+
+          if (!activeBubbleId) {
+            console.log("[MatchScreen] ✅ No bubbles found on focus - user has no active bubbles");
+            setUserBubble(null);
+            return;
+          }
+
+          // Step 3: Get complete bubble data using get_bubble RPC
+          console.log("[MatchScreen] 🎯 Fetching bubble data on focus");
+          const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+            p_group_id: activeBubbleId,
+          });
+
+          if (bubbleError || !bubbleData || bubbleData.length === 0) {
+            console.error("[MatchScreen] ❌ get_bubble RPC failed on focus:", bubbleError);
+            setUserBubble(null);
+            return;
+          }
+
+          const completeData = bubbleData[0];
+          console.log("[MatchScreen] ✅ Bubble data refreshed on focus:", completeData.name);
+
+          // Transform data same as initial load
+          let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+          if (completeData.members) {
+            try {
+              members = Array.isArray(completeData.members)
+                ? completeData.members
+                : JSON.parse(completeData.members);
+            } catch (parseError) {
+              console.error("[MatchScreen] 멤버 정보 파싱 실패 on focus:", parseError);
+              members = [];
+            }
+          }
+
+          const transformedMembers = members.map((member) => ({
+            id: member.id,
+            first_name: member.first_name,
+            last_name: member.last_name,
+            avatar_url: member.avatar_url,
+            signedUrl: member.avatar_url,
+          }));
+
+          const userBubbleData: UserBubble = {
+            id: completeData.id,
+            name: completeData.name,
+            members: transformedMembers,
+          };
+
+          setUserBubble(userBubbleData);
+          console.log("[MatchScreen] 🎯 User bubble refreshed successfully on focus");
+
+        } catch (error) {
+          console.error("[MatchScreen] Error refreshing user bubble on focus:", error);
+          setUserBubble(null);
+        } finally {
+          setUserBubbleLoading(false);
+        }
+      };
+      
+      // Refresh matchmaking data (detects active group changes)
+      refreshAll();
+      
+      // Refresh user bubble data
+      refreshUserBubbleData();
+    }, [refreshAll, session?.user])
+  );
 
   // 🔍 DEBUG: 매칭 그룹 데이터 로깅
   useEffect(() => {
@@ -276,9 +614,10 @@ export default function MatchScreen() {
       return <LoadingState message="Loading your bubble..." />;
     }
 
-    // 사용자가 속한 그룹이 없음
-    if (!userBubble) {
-      console.log("❌ No user bubble - showing NoGroupState");
+    // 사용자가 속한 그룹이 없음 OR 그룹이 아직 형성중
+    if (!userBubble || currentUserGroupStatus === 'forming') {
+      console.log("❌ No user bubble or forming group - showing NoGroupState");
+      console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
         <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
       );
@@ -301,6 +640,109 @@ export default function MatchScreen() {
             refetch();
           }}
         />
+      );
+    }
+
+    // Check if daily swipe limit is reached
+    if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
+      console.log("🚫 Daily swipe limit reached - showing limit reached state");
+      return (
+        <SafeAreaView
+          style={[styles.safeArea, { paddingTop: insets.top }]}
+          edges={["top"]}
+        >
+          <LinearGradient
+            colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* User's bubble at top left */}
+          {userBubble && (
+            <View
+              style={[
+                styles.userBubbleContainer,
+                {
+                  left: Math.max(
+                    0,
+                    (screenWidth - centerBubbleDiameter) / 2 -
+                      userBubbleDiameter * 0.18
+                  ),
+                  top: insets.top + 24,
+                  width: userBubbleDiameter,
+                  height: userBubbleDiameter + 24,
+                },
+              ]}
+            >
+              <BlurView
+                style={styles.userBubbleBlur}
+                intensity={Platform.OS === "ios" ? 60 : 80}
+                tint="light"
+              >
+                <Text style={styles.userBubbleName}>{userBubble.name}</Text>
+                <View style={styles.userBubbleRow}>
+                  {userBubble.members.map((user, idx) => (
+                    <View
+                      key={user.id}
+                      style={{
+                        marginLeft: idx > 0 ? -userBubbleImageSize * overlapRatio : 0,
+                        zIndex: userBubble.members.length - idx,
+                      }}
+                    >
+                      <Image
+                        source={{ uri: user.signedUrl || user.avatar_url }}
+                        style={{
+                          width: userBubbleImageSize,
+                          height: userBubbleImageSize,
+                          borderRadius: userBubbleImageSize / 2,
+                          borderWidth: 2,
+                          borderColor: "#fff",
+                        }}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </BlurView>
+              <TouchableOpacity 
+                style={styles.pinIconWrap}
+                onPress={() => userBubble && handlePopBubble(userBubble.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.pinCircle}>
+                  <Feather name="feather" size={18} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Large Countdown Display */}
+          <View style={styles.limitReachedContainer}>
+            <Text style={styles.limitReachedMessage}>
+              You've used all your swipes for today.{'\n'}
+              Please wait for new Bubbles tomorrow!
+            </Text>
+            <Text style={styles.countdownTimer}>
+              {formatCountdownTime(swipeLimitInfo.reset_time)}
+            </Text>
+          </View>
+
+          {/* Disabled Swipe Controls */}
+          <View style={styles.swipeControls}>
+            <TouchableOpacity
+              style={[styles.xButton, styles.disabledButton]}
+              disabled={true}
+            >
+              <Feather name="x" size={32} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.checkButton, styles.disabledButton]}
+              disabled={true}
+            >
+              <Feather name="heart" size={32} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       );
     }
 
@@ -332,6 +774,15 @@ export default function MatchScreen() {
           style={StyleSheet.absoluteFill}
         />
         {/* User's bubble at top left */}
+        {(() => {
+          console.log("[MatchScreen] 🎨 Rendering user bubble:", {
+            hasBubble: !!userBubble,
+            bubbleName: userBubble?.name,
+            memberCount: userBubble?.members?.length || 0,
+            memberIds: userBubble?.members?.map(m => m.id) || []
+          });
+          return null;
+        })()}
         {userBubble && (
           <View
             style={[
@@ -355,34 +806,49 @@ export default function MatchScreen() {
             >
               <Text style={styles.userBubbleName}>{userBubble.name}</Text>
               <View style={styles.userBubbleRow}>
-                {userBubble.members.map((user, idx) => (
-                  <View
-                    key={user.id}
-                    style={{
-                      marginLeft:
-                        idx === 1 ? -userBubbleImageSize * overlapRatio : 0,
-                      zIndex: idx === 0 ? 2 : 1,
-                    }}
-                  >
-                    <Image
-                      source={{ uri: user.signedUrl || user.avatar_url }}
+                {userBubble.members.map((user, idx) => {
+                  console.log(`[MatchScreen] 🖼️ Rendering member ${idx}:`, {
+                    id: user.id,
+                    name: `${user.first_name} ${user.last_name}`,
+                    avatarUrl: user.avatar_url,
+                    signedUrl: user.signedUrl
+                  });
+                  
+                  return (
+                    <View
+                      key={user.id}
                       style={{
-                        width: userBubbleImageSize,
-                        height: userBubbleImageSize,
-                        borderRadius: userBubbleImageSize / 2,
-                        borderWidth: 2,
-                        borderColor: "#fff",
+                        marginLeft: idx > 0 ? -userBubbleImageSize * overlapRatio : 0,
+                        zIndex: userBubble.members.length - idx, // Highest index gets highest z-index
                       }}
-                    />
-                  </View>
-                ))}
+                    >
+                      <Image
+                        source={{ uri: user.signedUrl || user.avatar_url }}
+                        style={{
+                          width: userBubbleImageSize,
+                          height: userBubbleImageSize,
+                          borderRadius: userBubbleImageSize / 2,
+                          borderWidth: 2,
+                          borderColor: "#fff",
+                        }}
+                        onError={() => console.log(`[MatchScreen] ❌ Image load error for member ${idx}:`, user.signedUrl || user.avatar_url)}
+                        onLoad={() => console.log(`[MatchScreen] ✅ Image loaded for member ${idx}`)}
+                      />
+                    </View>
+                  );
+                })}
               </View>
             </BlurView>
-            <View style={styles.pinIconWrap}>
+            <TouchableOpacity 
+              style={styles.pinIconWrap}
+              onPress={() => userBubble && handlePopBubble(userBubble.id)}
+              activeOpacity={0.7}
+              disabled={!userBubble || userBubbleLoading}
+            >
               <View style={styles.pinCircle}>
                 <Feather name="feather" size={18} color="#fff" />
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -411,19 +877,49 @@ export default function MatchScreen() {
           <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
+        {/* Swipe Counter and Limit Info */}
+        {swipeLimitInfo && (
+          <View style={styles.swipeCounterContainer}>
+            <BlurView
+              style={styles.swipeCounterBlur}
+              intensity={Platform.OS === "ios" ? 60 : 80}
+              tint="light"
+            >
+              <Text style={styles.swipeCounterText}>
+                {swipeLimitInfo.remaining_swipes}/{swipeLimitInfo.daily_limit} swipes remaining
+              </Text>
+              {swipeLimitInfo.remaining_swipes === 0 && (
+                <Text style={styles.resetTimeText}>
+                  {formatResetTime(swipeLimitInfo.reset_time)}
+                </Text>
+              )}
+            </BlurView>
+          </View>
+        )}
+
         {/* Swipe Controls */}
         <View style={styles.swipeControls}>
           <TouchableOpacity
-            style={styles.xButton}
+            style={[
+              styles.xButton,
+              (swipeLimitInfo && !swipeLimitInfo.can_swipe) || isAnimating 
+                ? styles.disabledButton 
+                : null
+            ]}
             onPress={() => handleSwipe("left")}
-            disabled={isAnimating}
+            disabled={isAnimating || (swipeLimitInfo && !swipeLimitInfo.can_swipe)}
           >
             <Feather name="x" size={32} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.checkButton}
+            style={[
+              styles.checkButton,
+              (swipeLimitInfo && !swipeLimitInfo.can_swipe) || isAnimating 
+                ? styles.disabledButton 
+                : null
+            ]}
             onPress={() => handleSwipe("right")}
-            disabled={isAnimating}
+            disabled={isAnimating || (swipeLimitInfo && !swipeLimitInfo.can_swipe)}
           >
             <Feather name="heart" size={32} color="#fff" />
           </TouchableOpacity>
@@ -461,28 +957,28 @@ export default function MatchScreen() {
 
   // Animate and switch bubble data
   const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
-    // Handle real data cycling
-    const nextIndex = (currentGroupIndex + 1) % matchingGroups.length;
-    setCurrentGroupIndex(nextIndex);
-
     // Handle empty state when no more groups
     if (matchingGroups.length === 0) {
+      console.log("❌ No more groups available");
       return;
     }
 
     // 🔍 DEBUG: 배열 범위 체크
     console.log("=== 🔄 CHANGE BUBBLE DEBUG ===");
-    console.log("Current Index:", currentGroupIndex);
-    console.log("Next Index:", nextIndex);
+    console.log("Current Index before:", currentGroupIndex);
     console.log("Groups Length:", matchingGroups.length);
+
+    // Reset to 0 if current index is out of bounds (after group removal)
+    let nextIndex = currentGroupIndex;
+    if (currentGroupIndex >= matchingGroups.length) {
+      console.log("❌ Current index out of bounds, resetting to 0");
+      nextIndex = 0;
+    }
+
+    console.log("Next Index:", nextIndex);
     console.log("Next Group:", matchingGroups[nextIndex]);
 
-    // 배열 범위 체크 추가
-    if (nextIndex >= matchingGroups.length) {
-      console.log("❌ Index out of bounds, resetting to 0");
-      setCurrentGroupIndex(0);
-      return;
-    }
+    setCurrentGroupIndex(nextIndex);
 
     // Optimized animation timing for real data
     const animationDuration = 350; // Slightly faster for better UX
@@ -508,9 +1004,18 @@ export default function MatchScreen() {
   };
 
   // Handler for X and Heart
-  // Handler for X and Heart
   const handleSwipe = async (direction: "left" | "right") => {
     if (isAnimating || !currentGroup) return;
+
+    // Check if swipes are available before attempting to swipe
+    if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
+      Alert.alert(
+        "Daily Limit Reached 🚫",
+        `You've used all ${swipeLimitInfo.daily_limit} swipes today. ${formatResetTime(swipeLimitInfo.reset_time)}.`,
+        [{ text: "OK", style: "default" }]
+      );
+      return;
+    }
 
     // Add haptic feedback
     if (Platform.OS === "ios") {
@@ -519,56 +1024,88 @@ export default function MatchScreen() {
 
     setIsAnimating(true);
 
-    if (direction === "right") {
-      // Visual feedback for like action
-      console.log(`[MatchScreen] Liking group: ${currentGroup.group_name}`);
+    try {
+      if (direction === "right") {
+        // Visual feedback for like action
+        console.log(`[MatchScreen] Liking group: ${currentGroup.group_name}`);
 
-      // [수정 1] 새로운 likeGroup 함수를 호출하고 그 결과를 response 변수에 저장합니다.
-      const response = await likeGroup(currentGroup.group_id);
+        const response = await likeGroup(currentGroup.group_id);
 
-      // [수정 2] 반환된 객체의 status 값으로 매칭 성공 여부를 확인합니다.
-      if (response?.status === "matched") {
-        // Enhanced match notification with haptic feedback
-        if (Platform.OS === "ios") {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        // Handle different response statuses
+        if (response?.status === "limit_exceeded") {
+          Alert.alert(
+            "Daily Limit Reached 🚫",
+            `You've used all your swipes today. ${response.swipe_info?.reset_time ? formatResetTime(response.swipe_info.reset_time) : 'Resets at midnight EST'}.`,
+            [{ text: "OK", style: "default" }]
+          );
+          setIsAnimating(false);
+          return;
+        } else if (response?.status === "matched") {
+          // Enhanced match notification with haptic feedback
+          if (Platform.OS === "ios") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
 
-        setRecentMatches((prev) => [...prev, currentGroup.group_id]);
-        Alert.alert(
-          "It's a Match! 🎉",
-          `You and ${currentGroup.group_name} liked each other!`,
-          [
-            {
-              text: "Continue Swiping",
-              style: "default",
-            },
-            {
-              text: "View Matches",
-              style: "default",
-              onPress: () => {
-                // [수정 3] 채팅 목록 화면으로 이동하는 로직을 추가할 수 있습니다.
-                // 예: router.push('/(tabs)/chats');
-                console.log(
-                  "Navigate to matches/chats screen. Chat Room ID:",
-                  response.chat_room_id
-                );
+          setRecentMatches((prev) => [...prev, currentGroup.group_id]);
+          Alert.alert(
+            "It's a Match! 🎉",
+            `You and ${currentGroup.group_name} liked each other!`,
+            [
+              {
+                text: "Continue Swiping",
+                style: "default",
               },
-            },
-          ]
-        );
+              {
+                text: "View Matches",
+                style: "default",
+                onPress: () => {
+                  // Navigate to chats screen
+                  console.log(
+                    "Navigate to matches/chats screen. Chat Room ID:",
+                    response.chat_room_id
+                  );
+                  router.push('/(tabs)/chats');
+                },
+              },
+            ]
+          );
+        } else if (response?.status === "error") {
+          Alert.alert("Error", response.message || "Failed to like group");
+          setIsAnimating(false);
+          return;
+        } else {
+          // 'liked' status - normal like without match
+          console.log(`[MatchScreen] Liked ${currentGroup.group_name} (no match yet)`);
+        }
       } else {
-        // 'liked' 상태이거나 null일 경우 (매칭 안됨)
-        console.log(
-          `[MatchScreen] Liked ${currentGroup.group_name} (no match yet)`
-        );
+        // Visual feedback for pass action
+        console.log(`[MatchScreen] Passing group: ${currentGroup.group_name}`);
+        
+        const response = await passGroup(currentGroup.group_id);
+        
+        // Handle different response statuses for pass
+        if (response?.status === "limit_exceeded") {
+          Alert.alert(
+            "Daily Limit Reached 🚫",
+            `You've used all your swipes today. ${response.swipe_info?.reset_time ? formatResetTime(response.swipe_info.reset_time) : 'Resets at midnight EST'}.`,
+            [{ text: "OK", style: "default" }]
+          );
+          setIsAnimating(false);
+          return;
+        } else if (response?.status === "error") {
+          Alert.alert("Error", response.message || "Failed to pass group");
+          setIsAnimating(false);
+          return;
+        }
       }
-    } else {
-      // Visual feedback for pass action
-      console.log(`[MatchScreen] Passing group: ${currentGroup.group_name}`);
-      passGroup(currentGroup.group_id);
+    } catch (error) {
+      console.error("Error in handleSwipe:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
+      setIsAnimating(false);
+      return;
     }
 
-    // Animate OUT
+    // Animate OUT (only if swipe was successful)
     const targetX =
       direction === "left" ? -screenWidth * 0.5 : screenWidth * 0.5;
     translateX.value = withTiming(targetX, { duration: 400 });
@@ -789,5 +1326,59 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 32,
+  },
+
+  // Swipe counter styles
+  swipeCounterContainer: {
+    position: "absolute",
+    bottom: 140,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 10,
+  },
+  swipeCounterBlur: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.3)",
+  },
+  swipeCounterText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#303030",
+  },
+  resetTimeText: {
+    fontSize: 12,
+    color: "#7A7A7A",
+    marginTop: 2,
+  },
+  disabledButton: {
+    opacity: 0.4,
+  },
+
+  // Limit reached state styles
+  limitReachedContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  limitReachedMessage: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#303030",
+    textAlign: "center",
+    lineHeight: 26,
+    marginBottom: 60,
+  },
+  countdownTimer: {
+    fontSize: 120,
+    fontWeight: "300",
+    color: "#80B7FF",
+    letterSpacing: 4,
+    textAlign: "center",
+    fontFamily: "System",
   },
 });

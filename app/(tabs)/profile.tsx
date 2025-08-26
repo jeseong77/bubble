@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   StyleSheet,
@@ -180,7 +181,7 @@ function ProfileScreen() {
   const bottomHeight = useBottomTabBarHeight();
 
   // --- 상태 관리 ---
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileFormData | null>(null);
   const [editingProfile, setEditingProfile] = useState<ProfileFormData | null>(
     null
@@ -190,7 +191,7 @@ function ProfileScreen() {
   const [currentImages, setCurrentImages] = useState<(ProfileImage | null)[]>(
     Array(MAX_IMAGES_DEFAULT).fill(null)
   );
-  const [activeTab, setActiveTab] = useState<string>("bubblePro");
+  const [activeTab, setActiveTab] = useState<string>("myBubble");
   const [showCreateBubbleModal, setShowCreateBubbleModal] = useState(false);
   const [myBubbles, setMyBubbles] = useState<Bubble[]>([]);
   const [bubblesLoading, setBubblesLoading] = useState(true);
@@ -358,115 +359,173 @@ function ProfileScreen() {
     }
   }, [session]);
 
-  // My Bubble 데이터 로딩
-  useEffect(() => {
-    const fetchMyBubbles = async () => {
-      if (!session?.user) return;
+  // My Bubble 데이터 로딩 함수를 별도로 분리
+  const fetchMyBubbles = async () => {
+    if (!session?.user) return;
 
-      setBubblesLoading(true);
-      try {
-        // Supabase RPC(Remote Procedure Call)를 사용하여 복잡한 쿼리를 한번에 처리합니다.
-        const { data, error } = await supabase.rpc("get_my_bubbles", {
-          p_user_id: session.user.id,
-        });
+    setBubblesLoading(true);
+    try {
+      // First, get basic bubble info where user is a member
+      const { data: basicBubbles, error: basicError } = await supabase
+        .from('group_members')
+        .select(`
+          groups!inner(id, name, status, max_size, creator_id),
+          status,
+          invited_at
+        `)
+        .eq('user_id', session.user.id)
+        .eq('status', 'joined')
+        .order('invited_at', { ascending: false });
 
-        if (error) throw error;
+      if (basicError) throw basicError;
 
-        // RPC 결과가 없을 경우를 대비한 처리
-        const allBubbles = data || [];
+      console.log("[ProfileScreen] 🔍 Basic bubbles from direct query:", basicBubbles);
 
-        // 서버에서 내려오는 원본 데이터 로깅
-        console.log("[ProfileScreen] 🔍 서버에서 내려온 원본 버블 데이터:");
-        console.log(
-          "[ProfileScreen] 전체 데이터:",
-          JSON.stringify(allBubbles, null, 2)
-        );
-
-        if (allBubbles.length > 0) {
-          console.log("[ProfileScreen] 첫 번째 버블 상세 구조:");
-          console.log("[ProfileScreen] - 버블 ID:", allBubbles[0].id);
-          console.log("[ProfileScreen] - 버블 이름:", allBubbles[0].name);
-          console.log("[ProfileScreen] - 버블 상태:", allBubbles[0].status);
-          console.log(
-            "[ProfileScreen] - 유저 상태:",
-            allBubbles[0].user_status
-          );
-          console.log("[ProfileScreen] - 멤버 배열:", allBubbles[0].members);
-        }
-
-        // joined 상태인 버블만 My Bubble 탭에 표시
-        const joinedBubbles = allBubbles.filter(
-          (bubble: any) => bubble.user_status === "joined"
-        );
-
-        console.log("[ProfileScreen] get_my_bubbles 응답:", allBubbles);
+      // For each bubble, get complete member data using the WORKING get_bubble RPC
+      const allBubbles = [];
+      for (const bubbleRow of basicBubbles || []) {
+        const bubble = bubbleRow.groups;
         
-        // 데이터 구조를 BubbleTabItem에서 사용하는 형태로 변환
-        const transformedBubbles: Bubble[] = joinedBubbles.map((bubble: any) => {
-          // 멤버 정보 파싱 (새로운 구조에 맞게)
-          let members: Array<{ id: string; first_name: string; last_name: string; images: Array<{ image_url: string; position: number }> }> = [];
-          if (bubble.members) {
-            try {
-              members = Array.isArray(bubble.members)
-                ? bubble.members
-                : JSON.parse(bubble.members);
-            } catch (parseError) {
-              console.error("[ProfileScreen] 멤버 정보 파싱 실패:", parseError);
-              members = [];
-            }
-          }
-
-          // 새로운 구조에 맞게 멤버 데이터 변환
-          const transformedMembers = members.map((member) => {
-            // 첫 번째 이미지를 아바타로 사용
-            const avatarUrl = member.images && member.images.length > 0 
-              ? member.images[0].image_url 
-              : null;
-            
-            return {
-              id: member.id,
-              first_name: member.first_name,
-              last_name: member.last_name,
-              avatar_url: avatarUrl,
-              signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
-            };
-          });
-
-          return {
+        // Get complete member data using the same RPC as bubble detail page
+        const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
+          p_group_id: bubble.id,
+        });
+        
+        if (!bubbleError && bubbleData && bubbleData.length > 0) {
+          const completeData = bubbleData[0];
+          
+          // Combine basic info with complete member data
+          allBubbles.push({
             id: bubble.id,
             name: bubble.name,
             status: bubble.status,
-            members: transformedMembers,
+            max_size: bubble.max_size,
+            members: completeData.members, // This will have ALL members like bubble detail page
+            user_status: bubbleRow.status,
+            invited_at: bubbleRow.invited_at,
+            creator: {} // Can add creator info if needed
+          });
+        }
+      }
+
+      // 서버에서 내려오는 원본 데이터 로깅 - 디버깅 강화
+      console.log("[ProfileScreen] 🔍 서버에서 내려온 원본 버블 데이터:");
+      console.log("[ProfileScreen] 전체 데이터:", JSON.stringify(allBubbles, null, 2));
+
+      if (allBubbles.length > 0) {
+        allBubbles.forEach((bubble, index) => {
+          console.log(`[ProfileScreen] 🔍 버블 ${index} 상세 분석:`);
+          console.log(`[ProfileScreen] - 버블 ID: ${bubble.id}`);
+          console.log(`[ProfileScreen] - 버블 이름: ${bubble.name}`);
+          console.log(`[ProfileScreen] - 버블 상태: ${bubble.status}`);
+          console.log(`[ProfileScreen] - 최대 크기: ${bubble.max_size}`);
+          console.log(`[ProfileScreen] - 유저 상태: ${bubble.user_status}`);
+          console.log(`[ProfileScreen] - 멤버 배열:`, bubble.members);
+          
+          if (bubble.members && Array.isArray(bubble.members)) {
+            bubble.members.forEach((member, memberIndex) => {
+              console.log(`[ProfileScreen] - 멤버 ${memberIndex}:`, {
+                id: member.id,
+                first_name: member.first_name,
+                last_name: member.last_name,
+                status: member.status,
+                hasImages: member.images && member.images.length > 0
+              });
+            });
+          }
+        });
+      }
+
+      // All bubbles are already filtered for 'joined' status
+      const joinedBubbles = allBubbles;
+
+      console.log("[ProfileScreen] Final bubble data using get_bubble RPC:", allBubbles);
+      console.log("[ProfileScreen] 🔍 Raw members data from get_bubble:");
+      joinedBubbles.forEach((bubble, index) => {
+        console.log(`[ProfileScreen] Bubble ${index} members:`, bubble.members);
+        console.log(`[ProfileScreen] Members array length:`, bubble.members ? bubble.members.length : 0);
+        console.log(`[ProfileScreen] Members is array:`, Array.isArray(bubble.members));
+      });
+      
+      // 데이터 구조를 BubbleTabItem에서 사용하는 형태로 변환
+      const transformedBubbles: Bubble[] = joinedBubbles.map((bubble: any) => {
+        // get_bubble RPC returns members in simpler structure with direct avatar_url
+        let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
+        if (bubble.members) {
+          try {
+            members = Array.isArray(bubble.members)
+              ? bubble.members
+              : JSON.parse(bubble.members);
+          } catch (parseError) {
+            console.error("[ProfileScreen] 멤버 정보 파싱 실패:", parseError);
+            members = [];
+          }
+        }
+
+        console.log(`[ProfileScreen] 🔍 Processing bubble "${bubble.name}" with ${members.length} members:`);
+        members.forEach((member, idx) => {
+          console.log(`[ProfileScreen] - Member ${idx}: ${member.first_name} ${member.last_name} (${member.id})`);
+        });
+
+        // Transform to BubbleTabItem structure
+        const transformedMembers = members.map((member) => {
+          return {
+            id: member.id,
+            first_name: member.first_name,
+            last_name: member.last_name,
+            avatar_url: member.avatar_url,
+            status: 'joined', // All members from get_bubble are 'joined'
+            signedUrl: member.avatar_url, // 이미 공개 URL이므로 그대로 사용
           };
         });
 
-        console.log("[ProfileScreen] joined 상태 버블:", transformedBubbles);
-        setMyBubbles(transformedBubbles);
-        
-        // Active 버블 ID 가져오기
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("active_group_id")
-          .eq("id", session.user.id)
-          .single();
-          
-        if (!userError && userData) {
-          setActiveBubbleId(userData.active_group_id);
-          console.log("[ProfileScreen] Active 버블 ID:", userData.active_group_id);
-        }
-      } catch (error) {
-        console.error("Error fetching my bubbles:", error);
-        setMyBubbles([]); // 에러 발생 시 빈 배열로 초기화
-      } finally {
-        setBubblesLoading(false);
-      }
-    };
+        return {
+          id: bubble.id,
+          name: bubble.name,
+          status: bubble.status,
+          max_size: bubble.max_size || 2, // Default to 2 if not provided
+          members: transformedMembers,
+        };
+      });
 
+      console.log("[ProfileScreen] joined 상태 버블:", transformedBubbles);
+      setMyBubbles(transformedBubbles);
+      
+      // Active 버블 ID 가져오기
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("active_group_id")
+        .eq("id", session.user.id)
+        .single();
+        
+      if (!userError && userData) {
+        setActiveBubbleId(userData.active_group_id);
+        console.log("[ProfileScreen] Active 버블 ID:", userData.active_group_id);
+      }
+    } catch (error) {
+      console.error("Error fetching my bubbles:", error);
+      setMyBubbles([]); // 에러 발생 시 빈 배열로 초기화
+    } finally {
+      setBubblesLoading(false);
+    }
+  };
+
+  // My Bubble 데이터 로딩
+  useEffect(() => {
     // 'myBubble' 탭이 활성화되었을 때만 데이터를 가져옵니다.
     if (activeTab === "myBubble") {
       fetchMyBubbles();
     }
   }, [activeTab, session]);
+
+  // 화면에 포커스될 때마다 myBubble 탭 데이터 새로고침
+  useFocusEffect(
+    React.useCallback(() => {
+      if (activeTab === "myBubble") {
+        fetchMyBubbles();
+      }
+    }, [activeTab])
+  );
 
   // --- 이미지 관련 함수들 ---
   const handleImageOptions = (index: number) => {
@@ -847,7 +906,7 @@ function ProfileScreen() {
       if (data) {
         setActiveBubbleId(bubbleId);
         console.log("[ProfileScreen] Active 버블 설정 성공:", bubbleId);
-        Alert.alert("성공", "Active 버블이 설정되었습니다.");
+        Alert.alert("Success!", "Active bubble has been set");
       }
     } catch (error) {
       console.error("[ProfileScreen] Active 버블 설정 중 에러:", error);
@@ -860,15 +919,15 @@ function ProfileScreen() {
     if (!session?.user) return;
     
     Alert.alert(
-      "그룹 나가기",
-      "정말로 이 그룹에서 나가시겠습니까?",
+      "Do you want to pop this bubble?",
+      "Popped bubbles can't be restored.",
       [
         {
-          text: "취소",
+          text: "Cancel",
           style: "cancel",
         },
         {
-          text: "나가기",
+          text: "Pop",
           style: "destructive",
           onPress: async () => {
             try {
@@ -880,33 +939,34 @@ function ProfileScreen() {
               });
               
               if (error) {
-                console.error("[ProfileScreen] 그룹 나가기 실패:", error);
-                Alert.alert("오류", "그룹 나가기에 실패했습니다.");
+                console.error("[ProfileScreen] Failed to leave group:", error);
+                Alert.alert("Error", "Failed to pop bubble.");
                 return;
               }
               
-              if (data) {
-                console.log("[ProfileScreen] 그룹 나가기 성공:", bubbleId);
-                
-                // Active 버블이 삭제된 버블이었다면 Active 상태 제거
-                if (activeBubbleId === bubbleId) {
-                  setActiveBubbleId(null);
-                }
-                
-                // 버블 목록 새로고침
-                if (activeTab === "myBubble") {
-                  // fetchMyBubbles 함수를 다시 호출
-                  const fetchMyBubbles = async () => {
-                    // ... 기존 fetchMyBubbles 로직
-                  };
-                  fetchMyBubbles();
-                }
-                
-                Alert.alert("성공", "그룹에서 나갔습니다.");
+              if (!data || !data.success) {
+                console.error("[ProfileScreen] Failed to pop bubble:", data?.message || "Unknown error");
+                Alert.alert("Error", data?.message || "Failed to pop bubble.");
+                return;
               }
+
+              console.log(`[ProfileScreen] Successfully popped bubble: "${data.group_name}" by ${data.popper_name}`);
+              
+              // Active 버블이 삭제된 버블이었다면 Active 상태 제거
+              if (activeBubbleId === bubbleId) {
+                setActiveBubbleId(null);
+              }
+              
+              // 버블 목록 새로고침
+              fetchMyBubbles();
+              
+              Alert.alert(
+                "Bubble Popped! 💥", 
+                `"${data.group_name}" has been destroyed.`
+              );
             } catch (error) {
-              console.error("[ProfileScreen] 그룹 나가기 중 에러:", error);
-              Alert.alert("오류", "그룹 나가기에 실패했습니다.");
+              console.error("[ProfileScreen] Error while leaving group:", error);
+              Alert.alert("Error", "Failed to pop bubble.");
             }
           },
         },
@@ -1155,12 +1215,13 @@ function ProfileScreen() {
                     bubble={bubble}
                     isActive={activeBubbleId === bubble.id}
                     onPress={() => {
-                      // 기존 버블을 form.tsx로 이동 (get_bubble RPC 사용)
+                      // 버블 상태에 따라 다른 인터페이스로 이동
+                      // forming: 대기 화면, full: 업데이트 화면
                       router.push({
                         pathname: "/bubble/form",
                         params: {
                           groupId: bubble.id,
-                          isExistingBubble: "true", // 기존 버블임을 표시
+                          isExistingBubble: bubble.status === 'full' ? "true" : "false",
                         },
                       });
                     }}
@@ -1193,6 +1254,7 @@ function ProfileScreen() {
           <CreateBubbleModal
             visible={showCreateBubbleModal}
             onClose={() => setShowCreateBubbleModal(false)}
+            onRefresh={fetchMyBubbles}
           />
         </View>
       );
@@ -1228,11 +1290,12 @@ function ProfileScreen() {
             userId={profile?.userId}
             imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
             skeleton={loading}
+            onSettingsPress={navigateToSettings}
           />
           <ProfileTab
             tabs={TABS_DATA}
             activeTabId={activeTab}
-            onTabPress={(tabId) => handleTabChange(tabId)}
+            onTabPress={(tabId, index) => handleTabChange(tabId)}
           />
           {activeTab === "bubblePro" && (
             <View style={styles.emptyTabContainer}>
@@ -1272,6 +1335,7 @@ function ProfileScreen() {
         <CreateBubbleModal
           visible={showCreateBubbleModal}
           onClose={() => setShowCreateBubbleModal(false)}
+          onRefresh={fetchMyBubbles}
         />
       </CustomView>
     );
@@ -1308,6 +1372,25 @@ function ProfileScreen() {
               Retry
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.logoutButton,
+              { borderColor: colors.error, marginTop: 15 },
+            ]}
+            onPress={async () => {
+              try {
+                await signOut();
+                router.replace("/login");
+              } catch (error) {
+                console.error("Logout error:", error);
+                Alert.alert("Error", "Failed to logout. Please try again.");
+              }
+            }}
+          >
+            <Text style={[styles.logoutButtonText, { color: colors.error }]}>
+              Logout
+            </Text>
+          </TouchableOpacity>
         </View>
       </CustomView>
     );
@@ -1327,11 +1410,12 @@ function ProfileScreen() {
           userId={profile.userId}
           imageUrl={currentImages[0]?.url || currentImages[0]?.uri}
           skeleton={false}
+          onSettingsPress={navigateToSettings}
         />
         <ProfileTab
           tabs={TABS_DATA}
           activeTabId={activeTab}
-          onTabPress={(tabId) => handleTabChange(tabId)}
+          onTabPress={(tabId, index) => handleTabChange(tabId)}
         />
         {renderTabContent()}
       </ScrollView>
@@ -1476,6 +1560,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveButtonText: {
+    fontSize: 16,
+    fontFamily: "Quicksand-Bold",
+  },
+  logoutButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  logoutButtonText: {
     fontSize: 16,
     fontFamily: "Quicksand-Bold",
   },
