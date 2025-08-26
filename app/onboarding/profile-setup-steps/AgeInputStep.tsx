@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: 12,
     height: 56,
-    fontSize: 12,
+    fontSize: 16,
     fontFamily: "Quicksand-Regular",
   },
   monthAndDayInput: {

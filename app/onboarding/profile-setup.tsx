@@ -80,7 +80,7 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
     case 7:
       return !!data.preferredGender;
     case 8:
-      return !!data.aboutMe;
+      return true; // About me is optional, always valid
     case 9:
       return (
         data.images &&
@@ -246,6 +246,13 @@ export default function ProfileSetupScreen() {
     },
     [updateProfileField]
   );
+
+  const handleAboutMeSkip = useCallback(() => {
+    updateProfileField("aboutMe", "");
+    if (currentStep < TOTAL_STEPS - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [updateProfileField, currentStep]);
 
   const handleImagesChange = useCallback(
     (newImages: (ProfileImage | null)[]) => {
@@ -505,6 +512,7 @@ export default function ProfileSetupScreen() {
           <AboutMeInputStep
             currentAboutMe={profileData.aboutMe}
             onAboutMeChange={handleAboutMeChange}
+            onSkip={handleAboutMeSkip}
           />
         );
       case 9:

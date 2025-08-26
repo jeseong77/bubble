@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 40,
     lineHeight: 40,
+    textAlign: "center",
   },
   gridContainer: {
     flexDirection: "row", // 기존 값 유지

@@ -37,7 +37,7 @@ const UserIdInputStep = ({
 
         <View style={styles.descriptionBox}>
           <Text style={[styles.descriptionText, { color: colors.darkGray }]}>
-            This will help others find and connect with you easily.
+            This makes it easier for others to find you
           </Text>
         </View>
 
