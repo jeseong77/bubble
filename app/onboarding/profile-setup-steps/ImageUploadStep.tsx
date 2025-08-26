@@ -46,10 +46,36 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   const itemSize =
     (screenWidth - contentPaddingHorizontal * 2 - totalGapSpace) / NUM_COLUMNS;
 
+  // Helper function to find the first empty slot
+  const findFirstEmptySlot = (): number => {
+    for (let i = 0; i < maxImages; i++) {
+      if (!currentImages[i]) {
+        return i;
+      }
+    }
+    return -1; // No empty slots available
+  };
+
+  // Helper function to compact images (remove gaps and shift left)
+  const compactImages = (images: (ProfileImage | null)[]): (ProfileImage | null)[] => {
+    const compacted = images.filter(image => image !== null);
+    while (compacted.length < maxImages) {
+      compacted.push(null);
+    }
+    return compacted;
+  };
+
   const handlePickImage = async (index: number) => {
+    // Find the first available slot for the new image
+    const targetIndex = findFirstEmptySlot();
+    if (targetIndex === -1) {
+      Alert.alert("Maximum Images", "You have reached the maximum number of images.");
+      return;
+    }
+
     if (onUploadImage) {
-      // 서버 업로드가 가능한 경우
-      await onUploadImage(index);
+      // 서버 업로드가 가능한 경우 - use the first available slot
+      await onUploadImage(targetIndex);
     } else {
       // 기존 로컬 방식
       const permissionResult =
@@ -71,7 +97,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         if (!result.canceled && result.assets && result.assets.length > 0) {
           const newProfileImage: ProfileImage = { uri: result.assets[0].uri };
           const updatedImages = [...currentImages];
-          updatedImages[index] = newProfileImage;
+          updatedImages[targetIndex] = newProfileImage;
           onImagesChange(updatedImages);
         }
       } catch (error) {
@@ -90,7 +116,9 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         onPress: () => {
           const updatedImages = [...currentImages];
           updatedImages[index] = null;
-          onImagesChange(updatedImages);
+          // Compact images to remove gaps and shift left
+          const compactedImages = compactImages(updatedImages);
+          onImagesChange(compactedImages);
         },
       },
     ]);
@@ -121,6 +149,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             imageAsset ? handleRemoveImage(index) : handlePickImage(index)
           }
           activeOpacity={0.7}
+          disabled={!imageAsset && findFirstEmptySlot() === -1}
         >
           {imageAsset ? (
             <Image
