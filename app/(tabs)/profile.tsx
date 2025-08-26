@@ -306,6 +306,7 @@ function ProfileScreen() {
           mbti: profileData.mbti,
           gender: profileData.gender,
           genderVisibleOnProfile: true,
+          preferredGender: profileData.preferred_gender,
           aboutMe: profileData.bio,
           images: [],
         };
@@ -823,7 +824,6 @@ function ProfileScreen() {
         birthDate,
         height: editingProfile.height,
         mbti: editingProfile.mbti,
-        gender: editingProfile.gender,
         bio: editingProfile.aboutMe,
       });
 
@@ -834,7 +834,6 @@ function ProfileScreen() {
         birth_date: birthDate,
         height_cm: editingProfile.height,
         mbti: editingProfile.mbti,
-        gender: editingProfile.gender,
         bio: editingProfile.aboutMe,
         updated_at: new Date().toISOString(),
       });
@@ -1074,21 +1073,9 @@ function ProfileScreen() {
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Age
         </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.age?.toString() || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, age: parseInt(text) || 0 } : null
-            )
-          }
-          placeholder="Enter age"
-          placeholderTextColor={colors.darkGray}
-          keyboardType="numeric"
-        />
+        <Text style={[styles.detailValue, { color: colors.black }]}>
+          {editingProfile?.age ? `${editingProfile.age} years old` : 'Not available'}
+        </Text>
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
@@ -1155,20 +1142,17 @@ function ProfileScreen() {
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Gender
         </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.gender || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, gender: text } : null
-            )
-          }
-          placeholder="Enter gender"
-          placeholderTextColor={colors.darkGray}
-        />
+        <Text style={[styles.detailValue, { color: colors.black }]}>
+          {editingProfile?.gender || 'Not specified'}
+        </Text>
+      </View>
+      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
+          Preferred Gender
+        </Text>
+        <Text style={[styles.detailValue, { color: colors.black }]}>
+          {editingProfile?.preferredGender || 'Not specified'}
+        </Text>
       </View>
 
       {/* 저장 버튼 */}
@@ -1548,6 +1532,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: "Quicksand-Regular",
     borderBottomWidth: 1,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  detailValue: {
+    fontSize: 18,
+    fontFamily: "Quicksand-Regular",
     paddingVertical: 8,
     marginTop: 4,
   },

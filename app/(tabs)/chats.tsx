@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   emptySubText: {
     fontSize: 15,
-    color: "#888",
+    color: "#666",
     textAlign: "center",
   },
   // Header styles (matching Likes You)
