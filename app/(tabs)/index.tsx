@@ -92,7 +92,6 @@ export default function MatchScreen() {
   const [recentMatches, setRecentMatches] = useState<string[]>([]);
   const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
   const [userBubbleLoading, setUserBubbleLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Helper function to format reset time for small display
   const formatResetTime = (resetTimeISO: string) => {
@@ -112,27 +111,7 @@ export default function MatchScreen() {
     }
   };
 
-  // Helper function to format countdown timer (HH:MM format)
-  const formatCountdownTime = (resetTimeISO: string) => {
-    const resetTime = new Date(resetTimeISO);
-    const diff = resetTime.getTime() - currentTime.getTime();
-    
-    if (diff <= 0) return "00:00";
-    
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  };
 
-  // Update timer every minute for countdown
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000); // Update every minute
-
-    return () => clearInterval(timer);
-  }, []);
 
   // Safety check: Reset index if it goes out of bounds after group removal
   useEffect(() => {
@@ -619,7 +598,16 @@ export default function MatchScreen() {
       console.log("❌ No user bubble or forming group - showing NoGroupState");
       console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
-        <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
+        <SafeAreaView
+          style={[styles.safeArea, { paddingTop: insets.top }]}
+          edges={["top"]}
+        >
+          <LinearGradient
+            colors={["#FFFFFF", "#FFFFFF", "#FFFFFF"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
+        </SafeAreaView>
       );
     }
 
@@ -716,14 +704,11 @@ export default function MatchScreen() {
             </View>
           )}
 
-          {/* Large Countdown Display */}
+          {/* Message Display */}
           <View style={styles.limitReachedContainer}>
             <Text style={styles.limitReachedMessage}>
               You've used all your swipes for today.{'\n'}
               Please wait for new Bubbles tomorrow!
-            </Text>
-            <Text style={styles.countdownTimer}>
-              {formatCountdownTime(swipeLimitInfo.reset_time)}
             </Text>
           </View>
 
