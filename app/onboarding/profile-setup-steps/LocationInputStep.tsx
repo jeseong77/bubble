@@ -27,27 +27,31 @@ const LocationInputStep = ({
   onSkip,
 }: LocationInputStepProps): JSX.Element => {
   const { colors } = useAppTheme();
-  const { isLoading, getCurrentLocation, requestLocationPermission, error } = useLocationServices();
+  const { getCurrentLocation } = useLocationServices();
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
-  const handleUseCurrentLocation = async () => {
+  const handleTextInputPress = async () => {
+    if (isDetectingLocation) return;
+    
     setIsDetectingLocation(true);
     
     try {
       const locationData = await getCurrentLocation();
       if (locationData && locationData.city) {
         onLocationChange(locationData.city);
-      } else if (error) {
+      } else {
+        // If location detection fails, user must press "Not Now" to proceed
         Alert.alert(
-          "Location Error",
-          "Unable to detect your location. Please enter your city manually.",
+          "Location Denied",
+          "You have denied permission for location services. You can change this later in your profile settings. For now, please press 'Not Now' to proceed.",
           [{ text: "OK" }]
         );
       }
     } catch (err) {
+      // If location detection fails, user must press "Not Now" to proceed  
       Alert.alert(
-        "Location Error",
-        "Unable to detect your location. Please enter your city manually.",
+        "Location Denied", 
+        "You have denied permission for location services. You can change this later in your profile settings. For now, please press 'Not Now' to proceed.",
         [{ text: "OK" }]
       );
     } finally {
@@ -69,46 +73,42 @@ const LocationInputStep = ({
           </Text>
         </View>
 
-        <View style={styles.inputContainer}>
-          <TextInput
+        <TouchableOpacity
+          style={styles.inputContainer}
+          onPress={handleTextInputPress}
+          disabled={isDetectingLocation}
+        >
+          <View
             style={[
               styles.input,
               {
                 backgroundColor: colors.lightGray,
-                color: colors.bubbleFont,
               },
             ]}
-            placeholder="What city do you live in?"
-            placeholderTextColor={colors.darkGray}
-            value={location || ""}
-            onChangeText={onLocationChange}
-            autoCapitalize="words"
-            autoCorrect={false}
-            selectionColor={colors.primary}
-            returnKeyType="done"
-            onSubmitEditing={Keyboard.dismiss}
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={[
-            styles.locationButton,
-            { backgroundColor: colors.primary }
-          ]} 
-          onPress={handleUseCurrentLocation}
-          disabled={isDetectingLocation}
-        >
-          {isDetectingLocation ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Ionicons name="location" size={20} color={colors.white} />
-          )}
-          <Text style={[
-            styles.locationButtonText, 
-            { color: colors.white }
-          ]}>
-            {isDetectingLocation ? 'Detecting...' : 'Use Current Location'}
-          </Text>
+          >
+            <Text
+              style={[
+                styles.inputText,
+                {
+                  color: isDetectingLocation 
+                    ? colors.primary 
+                    : location 
+                    ? colors.bubbleFont 
+                    : colors.darkGray
+                }
+              ]}
+            >
+              {isDetectingLocation 
+                ? 'Detecting location...' 
+                : location || "What city do you live in?"
+              }
+            </Text>
+            {isDetectingLocation && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
@@ -132,29 +132,29 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   inputContainer: {
-    marginBottom: 16,
+    position: 'relative',
+    marginBottom: 20,
   },
   input: {
     borderRadius: 12,
     height: 56,
     paddingHorizontal: 20,
+    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputText: {
+    flex: 1,
     fontSize: 16,
     fontFamily: "Quicksand-Regular",
   },
-  locationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  loadingOverlay: {
+    position: 'absolute',
+    right: 20,
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
-    borderRadius: 12,
-    height: 56,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    gap: 8,
-  },
-  locationButtonText: {
-    fontFamily: "Quicksand-Bold",
-    fontSize: 16,
-    fontWeight: "700",
+    alignItems: 'center',
   },
   skipButton: {
     alignItems: "center",
