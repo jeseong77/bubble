@@ -23,7 +23,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to set profile pictures or share photos.",
-        "NSCameraUsageDescription": "This app needs access to your camera to take profile pictures or share photos."
+        "NSCameraUsageDescription": "This app needs access to your camera to take profile pictures or share photos.",
+        "NSLocationWhenInUseUsageDescription": "This app always requires location tracking"
       }
     },
     "android": {
