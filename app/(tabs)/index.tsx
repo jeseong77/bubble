@@ -736,7 +736,7 @@ export default function MatchScreen() {
       console.log("📭 No matching groups - showing EmptyState");
       return (
         <EmptyState
-          message="No more matches available right now. Check back later!"
+          message="No new matches available. Check back later!"
           onRefresh={() => {
             console.log("[MatchScreen] Refreshing empty state...");
             refetch();
@@ -862,7 +862,8 @@ export default function MatchScreen() {
           <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
-        {/* Swipe Counter and Limit Info */}
+        {/* Swipe Counter and Limit Info - Hidden from UI */}
+        {/* 
         {swipeLimitInfo && (
           <View style={styles.swipeCounterContainer}>
             <BlurView
@@ -881,6 +882,7 @@ export default function MatchScreen() {
             </BlurView>
           </View>
         )}
+        */}
 
         {/* Swipe Controls */}
         <View style={styles.swipeControls}>
