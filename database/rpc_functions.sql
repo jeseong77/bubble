@@ -2028,5 +2028,7 @@ $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION generate_invitation_token(UUID, UUID, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION validate_invitation_token(UUID, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION validate_invitation_token(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_bubble(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION get_bubble(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION join_bubble_direct(UUID, UUID, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION join_bubble_direct(UUID, UUID, TEXT) TO authenticated;

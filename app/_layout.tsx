@@ -1,5 +1,5 @@
 // app/_layout.tsx
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Stack } from "expo-router";
 import { Alert } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
@@ -19,152 +19,271 @@ function AppInitializer() {
   console.log("AppInitializer: Component rendering.");
   const { isReady: isRoutingLogicProcessed } = useInitialRouteRedirect();
   const { session } = useAuth();
+  
+  // State to manage pending deep links
+  const [pendingDeepLink, setPendingDeepLink] = useState<string | null>(null);
+  const processingDeepLink = useRef(false);
 
   // Handle deep linking for bubble invitations
   useEffect(() => {
     const handleDeepLink = async (url: string) => {
-      console.log("[DeepLink] Processing deep link:", url);
+      console.log("[DeepLink] 🔗 Processing deep link:", url);
+      console.log("[DeepLink] 📊 Current state:", {
+        hasSession: !!session?.user,
+        sessionId: session?.user?.id,
+        isRoutingReady: isRoutingLogicProcessed,
+        processingDeepLink: processingDeepLink.current
+      });
       
+      // If we're already processing a deep link, ignore new ones
+      if (processingDeepLink.current) {
+        console.log("[DeepLink] ⏸️ Already processing a deep link, ignoring:", url);
+        return;
+      }
+
       // Parse bubble join URLs: bubble://join/{groupId}/{token} or https://bubble.app/join/{groupId}/{token}
       const parsedUrl = Linking.parse(url);
-      console.log("[DeepLink] Parsed URL:", parsedUrl);
+      console.log("[DeepLink] 🔍 Parsed URL:", parsedUrl);
       
       if (parsedUrl.path && parsedUrl.path.startsWith('/join/')) {
         const pathParts = parsedUrl.path.replace('/join/', '').split('/');
         const groupId = pathParts[0];
-        const token = pathParts[1] || null; // Token is optional for backward compatibility
+        const token = pathParts[1] || null;
         
-        console.log("[DeepLink] Group ID extracted:", groupId);
-        console.log("[DeepLink] Token extracted:", token);
+        console.log("[DeepLink] 📋 Extracted data:", {
+          groupId,
+          token,
+          pathParts,
+          originalPath: parsedUrl.path
+        });
         
-        if (groupId && session?.user) {
-          await handleJoinBubble(groupId, session.user.id, token);
-        } else if (!session?.user) {
-          console.log("[DeepLink] User not authenticated, storing join intent");
-          // TODO: Store join intent for after login
-          Alert.alert(
-            "Login Required", 
-            "Please log in to join this bubble.",
-            [{ text: "OK", style: "default" }]
-          );
-        } else {
-          console.error("[DeepLink] Invalid group ID:", groupId);
-          Alert.alert("Error", "Invalid invitation link.");
+        // Validate group ID format (UUID)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!groupId || !uuidRegex.test(groupId)) {
+          console.error("[DeepLink] ❌ Invalid group ID format:", groupId);
+          Alert.alert("Error", "Invalid invitation link format.");
+          return;
         }
+        
+        // If app and auth aren't ready yet, store the deep link for later
+        if (!isRoutingLogicProcessed || !session?.user) {
+          console.log("[DeepLink] ⏳ App not ready, storing deep link for later:", {
+            url,
+            hasSession: !!session?.user,
+            isRoutingReady: isRoutingLogicProcessed
+          });
+          setPendingDeepLink(url);
+          return;
+        }
+        
+        // Process the deep link now
+        console.log("[DeepLink] ✅ App is ready, processing deep link immediately");
+        await handleJoinBubble(groupId, session.user.id, token);
+      } else {
+        console.log("[DeepLink] 🤷‍♂️ URL doesn't match join pattern:", parsedUrl.path);
       }
     };
 
     const handleJoinBubble = async (groupId: string, userId: string, token?: string | null) => {
+      processingDeepLink.current = true;
+      console.log("[DeepLink] 🎯 Starting bubble join process:", {
+        groupId,
+        userId,
+        hasToken: !!token,
+        tokenLength: token?.length
+      });
+      
       try {
-        console.log("[DeepLink] Fetching bubble info for join confirmation");
+        console.log("[DeepLink] 📞 Calling get_bubble RPC...");
         
         // First, get bubble info for confirmation dialog
         const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
           p_group_id: groupId,
         });
 
+        console.log("[DeepLink] 📋 get_bubble RPC response:", {
+          hasData: !!bubbleData,
+          dataLength: bubbleData?.length,
+          hasError: !!bubbleError,
+          error: bubbleError
+        });
+
         if (bubbleError) {
-          console.error("[DeepLink] Error fetching bubble info:", bubbleError);
-          Alert.alert("Error", "Failed to find bubble information.");
+          console.error("[DeepLink] ❌ Error fetching bubble info:", {
+            message: bubbleError.message,
+            code: bubbleError.code,
+            details: bubbleError.details,
+            hint: bubbleError.hint
+          });
+          Alert.alert("Error", `Failed to find bubble: ${bubbleError.message || 'Unknown error'}`);
           return;
         }
 
         if (!bubbleData || bubbleData.length === 0) {
-          console.error("[DeepLink] Bubble not found");
-          Alert.alert("Error", "This bubble no longer exists.");
+          console.error("[DeepLink] ❌ Bubble not found in database");
+          Alert.alert("Error", "This bubble no longer exists or has been deleted.");
           return;
         }
 
         const bubble = bubbleData[0];
-        console.log("[DeepLink] Bubble found:", bubble.name);
+        console.log("[DeepLink] ✅ Bubble found:", {
+          name: bubble.name,
+          id: bubble.id,
+          hasMembers: !!bubble.members
+        });
 
-        // Show confirmation dialog
+        // Show confirmation dialog with improved UX
         Alert.alert(
-          "Join Bubble?",
-          `Do you want to join "${bubble.name}"?`,
+          `Join ${bubble.name}?`,
+          `Do you want to join this bubble?`,
           [
             {
-              text: "Cancel",
+              text: "No",
               style: "cancel",
-              onPress: () => console.log("[DeepLink] Join cancelled by user"),
+              onPress: () => {
+                console.log("[DeepLink] 🚫 User cancelled join");
+                processingDeepLink.current = false;
+              },
             },
             {
-              text: "Join",
+              text: "Yes",
               style: "default",
               onPress: async () => {
-                console.log("[DeepLink] User confirmed join, calling RPC");
+                console.log("[DeepLink] ✅ User confirmed join, proceeding...");
                 await performDirectJoin(groupId, userId, bubble.name, token);
               },
             },
           ]
         );
       } catch (error) {
-        console.error("[DeepLink] Error in handleJoinBubble:", error);
-        Alert.alert("Error", "An error occurred while processing the invitation.");
+        console.error("[DeepLink] 💥 Exception in handleJoinBubble:", {
+          error,
+          message: error?.message,
+          stack: error?.stack
+        });
+        Alert.alert("Error", "An unexpected error occurred while processing the invitation.");
+        processingDeepLink.current = false;
       }
     };
 
     const performDirectJoin = async (groupId: string, userId: string, bubbleName: string, token?: string | null) => {
       try {
-        console.log("[DeepLink] Calling join_bubble_direct RPC");
+        console.log("[DeepLink] 🚀 Calling join_bubble_direct RPC with params:", {
+          groupId,
+          userId,
+          bubbleName,
+          hasToken: !!token
+        });
         
         const { data, error } = await supabase.rpc("join_bubble_direct", {
           p_group_id: groupId,
           p_user_id: userId,
-          p_invite_token: token, // Pass the secure token
+          p_invite_token: token,
         });
 
-        console.log("[DeepLink] RPC response:", { data, error });
+        console.log("[DeepLink] 📋 join_bubble_direct RPC response:", {
+          hasData: !!data,
+          hasError: !!error,
+          data,
+          error
+        });
 
         if (error) {
-          console.error("[DeepLink] RPC error:", error);
-          Alert.alert("Error", error.message || "Failed to join bubble");
+          console.error("[DeepLink] ❌ RPC error:", {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+          });
+          Alert.alert("Join Failed", error.message || "Failed to join bubble");
+          processingDeepLink.current = false;
           return;
         }
 
         if (data?.success) {
-          console.log("[DeepLink] Successfully joined bubble:", bubbleName);
+          console.log("[DeepLink] 🎉 Successfully joined bubble:", bubbleName);
           Alert.alert(
-            "Success! 🎉",
-            data.message || `Successfully joined "${bubbleName}"!`,
+            "Welcome to the bubble! 🎉",
+            data.message || `You've successfully joined "${bubbleName}"!`,
             [
               {
                 text: "OK",
                 onPress: () => {
-                  // Navigate to bubble/profile after successful join
-                  console.log("[DeepLink] Navigating to profile after successful join");
-                  // Note: Navigation will be handled by the app's natural flow
+                  console.log("[DeepLink] ✅ User acknowledged successful join");
+                  processingDeepLink.current = false;
+                  setPendingDeepLink(null); // Clear any pending deep links
                 },
               },
             ]
           );
         } else {
-          console.error("[DeepLink] Join failed:", data);
-          const errorMessage = data?.message || "Failed to join bubble";
+          console.error("[DeepLink] ❌ Join failed:", {
+            success: data?.success,
+            message: data?.message,
+            error: data?.error,
+            fullData: data
+          });
+          const errorMessage = data?.message || data?.error || "Failed to join bubble for unknown reason";
           Alert.alert("Join Failed", errorMessage);
+          processingDeepLink.current = false;
         }
       } catch (error) {
-        console.error("[DeepLink] Error in performDirectJoin:", error);
+        console.error("[DeepLink] 💥 Exception in performDirectJoin:", {
+          error,
+          message: error?.message,
+          stack: error?.stack
+        });
         Alert.alert("Error", "An unexpected error occurred while joining the bubble.");
+        processingDeepLink.current = false;
       }
     };
 
     // Handle initial URL (app was opened with a deep link)
     Linking.getInitialURL().then((url) => {
       if (url) {
-        console.log("[DeepLink] Initial URL detected:", url);
+        console.log("[DeepLink] 🎯 Initial URL detected:", url);
         handleDeepLink(url);
+      } else {
+        console.log("[DeepLink] 📝 No initial URL");
       }
+    }).catch((error) => {
+      console.error("[DeepLink] 💥 Error getting initial URL:", error);
     });
 
     // Handle URLs when app is already running
     const subscription = Linking.addEventListener('url', (event) => {
-      console.log("[DeepLink] URL event received:", event.url);
+      console.log("[DeepLink] 📨 URL event received:", event.url);
       handleDeepLink(event.url);
     });
 
-    return () => subscription?.remove();
-  }, [session?.user]);
+    return () => {
+      console.log("[DeepLink] 🧹 Cleaning up URL subscription");
+      subscription?.remove();
+    };
+  }, []); // Empty dependencies - handlers will access current state via closures
+
+  // Separate effect to handle pending deep links when app becomes ready
+  useEffect(() => {
+    if (pendingDeepLink && isRoutingLogicProcessed && session?.user) {
+      console.log("[DeepLink] 🔄 App is now ready, processing pending deep link:", pendingDeepLink);
+      
+      // Process the pending deep link
+      const processPendingLink = async () => {
+        const parsedUrl = Linking.parse(pendingDeepLink);
+        if (parsedUrl.path && parsedUrl.path.startsWith('/join/')) {
+          const pathParts = parsedUrl.path.replace('/join/', '').split('/');
+          const groupId = pathParts[0];
+          const token = pathParts[1] || null;
+          
+          console.log("[DeepLink] 🚀 Processing pending join:", { groupId, token });
+          await handleJoinBubble(groupId, session.user.id, token);
+        }
+        setPendingDeepLink(null);
+      };
+      
+      processPendingLink();
+    }
+  }, [pendingDeepLink, isRoutingLogicProcessed, session?.user]);
 
   useEffect(() => {
     if (isRoutingLogicProcessed) {
