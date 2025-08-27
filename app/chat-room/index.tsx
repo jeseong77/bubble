@@ -448,28 +448,54 @@ export default function ChatRoomScreen() {
                     ref={flatListRef}
                     data={messages}
                     keyExtractor={(item) => item.message_id.toString()}
-                    renderItem={({ item }) => (
-                      <MessageContainer isOwn={item.is_own}>
-                        {!item.is_own && (
-                          <MessageHeader>
-                            <UserAvatar>
-                              <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
-                            </UserAvatar>
-                            <SenderName>{item.sender_name}</SenderName>
-                          </MessageHeader>
-                        )}
-                        <MessageRow isOwn={item.is_own}>
-                          <MessageBubble isOwn={item.is_own}>
-                            <MessageContent>
-                              <MessageText isOwn={item.is_own}>{item.content}</MessageText>
-                            </MessageContent>
-                          </MessageBubble>
-                        </MessageRow>
-                        <MessageTime isOwn={item.is_own}>
-                          {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </MessageTime>
-                      </MessageContainer>
-                    )}
+                    renderItem={({ item, index }) => {
+                      const prevMessage = index > 0 ? messages[index - 1] : null;
+                      const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                      
+                      // Check if this message should show profile/name (first in group)
+                      const isFirstInGroup = !prevMessage || 
+                        prevMessage.sender_id !== item.sender_id || 
+                        new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) !== 
+                        new Date(prevMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      
+                      // Check if this message should show timestamp (last in group)
+                      const isLastInGroup = !nextMessage || 
+                        nextMessage.sender_id !== item.sender_id || 
+                        new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) !== 
+                        new Date(nextMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                      return (
+                        <MessageContainer isOwn={item.is_own} isGrouped={!isFirstInGroup}>
+                          {!item.is_own && isFirstInGroup && (
+                            <MessageHeader>
+                              <SenderName>{item.sender_name}</SenderName>
+                            </MessageHeader>
+                          )}
+                          <MessageRow isOwn={item.is_own} isGrouped={!isFirstInGroup}>
+                            {!item.is_own && isFirstInGroup && (
+                              <UserAvatar>
+                                <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
+                              </UserAvatar>
+                            )}
+                            {item.is_own && isLastInGroup && (
+                              <MessageTime isOwn={item.is_own}>
+                                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </MessageTime>
+                            )}
+                            <MessageBubble isOwn={item.is_own}>
+                              <MessageContent>
+                                <MessageText isOwn={item.is_own}>{item.content}</MessageText>
+                              </MessageContent>
+                            </MessageBubble>
+                            {!item.is_own && isLastInGroup && (
+                              <MessageTime isOwn={item.is_own}>
+                                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </MessageTime>
+                            )}
+                          </MessageRow>
+                        </MessageContainer>
+                      );
+                    }}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ 
                       paddingBottom: 20, 
@@ -625,19 +651,17 @@ const MessagesContainer = styled.View`
   padding-horizontal: 16px;
 `;
 
-const MessageContainer = styled.View<{ isOwn: boolean }>`
+const MessageContainer = styled.View<{ isOwn: boolean; isGrouped?: boolean }>`
   align-items: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
-  margin-vertical: 4px;
+  margin-vertical: ${props => props.isGrouped ? '1px' : '4px'};
   margin-horizontal: 8px;
-  max-width: 75%;
+  max-width: 65%;
   align-self: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
 `;
 
 const MessageHeader = styled.View`
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 4px;
-  margin-left: 8px;
+  margin-bottom: 2px;
+  margin-left: 53px;
 `;
 
 const UserAvatar = styled.View`
@@ -663,10 +687,10 @@ const SenderName = styled.Text`
   font-family: Quicksand-Regular;
 `;
 
-const MessageRow = styled.View<{ isOwn: boolean }>`
+const MessageRow = styled.View<{ isOwn: boolean; isGrouped?: boolean }>`
   flex-direction: row;
   align-items: flex-end;
-  margin-left: ${props => props.isOwn ? '0px' : '53px'};
+  margin-left: ${props => props.isOwn ? '0px' : (props.isGrouped ? '53px' : '0px')};
 `;
 
 const MessageBubble = styled.View<{ isOwn: boolean }>`
@@ -690,7 +714,7 @@ const MessageBubble = styled.View<{ isOwn: boolean }>`
 
 const MessageContent = styled.View`
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 `;
 
@@ -699,16 +723,18 @@ const MessageText = styled.Text<{ isOwn: boolean }>`
   font-weight: 500;
   font-family: Quicksand-Medium;
   color: #000000;
-  text-align: center;
+  text-align: left;
   line-height: 20px;
 `;
 
 const MessageTime = styled.Text<{ isOwn: boolean }>`
   font-size: 11px;
   color: #666;
-  margin-top: 4px;
+  margin-left: ${props => props.isOwn ? '0px' : '8px'};
+  margin-right: ${props => props.isOwn ? '8px' : '0px'};
+  margin-bottom: 2px;
   font-family: Quicksand-Medium;
-  align-self: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
+  align-self: flex-end;
 `;
 
 const InputContainer = styled.View`
