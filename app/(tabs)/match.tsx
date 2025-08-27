@@ -35,6 +35,7 @@ import {
 } from "@/components/matchmaking/MatchmakingStates";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { EventBus } from "@/services/EventBus";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -86,6 +87,22 @@ export default function LikesYouScreen() {
 
   // Get current group from real data (incoming likes instead of matching groups)
   const currentGroup = incomingLikes[currentGroupIndex];
+
+  // Set up EventBus listeners for real-time updates
+  useEffect(() => {
+    console.log('[LikesYouScreen] Setting up EventBus listeners');
+    
+    // Listen for new likes/incoming likes events
+    const unsubscribeRefreshLikes = EventBus.onEvent('REFRESH_LIKES_COUNT', () => {
+      console.log('[LikesYouScreen] Refresh likes event received, refetching data');
+      refetch();
+    });
+
+    return () => {
+      console.log('[LikesYouScreen] Cleaning up EventBus listeners');
+      unsubscribeRefreshLikes();
+    };
+  }, [refetch]);
 
   // Fetch data only on initial loading (useFocusEffect removed)
   useEffect(() => {

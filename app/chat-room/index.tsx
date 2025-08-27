@@ -5,8 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import styled from "@emotion/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
-import { RealtimeChannel } from "@supabase/supabase-js";
 import { ChatRoomProfile } from "@/components/chat/ChatRoomProfile";
+import { EventBus } from "@/services/EventBus";
 
 interface ChatMessage {
   message_id: number;
@@ -45,7 +45,6 @@ export default function ChatRoomScreen() {
   const [newMessage, setNewMessage] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [profileData, setProfileData] = useState<any>(null);
@@ -94,100 +93,68 @@ export default function ChatRoomScreen() {
     fetchChatRoomData();
   }, [chatRoomId]);
 
-  // Set up real-time subscription for new messages
+  // Set up EventBus listeners for real-time messages
   useEffect(() => {
     if (!chatRoomId || !chatRoomData) return;
 
-    console.log('🔴 [ChatRoomScreen] Setting up real-time subscription for room:', chatRoomId);
+    console.log('🔴 [ChatRoomScreen] Setting up EventBus listeners for room:', chatRoomId);
 
-    // Create channel for this specific chat room
-    const channel = supabase
-      .channel(`chat-room-${chatRoomId}`)
-      .on(
-        'broadcast',
-        { event: 'typing' },
-        (payload) => {
-          console.log('⌨️ [ChatRoomScreen] Typing event:', payload);
-          if (payload.payload.isTyping) {
-            setOtherUserTyping(true);
-            // Clear typing after 3 seconds
-            setTimeout(() => setOtherUserTyping(false), 3000);
-          } else {
-            setOtherUserTyping(false);
-          }
+    // Listen for new messages in this chat room
+    const unsubscribeNewMessage = EventBus.onEvent('NEW_MESSAGE', async (payload) => {
+      // Only handle messages for this chat room
+      if (payload.chatRoomId !== chatRoomId) return;
+      
+      console.log('📨 [ChatRoomScreen] New message from EventBus:', payload);
+      
+      // Get current user to determine sender name
+      const { data: { user } } = await supabase.auth.getUser();
+      let senderName = payload.message.sender_name;
+      
+      if (payload.message.sender_id === user?.id) {
+        senderName = chatRoomData?.my_group_name || 'You';
+      } else {
+        senderName = chatRoomData?.other_group_name || 'Other';
+      }
+      
+      const formattedMessage: ChatMessage = {
+        message_id: payload.message.message_id,
+        sender_id: payload.message.sender_id,
+        sender_name: senderName,
+        content: payload.message.content,
+        message_type: payload.message.message_type,
+        created_at: payload.message.created_at,
+        edited_at: undefined,
+        reply_to_id: undefined,
+        reply_to_content: undefined,
+        is_own: payload.message.is_own,
+        read_by_count: 0
+      };
+
+      // Only add if not a duplicate (avoid adding our own optimistic messages)
+      setMessages(prevMessages => {
+        const isDuplicate = prevMessages.some(msg => msg.message_id === payload.message.message_id);
+        if (isDuplicate) {
+          console.log('📨 [ChatRoomScreen] Duplicate message from EventBus, skipping:', payload.message.message_id);
+          return prevMessages;
         }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `room_id=eq.${chatRoomId}`,
-        },
-        async (payload) => {
-          console.log('📨 [ChatRoomScreen] New message received:', payload);
-          
-          // Get current user to determine if message is own
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          // Add the new message to the list
-          const newMsg = payload.new as any;
-          const isOwnMessage = user?.id === newMsg.sender_id;
-          
-          // Get sender name (could be cached or fetched)
-          let senderName = 'Unknown';
-          if (isOwnMessage) {
-            senderName = chatRoomData?.my_group_name || 'You';
-          } else {
-            senderName = chatRoomData?.other_group_name || 'Other';
-          }
-          
-          const formattedMessage: ChatMessage = {
-            message_id: newMsg.id,
-            sender_id: newMsg.sender_id,
-            sender_name: senderName,
-            content: newMsg.content,
-            message_type: newMsg.message_type || 'text',
-            created_at: newMsg.created_at,
-            edited_at: newMsg.edited_at,
-            reply_to_id: newMsg.reply_to_id,
-            reply_to_content: null,
-            is_own: isOwnMessage,
-            read_by_count: 0
-          };
-
-          // Only add if not a duplicate (avoid adding our own optimistic messages)
-          setMessages(prevMessages => {
-            const isDuplicate = prevMessages.some(msg => msg.message_id === newMsg.id);
-            if (isDuplicate) {
-              console.log('📨 [ChatRoomScreen] Duplicate message, skipping:', newMsg.id);
-              return prevMessages;
-            }
-            return [...prevMessages, formattedMessage];
-          });
-
-          // Auto scroll to bottom for new messages
-          setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }, 100);
-
-          // Mark messages as read if not own message
-          if (!isOwnMessage) {
-            markMessagesAsRead();
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('🔴 [ChatRoomScreen] Subscription status:', status);
+        return [...prevMessages, formattedMessage];
       });
 
-    setRealtimeChannel(channel);
+      // Auto scroll to bottom for new messages
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
 
-    // Cleanup subscription on unmount
+      // Mark messages as read if not own message
+      if (!payload.message.is_own) {
+        markMessagesAsRead();
+      }
+    });
+
+    // Cleanup EventBus listeners on unmount
     return () => {
-      console.log('🔴 [ChatRoomScreen] Cleaning up real-time subscription');
-      channel.unsubscribe();
+      console.log('🔴 [ChatRoomScreen] Cleaning up EventBus listeners');
+      unsubscribeNewMessage();
     };
   }, [chatRoomId, chatRoomData]);
 
@@ -252,15 +219,10 @@ export default function ChatRoomScreen() {
     }
   };
 
-  // Send typing indicator
+  // Send typing indicator - we'll implement this later with EventBus if needed
   const sendTypingIndicator = (isTyping: boolean) => {
-    if (realtimeChannel) {
-      realtimeChannel.send({
-        type: 'broadcast',
-        event: 'typing',
-        payload: { isTyping, userId: 'current-user' }
-      });
-    }
+    // TODO: Implement typing indicators through EventBus if needed
+    console.log('[ChatRoomScreen] Typing indicator:', isTyping);
   };
 
   // Handle input text changes with typing indicators

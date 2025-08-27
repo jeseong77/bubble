@@ -11,6 +11,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { useUIStore } from "@/stores/uiStore";
+import { EventBus, emitNewMessage, emitNewInvitation, emitConnectionStatus, emitRefreshMessages, emitRefreshLikes } from "@/services/EventBus";
 
 /**
  * `public.group_members` 테이블의 데이터 구조와 일치하는 타입
@@ -213,7 +214,10 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
       }
 
       console.log(`[RealtimeProvider] 사용자 ${userId}에 대한 구독 시도...`);
-      setConnectionStatus("CONNECTED");
+      setConnectionStatus("CONNECTING");
+      
+      // Emit connecting status to EventBus
+      emitConnectionStatus('CONNECTING');
 
       try {
         channel = supabase.channel(`realtime_notifications:${userId}`);
@@ -231,6 +235,14 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             (payload) => {
               console.log("[RealtimeProvider] 새로운 초대 감지!", payload.new);
               setInvitations((prev) => [...prev, payload.new]);
+              
+              // Emit new invitation event to EventBus
+              emitNewInvitation(
+                payload.new.group_id,
+                'New Group', // We'll need to fetch group name if needed
+                'Unknown', // We'll need to fetch inviter info if needed
+                'Someone'
+              );
             }
           )
           .on<GroupMember>(
@@ -295,6 +307,9 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             (payload) => {
               console.log("[RealtimeProvider] Likes table changed, refreshing count...", payload);
               refreshLikesCount(userId);
+              
+              // Emit refresh likes event to EventBus
+              emitRefreshLikes();
             }
           )
           // Subscribe to chat_messages table changes to refresh message count
@@ -308,6 +323,26 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             (payload) => {
               console.log("[RealtimeProvider] Chat messages changed, refreshing count...", payload);
               refreshMessagesCount(userId);
+              
+              // Emit refresh messages event to EventBus
+              emitRefreshMessages();
+              
+              // If it's a new message, emit the new message event
+              if (payload.eventType === 'INSERT' && payload.new) {
+                // We'll emit a basic message event - chat screens can listen for this
+                EventBus.emitEvent('NEW_MESSAGE', {
+                  chatRoomId: payload.new.room_id,
+                  message: {
+                    message_id: payload.new.id,
+                    sender_id: payload.new.sender_id,
+                    sender_name: 'Unknown', // We'll need to resolve this
+                    content: payload.new.content,
+                    message_type: payload.new.message_type || 'text',
+                    created_at: payload.new.created_at,
+                    is_own: payload.new.sender_id === userId
+                  }
+                });
+              }
             }
           )
           // Subscribe to matches table changes to refresh both counts
@@ -321,6 +356,15 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             (payload) => {
               console.log("[RealtimeProvider] Matches table changed, refreshing counts...", payload);
               refreshNotifications();
+              
+              // If it's a new match, emit the new match event
+              if (payload.eventType === 'INSERT' && payload.new) {
+                EventBus.emitEvent('NEW_MATCH', {
+                  matchId: payload.new.id,
+                  chatRoomId: payload.new.chat_room_id,
+                  groupName: 'Matched Group' // We'll need to resolve this
+                });
+              }
             }
           )
           .subscribe((status, err) => {
@@ -329,23 +373,40 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             if (status === "SUBSCRIBED") {
               console.log("[RealtimeProvider] 실시간 채널 구독 성공!");
               setConnectionStatus("CONNECTED");
+              
+              // Emit connection status to EventBus
+              emitConnectionStatus('CONNECTED');
             }
             if (status === "CHANNEL_ERROR") {
-              console.error("[RealtimeProvider] 채널 에러:", err);
+              const errorMessage = err?.message || 'Unknown channel error';
+              const errorName = err?.name || 'ChannelError';
+              const errorStack = err?.stack || 'No stack trace available';
+              
+              console.error("[RealtimeProvider] 채널 에러:", errorMessage);
               console.error("[RealtimeProvider] 에러 상세:", {
-                message: err?.message,
-                name: err?.name,
-                stack: err?.stack,
+                message: errorMessage,
+                name: errorName,
+                stack: errorStack,
+                originalError: err
               });
+              
+              // Emit connection status to EventBus
+              emitConnectionStatus('ERROR', errorMessage);
               setConnectionStatus("DISCONNECTED");
             }
             if (status === "TIMED_OUT") {
               console.warn("[RealtimeProvider] 연결 시간 초과");
               setConnectionStatus("DISCONNECTED");
+              
+              // Emit connection status to EventBus
+              emitConnectionStatus('DISCONNECTED', 'Connection timed out');
             }
             if (status === "CLOSED") {
               console.log("[RealtimeProvider] 채널이 닫힘");
               setConnectionStatus("DISCONNECTED");
+              
+              // Emit connection status to EventBus
+              emitConnectionStatus('DISCONNECTED', 'Channel closed');
             }
           });
       } catch (error) {
