@@ -11,7 +11,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { useUIStore } from "@/stores/uiStore";
-import { EventBus, emitNewMessage, emitNewInvitation, emitConnectionStatus, emitRefreshMessages, emitRefreshLikes } from "@/services/EventBus";
+import { EventBus, emitNewMessage, emitNewInvitation, emitConnectionStatus, emitRefreshMessages, emitRefreshLikes, emitBubbleFormed } from "@/services/EventBus";
 
 /**
  * `public.group_members` 테이블의 데이터 구조와 일치하는 타입
@@ -364,6 +364,85 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
                   chatRoomId: payload.new.chat_room_id,
                   groupName: 'Matched Group' // We'll need to resolve this
                 });
+              }
+            }
+          )
+          // Subscribe to groups table changes to detect bubble formation
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public", 
+              table: "groups",
+            },
+            async (payload) => {
+              console.log("[RealtimeProvider] Groups table changed, checking for bubble formation...", payload);
+              
+              // Check if status changed from 'forming' to 'full'
+              if (payload.old.status === 'forming' && payload.new.status === 'full') {
+                console.log("[RealtimeProvider] 🎉 Bubble formed! Group:", payload.new.id);
+                
+                try {
+                  // First check if current user is a member of this group
+                  const { data: memberCheck, error: memberError } = await supabase
+                    .from('group_members')
+                    .select('*')
+                    .eq('group_id', payload.new.id)
+                    .eq('user_id', userId)
+                    .single();
+                    
+                  if (memberError || !memberCheck) {
+                    // User is not a member, ignore this event
+                    return;
+                  }
+                  
+                  // User is a member, fetch group details and all members
+                  const { data: groupDetails, error: groupError } = await supabase
+                    .from('groups')
+                    .select('*')
+                    .eq('id', payload.new.id)
+                    .single();
+                    
+                  const { data: membersData, error: membersError } = await supabase
+                    .from('group_members')
+                    .select(`
+                      user_id,
+                      users!inner (
+                        id,
+                        name,
+                        profile_image_url
+                      )
+                    `)
+                    .eq('group_id', payload.new.id)
+                    .eq('status', 'joined');
+                    
+                  if (groupError || membersError || !groupDetails || !membersData) {
+                    console.error("[RealtimeProvider] Error fetching group/members:", groupError, membersError);
+                    return;
+                  }
+                  
+                  // Format members for the announcement
+                  const members = membersData.map((item: any) => ({
+                    id: item.user_id,
+                    name: item.users?.name || `User ${item.user_id.slice(0, 8)}`,
+                    imageUrl: item.users?.profile_image_url
+                  }));
+                  
+                  console.log("[RealtimeProvider] Emitting bubble formed event:", {
+                    groupId: groupDetails.id,
+                    groupName: groupDetails.name || 'New Bubble',
+                    members: members
+                  });
+                  
+                  // Emit the bubble formed event
+                  emitBubbleFormed(
+                    groupDetails.id,
+                    groupDetails.name || 'New Bubble',
+                    members
+                  );
+                } catch (error) {
+                  console.error("[RealtimeProvider] Error handling bubble formation:", error);
+                }
               }
             }
           )

@@ -74,6 +74,15 @@ export interface RealtimeEvent {
     groupId: string;
     userId: string;
   };
+  BUBBLE_FORMED: {
+    groupId: string;
+    groupName: string;
+    members: Array<{
+      id: string;
+      name: string;
+      imageUrl?: string;
+    }>;
+  };
 
   // Connection events
   CONNECTION_STATUS: {
@@ -200,6 +209,10 @@ export const emitRefreshMessages = () => {
 
 export const emitRefreshLikes = () => {
   EventBus.emitEvent('REFRESH_LIKES_COUNT', {});
+};
+
+export const emitBubbleFormed = (groupId: string, groupName: string, members: Array<{id: string; name: string; imageUrl?: string;}>) => {
+  EventBus.emitEvent('BUBBLE_FORMED', { groupId, groupName, members });
 };
 
 export default EventBus;
