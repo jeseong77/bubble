@@ -8,6 +8,7 @@ import {
   Alert,
   Vibration,
   ActivityIndicator,
+  Share,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
@@ -126,14 +127,25 @@ export default function InviteModal({
         return;
       }
 
-      // For now, just copy to clipboard as sharing
-      // In a real implementation, you'd use React Native's Share API
-      await copyToClipboard();
+      const shareOptions = {
+        message: `Join my Bubble on Bubble! 🫧\n\n${groupName}\n\nTap the link to join: ${inviteLink}`,
+        url: inviteLink,
+      };
+
+      const result = await Share.share(shareOptions);
       
-      console.log("[InviteModal] Share initiated for link:", inviteLink);
+      if (result.action === Share.sharedAction) {
+        console.log("[InviteModal] ✅ Content shared successfully");
+        if (result.activityType) {
+          console.log("[InviteModal] Shared via:", result.activityType);
+        }
+      } else if (result.action === Share.dismissedAction) {
+        console.log("[InviteModal] Share dismissed by user");
+      }
+      
     } catch (error) {
       console.error("[InviteModal] Error sharing link:", error);
-      Alert.alert("Error", "Failed to share invitation link");
+      Alert.alert("Error", "Failed to open share menu");
     }
   };
 
@@ -237,7 +249,7 @@ const styles = StyleSheet.create({
   closeButton: {
     position: "absolute",
     top: 60,
-    right: 30,
+    right: 20,
     zIndex: 10,
     padding: 10,
   },

@@ -442,7 +442,7 @@ export default function InvitationPage() {
         You don't have any invites yet.
       </Text>
       <Text style={styles.emptySubtext}>
-        You can only join one bubble at a time !
+        You can only join one bubble at a time!
       </Text>
     </View>
   );
@@ -637,20 +637,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: 'black',
-    fontSize: 16,
-    fontFamily: 'Quicksand',
-    fontWeight: '500',
-    lineHeight: 24,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
   },
   emptySubtext: {
     textAlign: 'center',
-    color: '#8E8E93',
-    fontSize: 14,
-    fontFamily: 'Quicksand',
-    fontWeight: '400',
-    lineHeight: 20,
+    fontSize: 15,
+    color: '#666',
   },
   // Loading container
   loadingContainer: {
