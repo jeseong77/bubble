@@ -143,6 +143,7 @@ export default function BubbleFormScreen() {
             console.log("Bubble Info:", bubbleInfo);
             console.log("Bubble ID:", bubbleInfo.id);
             console.log("Bubble Name:", bubbleInfo.name);
+            console.log("Bubble Max Size:", bubbleInfo.max_size);
             console.log("Members field:", bubbleInfo.members);
             console.log("Members field type:", typeof bubbleInfo.members);
 
@@ -205,6 +206,12 @@ export default function BubbleFormScreen() {
 
   // Calculate bubble size (use max_size for existing bubbles, default 2 for new bubbles)
   const bubbleMemberCount = bubbleInfo?.max_size || 2;
+  
+  console.log("=== 🎯 BUBBLE SIZE DEBUG ===");
+  console.log("bubbleInfo:", bubbleInfo);
+  console.log("bubbleInfo?.max_size:", bubbleInfo?.max_size);
+  console.log("bubbleMemberCount:", bubbleMemberCount);
+  console.log("isNewBubble:", isNewBubble);
 
   // Set creator image URL (according to simple structure)
   useEffect(() => {
@@ -354,45 +361,242 @@ export default function BubbleFormScreen() {
             {bubbleName || "My Bubble"}
           </Text>
           
-          {/* Member circles - overlapping layout */}
-          <View style={styles.membersContainer}>
-            {/* Current user full name - positioned above profile image */}
-            <View style={styles.memberWithName}>
-              <Text style={styles.creatorName}>
-                {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
-                  ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
-                  : bubbleMembers[0]?.first_name || "Me"
-                }
-              </Text>
+          {/* Member circles - dynamic layout based on bubble size */}
+          {bubbleMemberCount === 2 ? (
+            /* Size 2: Keep existing overlapping layout unchanged */
+            <View style={styles.membersContainer}>
+              {/* Current user full name - positioned above profile image */}
+              <View style={styles.memberWithName}>
+                <Text style={styles.creatorName}>
+                  {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
+                    ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
+                    : bubbleMembers[0]?.first_name || "Me"
+                  }
+                </Text>
+                
+                {/* Creator circle */}
+                <View style={styles.memberCircle}>
+                  {creatorSignedUrl ? (
+                    <Image
+                      source={{ uri: creatorSignedUrl }}
+                      style={styles.memberImage}
+                    />
+                  ) : (
+                    <View style={[styles.memberImage, styles.placeholderImage]}>
+                      <Feather name="user" size={40} color="#999" />
+                    </View>
+                  )}
+                </View>
+              </View>
               
-              {/* Creator circle */}
-              <View style={styles.memberCircle}>
-                {creatorSignedUrl ? (
-                  <Image
-                    source={{ uri: creatorSignedUrl }}
-                    style={styles.memberImage}
-                  />
-                ) : (
-                  <View style={[styles.memberImage, styles.placeholderImage]}>
-                    <Feather name="user" size={40} color="#999" />
+              {/* Add member circle - overlapping */}
+              <TouchableOpacity
+                style={[styles.addMemberCircle, styles.overlappingCircle]}
+                onPress={() => {
+                  router.push({
+                    pathname: "/search",
+                    params: { groupId },
+                  });
+                }}
+              >
+                <Feather name="plus" size={40} color="#5A99E5" />
+              </TouchableOpacity>
+            </View>
+          ) : bubbleMemberCount === 3 ? (
+            /* Size 3: Triangle layout - 1 on top, 2 on bottom */
+            <View style={styles.triangleContainer}>
+              {/* Top member (creator) */}
+              <View style={styles.triangleTop}>
+                <Text style={styles.creatorName}>
+                  {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
+                    ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
+                    : bubbleMembers[0]?.first_name || "Me"
+                  }
+                </Text>
+                <View style={styles.memberCircle}>
+                  {creatorSignedUrl ? (
+                    <Image
+                      source={{ uri: creatorSignedUrl }}
+                      style={styles.triangleMemberImage}
+                    />
+                  ) : (
+                    <View style={[styles.triangleMemberImage, styles.placeholderImage]}>
+                      <Feather name="user" size={35} color="#999" />
+                    </View>
+                  )}
+                </View>
+              </View>
+              
+              {/* Bottom row - 2 members */}
+              <View style={styles.triangleBottom}>
+                {/* Second member slot */}
+                {bubbleMembers[1] ? (
+                  <View style={styles.triangleMemberSlot}>
+                    <Text style={styles.triangleMemberName}>
+                      {bubbleMembers[1].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[1].id] || bubbleMembers[1].avatar_url }}
+                      style={styles.triangleMemberImage}
+                    />
                   </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.triangleMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.triangleMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={35} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Third member slot */}
+                {bubbleMembers[2] ? (
+                  <View style={styles.triangleMemberSlot}>
+                    <Text style={styles.triangleMemberName}>
+                      {bubbleMembers[2].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[2].id] || bubbleMembers[2].avatar_url }}
+                      style={styles.triangleMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.triangleMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.triangleMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={35} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
-            
-            {/* Add member circle - overlapping */}
-            <TouchableOpacity
-              style={[styles.addMemberCircle, styles.overlappingCircle]}
-              onPress={() => {
-                router.push({
-                  pathname: "/search",
-                  params: { groupId },
-                });
-              }}
-            >
-              <Feather name="plus" size={40} color="#5A99E5" />
-            </TouchableOpacity>
-          </View>
+          ) : (
+            /* Size 4: Diamond/Square layout - 2x2 arrangement */
+            <View style={styles.diamondContainer}>
+              {/* Top row */}
+              <View style={styles.diamondRow}>
+                {/* Creator (top-left) */}
+                <View style={styles.diamondMemberSlot}>
+                  <Text style={styles.diamondMemberName}>
+                    {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
+                      ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
+                      : bubbleMembers[0]?.first_name || "Me"
+                    }
+                  </Text>
+                  <View style={styles.memberCircle}>
+                    {creatorSignedUrl ? (
+                      <Image
+                        source={{ uri: creatorSignedUrl }}
+                        style={styles.diamondMemberImage}
+                      />
+                    ) : (
+                      <View style={[styles.diamondMemberImage, styles.placeholderImage]}>
+                        <Feather name="user" size={30} color="#999" />
+                      </View>
+                    )}
+                  </View>
+                </View>
+                
+                {/* Second member (top-right) */}
+                {bubbleMembers[1] ? (
+                  <View style={styles.diamondMemberSlot}>
+                    <Text style={styles.diamondMemberName}>
+                      {bubbleMembers[1].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[1].id] || bubbleMembers[1].avatar_url }}
+                      style={styles.diamondMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.diamondMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={30} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {/* Bottom row */}
+              <View style={styles.diamondRow}>
+                {/* Third member (bottom-left) */}
+                {bubbleMembers[2] ? (
+                  <View style={styles.diamondMemberSlot}>
+                    <Text style={styles.diamondMemberName}>
+                      {bubbleMembers[2].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[2].id] || bubbleMembers[2].avatar_url }}
+                      style={styles.diamondMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.diamondMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={30} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Fourth member (bottom-right) */}
+                {bubbleMembers[3] ? (
+                  <View style={styles.diamondMemberSlot}>
+                    <Text style={styles.diamondMemberName}>
+                      {bubbleMembers[3].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[3].id] || bubbleMembers[3].avatar_url }}
+                      style={styles.diamondMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.diamondMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={30} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
           
           {/* Waiting text */}
           <Text style={styles.waitingText}>waiting for invitation ...</Text>
@@ -959,5 +1163,70 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  
+  // Triangle layout styles (Size 3)
+  triangleContainer: {
+    alignItems: "center",
+    marginBottom: 60,
+  },
+  triangleTop: {
+    alignItems: "center",
+    marginBottom: 30,
+    zIndex: 2,
+  },
+  triangleBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: 260,
+    zIndex: 1,
+  },
+  triangleMemberSlot: {
+    alignItems: "center",
+  },
+  triangleMemberName: {
+    fontSize: 16,
+    color: "#000",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  triangleMemberImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  
+  // Diamond layout styles (Size 4)
+  diamondContainer: {
+    alignItems: "center",
+    marginBottom: 60,
+  },
+  diamondRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: 220,
+    marginBottom: 20,
+  },
+  diamondMemberSlot: {
+    alignItems: "center",
+  },
+  diamondMemberName: {
+    fontSize: 14,
+    color: "#000",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  diamondMemberImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

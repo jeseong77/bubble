@@ -213,6 +213,7 @@ CREATE OR REPLACE FUNCTION get_bubble(p_group_id UUID)
 RETURNS TABLE (
   id UUID,
   name TEXT,
+  max_size INTEGER,
   members JSONB
 )
 LANGUAGE plpgsql
@@ -223,6 +224,7 @@ BEGIN
   SELECT 
     g.id,
     g.name,
+    g.max_size,
     COALESCE(
       jsonb_agg(
         jsonb_build_object(
@@ -245,7 +247,7 @@ BEGIN
   JOIN users u ON gm.user_id = u.id
   WHERE g.id = p_group_id
     AND gm.status = 'joined'
-  GROUP BY g.id, g.name;
+  GROUP BY g.id, g.name, g.max_size;
 END;
 $$;
 
