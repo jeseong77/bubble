@@ -79,6 +79,14 @@ export const NoGroupState: React.FC<NoGroupStateProps> = ({
   );
 };
 
+export const NoMoreGroupsState: React.FC = () => {
+  return (
+    <View style={styles.noMoreGroupsContainer}>
+      <Text style={styles.noMoreGroupsMessage}>No more groups available</Text>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -152,5 +160,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  noMoreGroupsContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  noMoreGroupsMessage: {
+    fontSize: 18,
+    color: "#303030",
+    fontWeight: "500",
+    textAlign: "center",
   },
 });

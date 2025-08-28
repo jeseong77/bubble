@@ -33,6 +33,7 @@ import {
   ErrorState,
   EmptyState,
   NoGroupState,
+  NoMoreGroupsState,
 } from "@/components/matchmaking/MatchmakingStates";
 import { GroupMember } from "@/hooks/useMatchmaking";
 import { useAuth } from "@/providers/AuthProvider";
@@ -733,6 +734,15 @@ export default function MatchScreen() {
 
     // No matching groups
     if (matchingGroups.length === 0 && !isLoading) {
+      console.log("📭 No matching groups - checking if user has swipes remaining");
+      
+      // If user still has swipes, show "No more groups available" 
+      if (swipeLimitInfo && swipeLimitInfo.can_swipe) {
+        console.log("🚫 No groups but user has swipes - showing NoMoreGroupsState");
+        return <NoMoreGroupsState />;
+      }
+      
+      // Otherwise show the regular empty state (no swipes left or first time)
       console.log("📭 No matching groups - showing EmptyState");
       return (
         <EmptyState
