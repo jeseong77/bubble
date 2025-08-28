@@ -199,7 +199,7 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
         {/* 중앙 정렬된 타이틀 */}
         <View style={[
           styles.textContainer, 
-          { marginLeft: Math.max(36, (totalSpotsToShow - 1) * 20 + 36) }
+          { marginLeft: 30 }
         ]}>
           <Text style={styles.title}>{name || "Unnamed Bubble"}</Text>
           {isActive && (
