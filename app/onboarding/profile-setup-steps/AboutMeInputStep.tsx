@@ -8,6 +8,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  TouchableOpacity,
 } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
@@ -15,11 +16,13 @@ import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContain
 interface AboutMeInputStepProps {
   currentAboutMe: string;
   onAboutMeChange: (text: string) => void;
+  onSkip: () => void;
 }
 
 const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
   currentAboutMe,
   onAboutMeChange,
+  onSkip,
 }) => {
   const { colors } = useAppTheme();
 
@@ -43,7 +46,7 @@ const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
               },
             ]}
             multiline
-            placeholder="A brief introduction about yourself."
+            placeholder="Who are you? 🤔"
             placeholderTextColor={colors.darkGray}
             value={currentAboutMe}
             onChangeText={onAboutMeChange}
@@ -52,6 +55,12 @@ const AboutMeInputStep: React.FC<AboutMeInputStepProps> = ({
             textAlignVertical="top"
             selectionColor={colors.primary}
           />
+
+          <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
+            <Text style={[styles.skipButtonText, { color: colors.navy }]}>
+              Not Now
+            </Text>
+          </TouchableOpacity>
         </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
@@ -69,9 +78,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 30,
     lineHeight: 40,
+    textAlign: "center",
   },
   textInput: {
-    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif", // 기존 값 유지
+    fontFamily: "Quicksand-Regular",
     fontSize: 16, // 기존 값 유지
     // color: '#333333', // 제거됨 (동적 적용)
     // backgroundColor: '#FFFFFF', // 제거됨 (동적 적용)
@@ -92,6 +102,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.0,
     elevation: 3, // Android 그림자
+  },
+  skipButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginTop: 20,
+  },
+  skipButtonText: {
+    fontFamily: "Quicksand-Bold",
+    fontSize: 14,
+    fontWeight: "700",
   },
   // charCounter: { // 주석 처리된 부분도 필요시 테마 적용 가능
   //   textAlign: 'right',

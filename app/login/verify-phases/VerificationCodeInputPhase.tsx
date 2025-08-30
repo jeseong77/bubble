@@ -7,7 +7,7 @@ export interface VerificationCodeInputProps {
   setVerificationCodeInput: (text: string) => void;
 }
 
-const CODE_LENGTH = 5;
+const CODE_LENGTH = 6;
 
 const VerificationCodeInputPhase = ({
   verificationCodeInput,

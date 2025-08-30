@@ -70,7 +70,7 @@ const BubbleComponent: React.FC<BubbleComponentProps> = ({ bubble }) => {
     ({
       viewableItems,
     }: {
-      viewableItems: Array<{ item: HorizontalFeedItem; index: number | null }>;
+      viewableItems: { item: HorizontalFeedItem; index: number | null }[];
     }) => {
       if (viewableItems.length > 0 && viewableItems[0].index !== null) {
         setActiveIndex(viewableItems[0].index);
@@ -130,7 +130,7 @@ const BubbleComponent: React.FC<BubbleComponentProps> = ({ bubble }) => {
   let ageHeightGenderLine = "";
   if (displayProfile) {
     if (displayProfile.age !== null)
-      ageHeightGenderLine += `${displayProfile.age}세`;
+      ageHeightGenderLine += `${displayProfile.age} years old`;
     if (displayProfile.height !== null)
       ageHeightGenderLine += `${ageHeightGenderLine ? " · " : ""}${
         displayProfile.height

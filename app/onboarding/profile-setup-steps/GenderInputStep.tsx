@@ -18,7 +18,15 @@ interface GenderInputStepProps {
   onVisibilityChange: (isVisible: boolean) => void;
 }
 
-const GENDERS = ["Man", "Woman", "Nonbinary", "Other"];
+const GENDERS = ["man", "woman", "nonbinary", "everyone"];
+
+// Display mapping for UI (show capitalized labels but store lowercase values)
+const GENDER_DISPLAY: Record<string, string> = {
+  "man": "Man",
+  "woman": "Woman", 
+  "nonbinary": "Nonbinary",
+  "everyone": "Everyone"
+};
 
 const GenderInputStep: React.FC<GenderInputStepProps> = ({
   currentGender,
@@ -68,7 +76,7 @@ const GenderInputStep: React.FC<GenderInputStepProps> = ({
                   isSelected && styles.selectedOptionText,
                 ]}
               >
-                {gender}
+                {GENDER_DISPLAY[gender]}
               </Text>
               <View
                 style={[

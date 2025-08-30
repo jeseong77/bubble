@@ -12,6 +12,7 @@ import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContain
 
 interface HeightInputStepProps {
   onHeightChange: (heightInCm: number) => void;
+  onSkip: () => void;
   initialHeightCm?: number;
 }
 
@@ -56,6 +57,7 @@ const cmPickerItems = generateCmItems();
 
 const HeightInputStep: React.FC<HeightInputStepProps> = ({
   onHeightChange,
+  onSkip,
   initialHeightCm,
 }) => {
   const { colors } = useAppTheme();
@@ -213,6 +215,12 @@ const HeightInputStep: React.FC<HeightInputStepProps> = ({
           </Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
+        <Text style={[styles.skipButtonText, { color: colors.navy }]}>
+          Not Now
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -278,6 +286,16 @@ const styles = StyleSheet.create({
   },
   unitButtonTextSelected: {
     fontWeight: "bold",
+  },
+  skipButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginTop: 20,
+  },
+  skipButtonText: {
+    fontFamily: "Quicksand-Bold",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
 

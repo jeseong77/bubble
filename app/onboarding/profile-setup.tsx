@@ -14,10 +14,13 @@ import { ProfileFormData, ProfileImage } from "@/types/profile";
 import { useAuth } from "@/providers/AuthProvider";
 import { Ionicons } from "@expo/vector-icons";
 import NameInputStep from "./profile-setup-steps/NameInputStep";
+import UserIdInputStep from "./profile-setup-steps/UserIdInputStep";
 import AgeInputStep from "./profile-setup-steps/AgeInputStep";
 import HeightInputStep from "./profile-setup-steps/HeightInputStep";
+import LocationInputStep from "./profile-setup-steps/LocationInputStep";
 import MbtiInputStep from "./profile-setup-steps/MbtiInputStep";
 import GenderInputStep from "./profile-setup-steps/GenderInputStep";
+import PreferredGenderInputStep from "./profile-setup-steps/PreferredGenderInputStep";
 import AboutMeInputStep from "./profile-setup-steps/AboutMeInputStep";
 import ImageUploadStep from "./profile-setup-steps/ImageUploadStep";
 import { useAppTheme } from "@/hooks/useAppTheme";
@@ -26,13 +29,15 @@ import * as ImagePicker from "expo-image-picker";
 import { decode } from "base64-arraybuffer";
 
 const MAX_IMAGES = 6;
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 10;
 
 const isStepValid = (step: number, data: ProfileFormData): boolean => {
   switch (step) {
     case 0:
       return !!data.firstName;
     case 1:
+      return !!data.username;
+    case 2:
       const dayNum = parseInt(data.birthDay, 10);
       const monthNum = parseInt(data.birthMonth, 10);
       const yearNum = parseInt(data.birthYear, 10);
@@ -46,24 +51,37 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
       if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31)
         return false;
       const date = new Date(yearNum, monthNum - 1, dayNum);
-      return (
-        date.getFullYear() === yearNum &&
-        date.getMonth() === monthNum - 1 &&
-        date.getDate() === dayNum &&
-        date <= new Date()
-      );
-    case 2:
-      return data.height !== null && data.height > 0;
+      const today = new Date();
+      
+      // Check if date is valid and not in the future
+      if (
+        date.getFullYear() !== yearNum ||
+        date.getMonth() !== monthNum - 1 ||
+        date.getDate() !== dayNum ||
+        date > today
+      ) {
+        return false;
+      }
+      
+      // Calculate age and check maximum (99 years old)
+      const age = calculateAge(date);
+      return age <= 99;
     case 3:
+      return true; // Height is optional, always valid
+    case 4:
+      return true; // Location is optional, always valid
+    case 5:
       return (
         data.mbti === null ||
         (typeof data.mbti === "string" && data.mbti.length === 4)
       );
-    case 4:
-      return !!data.gender;
-    case 5:
-      return !!data.aboutMe;
     case 6:
+      return !!data.gender;
+    case 7:
+      return !!data.preferredGender;
+    case 8:
+      return true; // About me is optional, always valid
+    case 9:
       return (
         data.images &&
         data.images.length >= 2 &&
@@ -97,6 +115,7 @@ export default function ProfileSetupScreen() {
   const [currentStep, setCurrentStep] = useState(0);
   const [profileData, setProfileData] = useState<ProfileFormData>({
     userId: authenticatedUserId || "",
+    username: "",
     firstName: "",
     lastName: "",
     age: null,
@@ -104,9 +123,11 @@ export default function ProfileSetupScreen() {
     birthMonth: "",
     birthYear: "",
     height: null,
+    location: null,
     mbti: null,
     gender: "",
     genderVisibleOnProfile: true,
+    preferredGender: "",
     aboutMe: "",
     images: Array(MAX_IMAGES).fill(null) as (ProfileImage | null)[],
   });
@@ -133,6 +154,13 @@ export default function ProfileSetupScreen() {
   const handleLastNameChange = useCallback(
     (value: string) => {
       updateProfileField("lastName", value);
+    },
+    [updateProfileField]
+  );
+
+  const handleUsernameChange = useCallback(
+    (value: string) => {
+      updateProfileField("username", value);
     },
     [updateProfileField]
   );
@@ -184,12 +212,47 @@ export default function ProfileSetupScreen() {
     [updateProfileField]
   );
 
+  const handleLocationChange = useCallback(
+    (value: string) => {
+      updateProfileField("location", value);
+    },
+    [updateProfileField]
+  );
+
+  const handleLocationSkip = useCallback(() => {
+    updateProfileField("location", null);
+    if (currentStep < TOTAL_STEPS - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [updateProfileField, currentStep]);
+
+  const handleHeightSkip = useCallback(() => {
+    updateProfileField("height", null);
+    if (currentStep < TOTAL_STEPS - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [updateProfileField, currentStep]);
+
+  const handlePreferredGenderChange = useCallback(
+    (value: string) => {
+      updateProfileField("preferredGender", value);
+    },
+    [updateProfileField]
+  );
+
   const handleAboutMeChange = useCallback(
     (text: string) => {
       updateProfileField("aboutMe", text);
     },
     [updateProfileField]
   );
+
+  const handleAboutMeSkip = useCallback(() => {
+    updateProfileField("aboutMe", "");
+    if (currentStep < TOTAL_STEPS - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [updateProfileField, currentStep]);
 
   const handleImagesChange = useCallback(
     (newImages: (ProfileImage | null)[]) => {
@@ -322,12 +385,15 @@ export default function ProfileSetupScreen() {
 
       const userProfile = {
         id: session.user.id,
+        username: profileData.username,
         first_name: profileData.firstName,
         last_name: profileData.lastName,
         birth_date: birthDate.toISOString(),
         height_cm: profileData.height,
+        location: profileData.location,
         mbti: profileData.mbti,
         gender: profileData.gender,
+        preferred_gender: profileData.preferredGender,
         bio: profileData.aboutMe,
         profile_setup_completed: true, // 완료 상태를 true로 설정
         updated_at: new Date().toISOString(),
@@ -386,6 +452,13 @@ export default function ProfileSetupScreen() {
         );
       case 1:
         return (
+          <UserIdInputStep
+            username={profileData.username}
+            onUsernameChange={handleUsernameChange}
+          />
+        );
+      case 2:
+        return (
           <AgeInputStep
             day={profileData.birthDay}
             month={profileData.birthMonth}
@@ -395,21 +468,30 @@ export default function ProfileSetupScreen() {
             onYearChange={handleBirthYearChange}
           />
         );
-      case 2:
+      case 3:
         return (
           <HeightInputStep
             initialHeightCm={profileData.height ?? undefined}
             onHeightChange={handleHeightChange}
+            onSkip={handleHeightSkip}
           />
         );
-      case 3:
+      case 4:
+        return (
+          <LocationInputStep
+            location={profileData.location}
+            onLocationChange={handleLocationChange}
+            onSkip={handleLocationSkip}
+          />
+        );
+      case 5:
         return (
           <MbtiInputStep
             currentMbti={profileData.mbti}
             onMbtiChange={handleMbtiChange}
           />
         );
-      case 4:
+      case 6:
         return (
           <GenderInputStep
             currentGender={profileData.gender}
@@ -418,14 +500,22 @@ export default function ProfileSetupScreen() {
             onVisibilityChange={handleGenderVisibilityChange}
           />
         );
-      case 5:
+      case 7:
+        return (
+          <PreferredGenderInputStep
+            preferredGender={profileData.preferredGender}
+            onPreferredGenderChange={handlePreferredGenderChange}
+          />
+        );
+      case 8:
         return (
           <AboutMeInputStep
             currentAboutMe={profileData.aboutMe}
             onAboutMeChange={handleAboutMeChange}
+            onSkip={handleAboutMeSkip}
           />
         );
-      case 6:
+      case 9:
         return (
           <ImageUploadStep
             currentImages={profileData.images}
@@ -454,7 +544,7 @@ export default function ProfileSetupScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <CustomAppBar
         onBackPress={handlePreviousStep}
-        showBackButton={currentStep > 0}
+        showBackButton={currentStep >= 1}
       />
       <View style={styles.contentContainer}>
         {renderCurrentStepComponent()}

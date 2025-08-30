@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // useEffect 추가
+import React, { useState, useEffect } from "react"; // useEffect added
 import {
   View,
   Text,
@@ -11,13 +11,14 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase"; // supabase 클라이언트 추가
+import { supabase } from "@/lib/supabase"; // supabase client added
 import { useAuth } from "@/providers/AuthProvider";
 
-// 스켈레톤 컴포넌트들
+// Skeleton components
 const SkeletonView = ({
   width,
   height,
@@ -76,7 +77,7 @@ const SkeletonText = ({
   />
 );
 
-// 멤버 타입 정의 (간단한 버전)
+// Member type definition (simple version)
 interface BubbleMember {
   id: string;
   first_name: string;
@@ -86,29 +87,29 @@ interface BubbleMember {
 
 export default function BubbleFormScreen() {
   const router = useRouter();
-  // const { session } = useAuth(); // Not needed for current implementation
+  const { session } = useAuth(); // Needed for handlePopBubble
 
-  // 이전 화면에서 전달된 파라미터 가져오기
+  // Get parameters passed from previous screen
   const {
-    groupId, // groupId를 받음
-    isExistingBubble, // 기존 버블인지 여부
+    groupId, // Receive groupId
+    isExistingBubble, // Whether it's an existing bubble
   } = useLocalSearchParams<{
     groupId: string;
     isExistingBubble?: string;
   }>();
 
-  // 버블 이름은 이 화면에서 관리
+  // Bubble name is managed in this screen
   const [bubbleName, setBubbleName] = useState("");
-  const [creatorSignedUrl, setCreatorSignedUrl] = useState<string | null>(null); // 이미지 URL 상태 추가
-  const [bubbleMembers, setBubbleMembers] = useState<BubbleMember[]>([]); // 버블 멤버 정보
+  const [creatorSignedUrl, setCreatorSignedUrl] = useState<string | null>(null); // Image URL state added
+  const [bubbleMembers, setBubbleMembers] = useState<BubbleMember[]>([]); // Bubble member info
   const [memberSignedUrls, setMemberSignedUrls] = useState<{
     [key: string]: string;
-  }>({}); // 멤버별 Signed URL
-  const [bubbleInfo, setBubbleInfo] = useState<any>(null); // 전체 버블 정보
-  const [isLoading, setIsLoading] = useState(false); // 로딩 상태
-  const [isMembersLoading, setIsMembersLoading] = useState(false); // 멤버 로딩 상태
+  }>({}); // Signed URL per member
+  const [bubbleInfo, setBubbleInfo] = useState<any>(null); // Complete bubble info
+  const [isLoading, setIsLoading] = useState(false); // Loading state
+  const [isMembersLoading, setIsMembersLoading] = useState(false); // Members loading state
 
-  // get_bubble RPC를 사용하여 버블 정보 가져오기
+  // Fetch bubble info using get_bubble RPC
   useEffect(() => {
     const fetchBubbleInfo = async () => {
       if (groupId) { // Fetch for both new and existing bubbles
@@ -142,16 +143,17 @@ export default function BubbleFormScreen() {
             console.log("Bubble Info:", bubbleInfo);
             console.log("Bubble ID:", bubbleInfo.id);
             console.log("Bubble Name:", bubbleInfo.name);
+            console.log("Bubble Max Size:", bubbleInfo.max_size);
             console.log("Members field:", bubbleInfo.members);
             console.log("Members field type:", typeof bubbleInfo.members);
 
-            // 버블 이름 설정
+            // Set bubble name
             setBubbleName(bubbleInfo.name || "");
 
-            // 전체 버블 정보 저장
+            // Store complete bubble info
             setBubbleInfo(bubbleInfo);
 
-            // 멤버 정보 설정 (JSON 파싱)
+            // Set member info (JSON parsing)
             if (bubbleInfo.members) {
               try {
                 const members = Array.isArray(bubbleInfo.members)
@@ -162,7 +164,7 @@ export default function BubbleFormScreen() {
                 console.log("Parsed members:", members);
                 console.log("Members count:", members.length);
               } catch (parseError) {
-                console.error("멤버 정보 파싱 실패:", parseError);
+                console.error("Failed to parse member info:", parseError);
                 console.log("Raw members data:", bubbleInfo.members);
                 setBubbleMembers([]);
               }
@@ -184,7 +186,7 @@ export default function BubbleFormScreen() {
     fetchBubbleInfo();
   }, [isExistingBubble, groupId]);
 
-  // 멤버들의 프로필 이미지 URL 설정 (새로운 구조에 맞게)
+  // Set member profile image URLs (according to new structure)
   useEffect(() => {
     if (bubbleMembers.length === 0) return;
 
@@ -192,7 +194,7 @@ export default function BubbleFormScreen() {
     const urls: { [key: string]: string } = {};
 
     for (const member of bubbleMembers) {
-      // 간단한 구조: member.avatar_url을 직접 사용
+      // Simple structure: use member.avatar_url directly
       if (member.avatar_url) {
         urls[member.id] = member.avatar_url;
       }
@@ -202,20 +204,26 @@ export default function BubbleFormScreen() {
     setIsMembersLoading(false);
   }, [bubbleMembers]);
 
-  // 버블 크기 계산 (기존 버블의 경우 max_size 사용, 새 버블의 경우 기본값 2)
+  // Calculate bubble size (use max_size for existing bubbles, default 2 for new bubbles)
   const bubbleMemberCount = bubbleInfo?.max_size || 2;
+  
+  console.log("=== 🎯 BUBBLE SIZE DEBUG ===");
+  console.log("bubbleInfo:", bubbleInfo);
+  console.log("bubbleInfo?.max_size:", bubbleInfo?.max_size);
+  console.log("bubbleMemberCount:", bubbleMemberCount);
+  console.log("isNewBubble:", isNewBubble);
 
-  // 생성자 이미지 URL 설정 (간단한 구조에 맞게)
+  // Set creator image URL (according to simple structure)
   useEffect(() => {
     if (bubbleMembers.length > 0 && bubbleMembers[0]?.avatar_url) {
-      // 생성자 이미지 URL 설정
+      // Set creator image URL
       setCreatorSignedUrl(bubbleMembers[0].avatar_url);
     }
   }, [bubbleMembers]);
 
-  // 기존 버블의 멤버 정보는 이미 파라미터로 전달받았으므로 별도 RPC 호출 불필요
+  // Member info for existing bubbles already passed as parameters, no need for separate RPC call
 
-  // ... (기존 bubbleSize 계산 로직)
+  // ... (existing bubbleSize calculation logic)
   const screenWidth = Dimensions.get("window").width;
   const totalBubblesWidth = screenWidth * 0.9;
   const overlapRatio = 0.18;
@@ -226,16 +234,16 @@ export default function BubbleFormScreen() {
 
   const handleInviteFriend = async () => {
     if (!bubbleName.trim()) {
-      alert("버블 이름을 입력해주세요.");
+      alert("Please enter a bubble name.");
       return;
     }
 
     try {
-      // 기존 버블인지 새 버블인지 확인
+      // Check if it's an existing bubble or new bubble
       const isExisting = isExistingBubble === "true";
 
       if (isExisting) {
-        // 기존 버블의 경우 이름만 업데이트
+        // For existing bubbles, only update the name
         const { error } = await supabase
           .from("groups")
           .update({ name: bubbleName })
@@ -243,11 +251,11 @@ export default function BubbleFormScreen() {
 
         if (error) throw error;
 
-        console.log("기존 버블 이름 업데이트 완료:", bubbleName);
-        // TODO: 기존 버블의 경우 멤버 관리 화면으로 이동하거나 다른 처리
-        alert("버블 이름이 업데이트되었습니다.");
+        console.log("Existing bubble name update complete:", bubbleName);
+        // TODO: For existing bubbles, navigate to member management screen or other handling
+        alert("Bubble name has been updated.");
       } else {
-        // 새 버블의 경우 이름 업데이트 후 친구 초대 화면으로 이동
+        // For new bubbles, update name then navigate to friend invitation screen
         const { error } = await supabase
           .from("groups")
           .update({ name: bubbleName })
@@ -265,7 +273,7 @@ export default function BubbleFormScreen() {
       }
     } catch (error) {
       console.error("Error updating bubble name:", error);
-      alert("버블 이름 저장에 실패했습니다. 다시 시도해주세요.");
+      alert("Failed to save bubble name. Please try again.");
     }
   };
 
@@ -273,11 +281,70 @@ export default function BubbleFormScreen() {
     router.back();
   };
 
+  const handlePopBubble = () => {
+    Alert.alert(
+      "Do you want to pop this bubble?",
+      "Popped bubbles can't be restored.",
+      [
+        {
+          text: "No",
+          style: "cancel",
+        },
+        {
+          text: "Pop",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Use the leave_group RPC function to properly handle foreign key constraints
+              const { data, error } = await supabase.rpc("leave_group", {
+                p_user_id: session?.user?.id,
+                p_group_id: groupId,
+              });
+
+              if (error) {
+                console.error("Error popping bubble:", error);
+                Alert.alert("Error", "Failed to pop bubble. Please try again.");
+                return;
+              }
+
+              if (!data || !data.success) {
+                console.error("Failed to pop bubble:", data?.message || "Unknown error");
+                Alert.alert("Error", data?.message || "Failed to pop bubble. Please try again.");
+                return;
+              }
+
+              // Log the bubble destruction details
+              console.log(`[PopBubble] "${data.group_name}" was popped by ${data.popper_name}`);
+              if (data.affected_users && data.affected_users.length > 0) {
+                console.log(`[PopBubble] ${data.affected_users.length} other users were in the bubble`);
+                // TODO: Send push notifications to affected users
+                // Format: "{popper_name} popped the bubble"
+              }
+
+              // Show success message
+              Alert.alert(
+                "Bubble Popped! 💥", 
+                `"${data.group_name}" has been destroyed.`,
+                [{ text: "OK" }]
+              );
+
+              // Navigate back to profile and trigger refresh
+              router.replace("/(tabs)/profile");
+            } catch (error) {
+              console.error("Error in handlePopBubble:", error);
+              Alert.alert("Error", "Failed to pop bubble. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Check if this is a new bubble to show simplified interface
   const isNewBubble = isExistingBubble === "false";
   
   if (isNewBubble) {
-    // Show simplified interface for new bubbles (like screenshot #4)
+    // Show simplified interface for new bubbles matching target design
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.newBubbleContainer}>
@@ -294,59 +361,253 @@ export default function BubbleFormScreen() {
             {bubbleName || "My Bubble"}
           </Text>
           
-          {/* Current user info */}
-          <Text style={styles.creatorName}>
-            {bubbleMembers[0]?.first_name || "Me"}
-          </Text>
-          
-          {/* Member circles - simplified layout */}
-          <View style={styles.membersContainer}>
-            {/* Creator circle */}
-            <View style={styles.memberCircle}>
-              {creatorSignedUrl ? (
-                <Image
-                  source={{ uri: creatorSignedUrl }}
-                  style={styles.memberImage}
-                />
-              ) : (
-                <View style={[styles.memberImage, styles.placeholderImage]}>
-                  <Feather name="user" size={40} color="#999" />
+          {/* Member circles - dynamic layout based on bubble size */}
+          {bubbleMemberCount === 2 ? (
+            /* Size 2: Keep existing overlapping layout unchanged */
+            <View style={styles.membersContainer}>
+              {/* Current user full name - positioned above profile image */}
+              <View style={styles.memberWithName}>
+                <Text style={styles.creatorName}>
+                  {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
+                    ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
+                    : bubbleMembers[0]?.first_name || "Me"
+                  }
+                </Text>
+                
+                {/* Creator circle */}
+                <View style={styles.memberCircle}>
+                  {creatorSignedUrl ? (
+                    <Image
+                      source={{ uri: creatorSignedUrl }}
+                      style={styles.memberImage}
+                    />
+                  ) : (
+                    <View style={[styles.memberImage, styles.placeholderImage]}>
+                      <Feather name="user" size={40} color="#999" />
+                    </View>
+                  )}
                 </View>
-              )}
+              </View>
+              
+              {/* Add member circle - overlapping */}
+              <TouchableOpacity
+                style={[styles.addMemberCircle, styles.overlappingCircle]}
+                onPress={() => {
+                  router.push({
+                    pathname: "/search",
+                    params: { groupId },
+                  });
+                }}
+              >
+                <Feather name="plus" size={40} color="#5A99E5" />
+              </TouchableOpacity>
             </View>
-            
-            {/* Add member circle */}
-            <TouchableOpacity
-              style={styles.addMemberCircle}
-              onPress={() => {
-                router.push({
-                  pathname: "/search",
-                  params: { groupId },
-                });
-              }}
-            >
-              <Feather name="plus" size={40} color="#5A99E5" />
-            </TouchableOpacity>
-          </View>
+          ) : bubbleMemberCount === 3 ? (
+            /* Size 3: Triangle layout - 1 on top, 2 on bottom */
+            <View style={styles.triangleContainer}>
+              {/* Top member (creator) */}
+              <View style={styles.triangleTop}>
+                <Text style={styles.creatorName}>
+                  {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
+                    ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
+                    : bubbleMembers[0]?.first_name || "Me"
+                  }
+                </Text>
+                <View style={styles.memberCircle}>
+                  {creatorSignedUrl ? (
+                    <Image
+                      source={{ uri: creatorSignedUrl }}
+                      style={styles.triangleMemberImage}
+                    />
+                  ) : (
+                    <View style={[styles.triangleMemberImage, styles.placeholderImage]}>
+                      <Feather name="user" size={35} color="#999" />
+                    </View>
+                  )}
+                </View>
+              </View>
+              
+              {/* Bottom row - 2 members */}
+              <View style={styles.triangleBottom}>
+                {/* Second member slot */}
+                {bubbleMembers[1] ? (
+                  <View style={styles.triangleMemberSlot}>
+                    <Text style={styles.triangleMemberName}>
+                      {bubbleMembers[1].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[1].id] || bubbleMembers[1].avatar_url }}
+                      style={styles.triangleMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.triangleMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.triangleMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={35} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Third member slot */}
+                {bubbleMembers[2] ? (
+                  <View style={styles.triangleMemberSlot}>
+                    <Text style={styles.triangleMemberName}>
+                      {bubbleMembers[2].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[2].id] || bubbleMembers[2].avatar_url }}
+                      style={styles.triangleMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.triangleMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.triangleMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={35} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : (
+            /* Size 4: Diamond/Square layout - 2x2 arrangement */
+            <View style={styles.diamondContainer}>
+              {/* Top row */}
+              <View style={styles.diamondRow}>
+                {/* Creator (top-left) */}
+                <View style={styles.diamondMemberSlot}>
+                  <Text style={styles.diamondMemberName}>
+                    {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
+                      ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
+                      : bubbleMembers[0]?.first_name || "Me"
+                    }
+                  </Text>
+                  <View style={styles.memberCircle}>
+                    {creatorSignedUrl ? (
+                      <Image
+                        source={{ uri: creatorSignedUrl }}
+                        style={styles.diamondMemberImage}
+                      />
+                    ) : (
+                      <View style={[styles.diamondMemberImage, styles.placeholderImage]}>
+                        <Feather name="user" size={30} color="#999" />
+                      </View>
+                    )}
+                  </View>
+                </View>
+                
+                {/* Second member (top-right) */}
+                {bubbleMembers[1] ? (
+                  <View style={styles.diamondMemberSlot}>
+                    <Text style={styles.diamondMemberName}>
+                      {bubbleMembers[1].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[1].id] || bubbleMembers[1].avatar_url }}
+                      style={styles.diamondMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.diamondMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={30} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {/* Bottom row */}
+              <View style={styles.diamondRow}>
+                {/* Third member (bottom-left) */}
+                {bubbleMembers[2] ? (
+                  <View style={styles.diamondMemberSlot}>
+                    <Text style={styles.diamondMemberName}>
+                      {bubbleMembers[2].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[2].id] || bubbleMembers[2].avatar_url }}
+                      style={styles.diamondMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.diamondMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={30} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Fourth member (bottom-right) */}
+                {bubbleMembers[3] ? (
+                  <View style={styles.diamondMemberSlot}>
+                    <Text style={styles.diamondMemberName}>
+                      {bubbleMembers[3].first_name || "Member"}
+                    </Text>
+                    <Image
+                      source={{ uri: memberSignedUrls[bubbleMembers[3].id] || bubbleMembers[3].avatar_url }}
+                      style={styles.diamondMemberImage}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.diamondMemberSlot}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/search",
+                        params: { groupId },
+                      });
+                    }}
+                  >
+                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
+                      <Feather name="plus" size={30} color="#5A99E5" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
           
           {/* Waiting text */}
           <Text style={styles.waitingText}>waiting for invitation ...</Text>
           
-          {/* Bottom buttons */}
-          <View style={styles.bottomButtons}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.cancelButtonText}>✕</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.chevronButton}
-              onPress={() => router.replace("/(tabs)")}
-            >
-              <Feather name="chevron-right" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          {/* Bottom button - only right side */}
+          <TouchableOpacity
+            style={styles.bottomRightButton}
+            onPress={handlePopBubble}
+          >
+            <Feather name="x" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -381,20 +642,20 @@ export default function BubbleFormScreen() {
               position: "relative",
             }}
           >
-            {/* 모든 버블 슬롯을 나란히 표시 */}
+            {/* Display all bubble slots side by side */}
             {Array.from({ length: bubbleMemberCount }).map((_, index) => {
               const isExisting = isExistingBubble === "true";
 
-              // 기존 버블의 경우: 멤버 배열에서 해당 인덱스의 멤버를 찾거나 빈 슬롯
-              // 새 버블의 경우: 첫 번째는 생성자, 나머지는 초대 슬롯
+              // For existing bubbles: find member at corresponding index in member array or empty slot
+              // For new bubbles: first is creator, rest are invitation slots
               let member = null;
               let isCreator = false;
 
               if (isExisting) {
-                // 기존 버블: 모든 슬롯이 나란히 표시
+                // Existing bubble: all slots displayed side by side
                 member = bubbleMembers[index];
               } else {
-                // 새 버블: 첫 번째는 생성자
+                // New bubble: first is creator
                 if (index === 0) {
                   isCreator = true;
                 }
@@ -409,13 +670,13 @@ export default function BubbleFormScreen() {
                       position: "absolute",
                       left: index * overlapOffset,
                       top: 0,
-                      zIndex: bubbleMemberCount - index, // zIndex를 다르게 주어 겹치게 함
+                      zIndex: bubbleMemberCount - index, // Different zIndex to overlap
                       alignItems: "center",
                     },
                   ]}
                 >
                   {isCreator ? (
-                    // 생성자 표시 (새 버블의 첫 번째 슬롯)
+                    // Display creator (first slot of new bubble)
                     <View style={styles.bubbleContent}>
                       {isLoading || isMembersLoading ? (
                         <>
@@ -473,7 +734,7 @@ export default function BubbleFormScreen() {
                       )}
                     </View>
                   ) : isExisting && member ? (
-                    // 기존 멤버 표시
+                    // Display existing member
                     <View style={styles.bubbleContent}>
                       {isMembersLoading ? (
                         <>
@@ -497,7 +758,7 @@ export default function BubbleFormScreen() {
                                 color:
                                   member.status === "invited"
                                     ? "#D9D9D9"
-                                    : "#222", // invited면 disabledButton 색
+                                    : "#222", // disabledButton color if invited
                               },
                             ]}
                           >
@@ -519,7 +780,7 @@ export default function BubbleFormScreen() {
                                   borderRadius: bubbleSize / 2,
                                   marginBottom: 0,
                                   opacity:
-                                    member.status === "invited" ? 0.6 : 1, // invited면 0.6 opacity
+                                    member.status === "invited" ? 0.6 : 1, // 0.6 opacity if invited
                                 },
                               ]}
                             />
@@ -547,7 +808,7 @@ export default function BubbleFormScreen() {
                       )}
                     </View>
                   ) : isExisting ? (
-                    // 기존 버블의 빈 슬롯 (멤버가 없는 경우)
+                    // Empty slot for existing bubble (when no member)
                     <View style={styles.bubbleContent}>
                       {isLoading ? (
                         <>
@@ -601,7 +862,7 @@ export default function BubbleFormScreen() {
                       )}
                     </View>
                   ) : (
-                    // 새 버블의 초대 슬롯
+                    // Invitation slot for new bubble
                     <TouchableOpacity
                       onPress={() => {
                         router.push({
@@ -786,6 +1047,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  popButton: {
+    backgroundColor: "#8ec3ff",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   cancelButtonText: {
     color: "#fff",
     fontSize: 36,
@@ -796,41 +1070,48 @@ const styles = StyleSheet.create({
   newBubbleContainer: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     padding: 20,
     position: "relative",
   },
   backButton: {
     position: "absolute",
-    top: 60,
+    top: 50,
     left: 20,
     padding: 10,
+    zIndex: 10,
   },
   newBubbleTitle: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#000",
-    marginBottom: 40,
+    marginTop: 100,
+    marginBottom: 80,
     textAlign: "center",
   },
   creatorName: {
     fontSize: 20,
     color: "#000",
-    marginBottom: 30,
+    marginBottom: 15,
     textAlign: "center",
   },
   membersContainer: {
     flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 60,
+    justifyContent: "center",
+  },
+  memberWithName: {
     alignItems: "center",
-    marginBottom: 40,
+    zIndex: 2,
   },
   memberCircle: {
-    marginRight: 20,
+    zIndex: 2,
   },
   memberImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     borderWidth: 3,
     borderColor: "#eee",
   },
@@ -840,20 +1121,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addMemberCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: "#D9D9D9",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
     borderColor: "#eee",
   },
+  overlappingCircle: {
+    marginLeft: -40,
+    zIndex: 1,
+  },
   waitingText: {
     fontSize: 16,
     color: "#666",
     textAlign: "center",
     marginBottom: 60,
+  },
+  bottomRightButton: {
+    position: "absolute",
+    bottom: 40,
+    right: 20,
+    backgroundColor: "#8ec3ff",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   bottomButtons: {
     position: "absolute",
@@ -862,5 +1163,70 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  
+  // Triangle layout styles (Size 3)
+  triangleContainer: {
+    alignItems: "center",
+    marginBottom: 60,
+  },
+  triangleTop: {
+    alignItems: "center",
+    marginBottom: 30,
+    zIndex: 2,
+  },
+  triangleBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: 260,
+    zIndex: 1,
+  },
+  triangleMemberSlot: {
+    alignItems: "center",
+  },
+  triangleMemberName: {
+    fontSize: 16,
+    color: "#000",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  triangleMemberImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  
+  // Diamond layout styles (Size 4)
+  diamondContainer: {
+    alignItems: "center",
+    marginBottom: 60,
+  },
+  diamondRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: 220,
+    marginBottom: 20,
+  },
+  diamondMemberSlot: {
+    alignItems: "center",
+  },
+  diamondMemberName: {
+    fontSize: 14,
+    color: "#000",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  diamondMemberImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
