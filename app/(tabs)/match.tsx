@@ -536,15 +536,27 @@ export default function LikesYouScreen() {
         <View style={styles.swipeControls}>
           <TouchableOpacity
             style={styles.xButton}
-            onPress={() => handleSwipe("left")}
+            onPress={() => {
+              console.log("❌ [LikesYou] X button pressed! isAnimating:", isAnimating);
+              handleSwipe("left");
+            }}
+            onPressIn={() => console.log("❌ [LikesYou] X button press started")}
             disabled={isAnimating}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
           >
             <Feather name="x" size={32} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.checkButton}
-            onPress={() => handleSwipe("right")}
+            onPress={() => {
+              console.log("💖 [LikesYou] Heart button pressed! isAnimating:", isAnimating);
+              handleSwipe("right");
+            }}
+            onPressIn={() => console.log("💖 [LikesYou] Heart button press started")}
             disabled={isAnimating}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
           >
             <Feather name="heart" size={32} color="#fff" />
           </TouchableOpacity>
@@ -695,9 +707,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   xButton: {
-    position: "absolute",
-    left: 32,
-    bottom: 48,
     backgroundColor: "#8ec3ff",
     width: 74,
     height: 74,
@@ -708,12 +717,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 5,
+    zIndex: 101,
   },
   checkButton: {
-    position: "absolute",
-    right: 32,
-    bottom: 48,
     backgroundColor: "#8ec3ff",
     width: 74,
     height: 74,
@@ -724,7 +731,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 5,
+    zIndex: 101,
   },
   loadingMoreContainer: {
     position: "absolute",
@@ -756,6 +764,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 32,
+    zIndex: 100,
+    pointerEvents: "box-none",
   },
 
   // Header styles

@@ -288,6 +288,10 @@ export const useLikesYou = () => {
       const groupId = await fetchCurrentUserGroup();
       if (groupId) {
         await fetchIncomingLikes(groupId, 0, false);
+      } else {
+        // No group or group not ready - set loading to false
+        console.log("[useLikesYou] No active group ready for likes, stopping loading");
+        setIsLoading(false);
       }
     };
 
