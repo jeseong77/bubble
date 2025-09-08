@@ -624,7 +624,7 @@ export default function BubbleFormScreen() {
             ) : (
               <TextInput
                 style={styles.titleInput}
-                placeholder="Name your bubble"
+                placeholder="Name Your Bubble"
                 value={bubbleName}
                 onChangeText={setBubbleName}
                 placeholderTextColor="#999"

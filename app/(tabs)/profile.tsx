@@ -1035,45 +1035,23 @@ function ProfileScreen() {
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           First name
         </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.firstName || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, firstName: text } : null
-            )
-          }
-          placeholder="Enter first name"
-          placeholderTextColor={colors.darkGray}
-        />
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
+          {editingProfile?.firstName || 'Not available'}
+        </Text>
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Last name
         </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.lastName || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, lastName: text } : null
-            )
-          }
-          placeholder="Enter last name"
-          placeholderTextColor={colors.darkGray}
-        />
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
+          {editingProfile?.lastName || 'Not available'}
+        </Text>
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Age
         </Text>
-        <Text style={[styles.detailValue, { color: colors.black }]}>
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
           {editingProfile?.age ? `${editingProfile.age} years old` : 'Not available'}
         </Text>
       </View>
@@ -1142,7 +1120,7 @@ function ProfileScreen() {
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Gender
         </Text>
-        <Text style={[styles.detailValue, { color: colors.black }]}>
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
           {editingProfile?.gender || 'Not specified'}
         </Text>
       </View>
@@ -1150,7 +1128,7 @@ function ProfileScreen() {
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Preferred Gender
         </Text>
-        <Text style={[styles.detailValue, { color: colors.black }]}>
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
           {editingProfile?.preferredGender || 'Not specified'}
         </Text>
       </View>
@@ -1538,6 +1516,7 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 18,
     fontFamily: "Quicksand-Regular",
+    borderBottomWidth: 1,
     paddingVertical: 8,
     marginTop: 4,
   },
