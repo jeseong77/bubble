@@ -270,7 +270,7 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
                 onChangeText={setBubbleName}
                 placeholderTextColor="#999"
                 autoFocus
-                maxLength={30}
+                maxLength={15}
               />
             </View>
 

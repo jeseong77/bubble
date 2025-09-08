@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
-  TextInput,
-  Platform,
   Keyboard,
   TouchableWithoutFeedback,
   Alert,
@@ -204,6 +202,9 @@ export default function BubbleFormScreen() {
     setIsMembersLoading(false);
   }, [bubbleMembers]);
 
+  // Check if this is a new bubble to show simplified interface
+  const isNewBubble = isExistingBubble === "false";
+  
   // Calculate bubble size (use max_size for existing bubbles, default 2 for new bubbles)
   const bubbleMemberCount = bubbleInfo?.max_size || 2;
   
@@ -231,51 +232,6 @@ export default function BubbleFormScreen() {
     totalBubblesWidth /
     (bubbleMemberCount - (bubbleMemberCount - 1) * overlapRatio);
   const overlapOffset = bubbleSize * (1 - overlapRatio);
-
-  const handleInviteFriend = async () => {
-    if (!bubbleName.trim()) {
-      alert("Please enter a bubble name.");
-      return;
-    }
-
-    try {
-      // Check if it's an existing bubble or new bubble
-      const isExisting = isExistingBubble === "true";
-
-      if (isExisting) {
-        // For existing bubbles, only update the name
-        const { error } = await supabase
-          .from("groups")
-          .update({ name: bubbleName })
-          .eq("id", groupId);
-
-        if (error) throw error;
-
-        console.log("Existing bubble name update complete:", bubbleName);
-        // TODO: For existing bubbles, navigate to member management screen or other handling
-        alert("Bubble name has been updated.");
-      } else {
-        // For new bubbles, update name then navigate to friend invitation screen
-        const { error } = await supabase
-          .from("groups")
-          .update({ name: bubbleName })
-          .eq("id", groupId);
-
-        if (error) throw error;
-
-        // Navigate to friend search screen for invitations
-        router.push({
-          pathname: "/search",
-          params: {
-            groupId,
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Error updating bubble name:", error);
-      alert("Failed to save bubble name. Please try again.");
-    }
-  };
 
   const handleCancel = () => {
     router.back();
@@ -339,9 +295,6 @@ export default function BubbleFormScreen() {
       ]
     );
   };
-
-  // Check if this is a new bubble to show simplified interface
-  const isNewBubble = isExistingBubble === "false";
   
   if (isNewBubble) {
     // Show simplified interface for new bubbles matching target design
@@ -622,14 +575,9 @@ export default function BubbleFormScreen() {
             {isLoading ? (
               <SkeletonView width={200} height={40} style={styles.titleInput} />
             ) : (
-              <TextInput
-                style={styles.titleInput}
-                placeholder="Name Your Bubble"
-                value={bubbleName}
-                onChangeText={setBubbleName}
-                placeholderTextColor="#999"
-                autoFocus={true}
-              />
+              <Text style={styles.titleInput}>
+                {bubbleName || "My Bubble"}
+              </Text>
             )}
           </View>
 
@@ -905,21 +853,6 @@ export default function BubbleFormScreen() {
             })}
           </View>
 
-          {isLoading ? (
-            <SkeletonView width={150} height={50} style={styles.inviteButton} />
-          ) : (
-            <TouchableOpacity
-              style={styles.inviteButton}
-              onPress={handleInviteFriend}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.inviteButtonText}>
-                {isExistingBubble === "true"
-                  ? "Update Bubble"
-                  : "Invite Friend"}
-              </Text>
-            </TouchableOpacity>
-          )}
 
           <View style={styles.bottomButtonContainer}>
             <TouchableOpacity
@@ -967,8 +900,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#222",
     textAlign: "center",
-    borderBottomWidth: 0,
-    borderBottomColor: "transparent",
     paddingVertical: 8,
     width: "100%",
   },
