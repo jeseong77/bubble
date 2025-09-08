@@ -260,12 +260,12 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
             
-            <Text style={styles.title}>Name your Bubble</Text>
+            <Text style={styles.title}>Name Your Bubble</Text>
 
             <View style={styles.nameInputContainer}>
               <TextInput
                 style={styles.nameInput}
-                placeholder="Name your bubble"
+                placeholder="Name Your Bubble"
                 value={bubbleName}
                 onChangeText={setBubbleName}
                 placeholderTextColor="#999"
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     color: "#000",
     textAlign: "center",
     flex: 1,
-    fontFamily: "Quicksand-Regular",
+    fontFamily: "Quicksand-Bold",
   },
   buttonContainer: {
     flexDirection: "row",
