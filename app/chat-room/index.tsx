@@ -93,14 +93,65 @@ export default function ChatRoomScreen() {
     fetchChatRoomData();
   }, [chatRoomId]);
 
-  // Set up EventBus listeners for real-time messages
+  // Set up EventBus listeners and direct broadcast subscription for real-time messages
   useEffect(() => {
     if (!chatRoomId || !chatRoomData) return;
 
-    console.log('🔴 [ChatRoomScreen] Setting up EventBus listeners for room:', chatRoomId);
+    console.log('🔴 [ChatRoomScreen] Setting up realtime listeners for room:', chatRoomId);
 
-    // Listen for new messages in this chat room
+    // Subscribe to chat room broadcast channel directly
+    const broadcastChannel = supabase.channel(`chat_room:${chatRoomId}`);
+    
+    broadcastChannel.on('broadcast', { event: 'new_message' }, (payload) => {
+      console.log('🔥 [ChatRoomScreen] DIRECT BROADCAST RECEIVED:', payload);
+      
+      if (payload.payload && payload.payload.room_id === chatRoomId) {
+        const message = payload.payload;
+        const formattedMessage: ChatMessage = {
+          message_id: message.message_id,
+          sender_id: message.sender_id,
+          sender_name: message.sender_name,
+          content: message.content,
+          message_type: message.message_type,
+          created_at: message.created_at,
+          is_own: message.sender_id === chatRoomData.my_group_name, // This needs to be fixed
+          read_by_count: 0
+        };
+
+        // Add message if not duplicate
+        setMessages(prevMessages => {
+          const isDuplicate = prevMessages.some(msg => 
+            msg.message_id === message.message_id ||
+            (msg.content === message.content && 
+             Math.abs(new Date(msg.created_at).getTime() - new Date(message.created_at).getTime()) < 5000)
+          );
+          if (isDuplicate) {
+            console.log('🔥 [ChatRoomScreen] Duplicate broadcast message, skipping');
+            return prevMessages;
+          }
+          console.log('🔥 [ChatRoomScreen] Adding message from broadcast');
+          return [...prevMessages, formattedMessage];
+        });
+
+        // Auto scroll to bottom
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    });
+
+    broadcastChannel.subscribe((status) => {
+      console.log('📡 [ChatRoomScreen] Broadcast channel status:', status);
+    });
+
+    // Listen for new messages in this chat room via EventBus (backup)
     const unsubscribeNewMessage = EventBus.onEvent('NEW_MESSAGE', async (payload) => {
+      console.log('📨 [ChatRoomScreen] EventBus NEW_MESSAGE received:', {
+        payloadChatRoomId: payload.chatRoomId,
+        currentChatRoomId: chatRoomId,
+        messageId: payload.message.message_id,
+        content: payload.message.content
+      });
       // Only handle messages for this chat room
       if (payload.chatRoomId !== chatRoomId) return;
       
@@ -130,13 +181,18 @@ export default function ChatRoomScreen() {
         read_by_count: 0
       };
 
-      // Only add if not a duplicate (avoid adding our own optimistic messages)
+      // Only add if not a duplicate (check by content and timestamp for optimistic messages)
       setMessages(prevMessages => {
-        const isDuplicate = prevMessages.some(msg => msg.message_id === payload.message.message_id);
+        const isDuplicate = prevMessages.some(msg => 
+          msg.message_id === payload.message.message_id ||
+          (msg.content === payload.message.content && 
+           Math.abs(new Date(msg.created_at).getTime() - new Date(payload.message.created_at).getTime()) < 5000) // 5 second window
+        );
         if (isDuplicate) {
           console.log('📨 [ChatRoomScreen] Duplicate message from EventBus, skipping:', payload.message.message_id);
           return prevMessages;
         }
+        console.log('📨 [ChatRoomScreen] Adding new message from EventBus:', payload.message.message_id);
         return [...prevMessages, formattedMessage];
       });
 
@@ -151,10 +207,11 @@ export default function ChatRoomScreen() {
       }
     });
 
-    // Cleanup EventBus listeners on unmount
+    // Cleanup EventBus listeners and broadcast channel on unmount
     return () => {
-      console.log('🔴 [ChatRoomScreen] Cleaning up EventBus listeners');
+      console.log('🔴 [ChatRoomScreen] Cleaning up realtime listeners');
       unsubscribeNewMessage();
+      supabase.removeChannel(broadcastChannel);
     };
   }, [chatRoomId, chatRoomData]);
 
@@ -298,10 +355,59 @@ export default function ChatRoomScreen() {
       
       console.log('✅ [ChatRoomScreen] Message sent successfully:', data);
       
-      // Remove optimistic message and let real-time subscription add the real one
-      setMessages(prevMessages => 
-        prevMessages.filter(msg => msg.message_id !== tempMessageId)
-      );
+      // Update optimistic message with real message ID if available
+      if (data && data.message_id) {
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.message_id === tempMessageId 
+              ? { ...msg, message_id: data.message_id }
+              : msg
+          )
+        );
+      }
+      
+      // Broadcast message to chat room channel for real-time updates
+      try {
+        console.log('📡 [ChatRoomScreen] Broadcasting message to chat room channel...');
+        const broadcastChannel = supabase.channel(`chat_room:${chatRoomId}`);
+        await broadcastChannel.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: {
+            room_id: chatRoomId,
+            message_id: data?.message_id || tempMessageId,
+            sender_id: user.id,
+            sender_name: chatRoomData?.my_group_name || 'You',
+            content: messageText,
+            message_type: 'text',
+            created_at: new Date().toISOString()
+          }
+        });
+        console.log('✅ [ChatRoomScreen] Message broadcast sent to chat room');
+        
+        // Test: Echo the broadcast back to ourselves to test the receive mechanism
+        setTimeout(() => {
+          console.log('🧪 [ChatRoomScreen] Testing broadcast receive with echo...');
+          broadcastChannel.send({
+            type: 'broadcast',
+            event: 'new_message', 
+            payload: {
+              room_id: chatRoomId,
+              message_id: (data?.message_id || tempMessageId) + 1000, // Different ID to avoid duplicate detection
+              sender_id: 'test-echo-sender',
+              sender_name: 'Echo Test',
+              content: 'Echo test message - if you see this, broadcast receiving works!',
+              message_type: 'text',
+              created_at: new Date().toISOString()
+            }
+          });
+        }, 2000);
+        
+      } catch (broadcastError) {
+        console.warn('⚠️ [ChatRoomScreen] Broadcast failed:', broadcastError);
+      }
+      
+      // Keep optimistic message - don't remove it
       
     } catch (err) {
       console.error('❌ [ChatRoomScreen] Failed to send message:', err);

@@ -223,6 +223,9 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
         channel = supabase.channel(`realtime_notifications:${userId}`);
         console.log(`[RealtimeProvider] 채널 생성됨: realtime_notifications:${userId}`);
 
+        // Add debugging for subscription setup
+        console.log("[RealtimeProvider] Setting up subscriptions...");
+        
         channel
           .on<GroupMember>(
             "postgres_changes",
@@ -312,16 +315,41 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
               emitRefreshLikes();
             }
           )
+          // Listen for broadcast messages as backup for postgres_changes
+          .on("broadcast", { event: "new_message" }, (payload) => {
+            console.log("[RealtimeProvider] 🔥 BROADCAST MESSAGE RECEIVED:", payload);
+            
+            if (payload.payload && payload.payload.room_id) {
+              EventBus.emitEvent('NEW_MESSAGE', {
+                chatRoomId: payload.payload.room_id,
+                message: {
+                  message_id: payload.payload.message_id,
+                  sender_id: payload.payload.sender_id,
+                  sender_name: payload.payload.sender_name || 'Unknown',
+                  content: payload.payload.content,
+                  message_type: payload.payload.message_type || 'text',
+                  created_at: payload.payload.created_at,
+                  is_own: payload.payload.sender_id === userId
+                }
+              });
+            }
+          })
           // Subscribe to chat_messages table changes to refresh message count
           .on(
             "postgres_changes", 
             {
-              event: "*",
+              event: "INSERT",
               schema: "public",
               table: "chat_messages",
             },
             (payload) => {
-              console.log("[RealtimeProvider] Chat messages changed, refreshing count...", payload);
+              console.log("[RealtimeProvider] Chat messages changed:", {
+                eventType: payload.eventType,
+                table: payload.table,
+                roomId: payload.new?.room_id,
+                messageId: payload.new?.id,
+                content: payload.new?.content
+              });
               refreshMessagesCount(userId);
               
               // Emit refresh messages event to EventBus
@@ -329,6 +357,11 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
               
               // If it's a new message, emit the new message event
               if (payload.eventType === 'INSERT' && payload.new) {
+                console.log("[RealtimeProvider] 🚀 Emitting NEW_MESSAGE event:", {
+                  chatRoomId: payload.new.room_id,
+                  messageId: payload.new.id,
+                  content: payload.new.content
+                });
                 // We'll emit a basic message event - chat screens can listen for this
                 EventBus.emitEvent('NEW_MESSAGE', {
                   chatRoomId: payload.new.room_id,
