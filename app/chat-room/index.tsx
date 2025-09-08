@@ -231,6 +231,11 @@ export default function ChatRoomScreen() {
       console.log('✅ [ChatRoomScreen] Messages loaded:', data?.length || 0);
       // Reverse the array since database returns newest first, but we want oldest first for proper chat flow
       setMessages(data ? [...data].reverse() : []);
+      
+      // Auto scroll to bottom after messages are loaded
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 200);
     } catch (err) {
       console.error('❌ [ChatRoomScreen] Failed to load messages:', err);
     }
@@ -431,12 +436,17 @@ export default function ChatRoomScreen() {
     }
   }, [messages]);
 
-  // Keyboard listeners for manual height tracking
+  // Keyboard listeners for manual height tracking with auto-scroll
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (event) => {
         setKeyboardHeight(event.endCoordinates.height);
+        
+        // Auto scroll to bottom when keyboard appears
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
     );
 
@@ -444,6 +454,11 @@ export default function ChatRoomScreen() {
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setKeyboardHeight(0);
+        
+        // Auto scroll to bottom when keyboard hides
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
     );
 
@@ -572,8 +587,23 @@ export default function ChatRoomScreen() {
                     }}
                     keyboardDismissMode="interactive"
                     keyboardShouldPersistTaps="handled"
-                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    onContentSizeChange={() => {
+                      // Auto scroll when content size changes (new messages)
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                      }, 100);
+                    }}
                     automaticallyAdjustKeyboardInsets={false}
+                    maintainVisibleContentPosition={{
+                      minIndexForVisible: 0,
+                      autoscrollToTopThreshold: 10
+                    }}
+                    onLayout={() => {
+                      // Auto scroll to bottom when FlatList first renders
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: false });
+                      }, 100);
+                    }}
                     ListHeaderComponent={
                       otherUserTyping ? (
                         <TypingIndicator>
@@ -594,8 +624,13 @@ export default function ChatRoomScreen() {
                     maxLength={1000}
                     returnKeyType="send"
                     onSubmitEditing={sendMessage}
-                    blurOnSubmit={false}
                     textAlignVertical="top"
+                    onFocus={() => {
+                      // Auto scroll to bottom when input is focused
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                      }, 300); // Longer delay to account for keyboard animation
+                    }}
                   />
                   <SendButton 
                     onPress={sendMessage} 
