@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontFamily: 'Quicksand',
-    fontWeight: '700',
+    fontWeight: '600',
     color: 'black',
   },
   // Content styles

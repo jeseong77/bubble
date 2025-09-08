@@ -56,6 +56,7 @@ const NameInputStep = ({
           selectionColor={colors.primary}
           returnKeyType="next"
           blurOnSubmit={false}
+          editable={false}
         />
 
         <TextInput
@@ -76,6 +77,7 @@ const NameInputStep = ({
           selectionColor={colors.primary}
           returnKeyType="done"
           onSubmitEditing={Keyboard.dismiss}
+          editable={false}
         />
 
         <Text style={[styles.tipText, { color: colors.darkGray }]}>
