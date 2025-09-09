@@ -751,13 +751,13 @@ const LoadingText = styled.Text`
 
 const MessagesContainer = styled.View`
   flex: 1;
-  padding-horizontal: 16px;
+  padding-horizontal: 8px;
 `;
 
 const MessageContainer = styled.View<{ isOwn: boolean; isGrouped?: boolean }>`
   align-items: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
   margin-vertical: ${props => props.isGrouped ? '1px' : '4px'};
-  margin-horizontal: 8px;
+  margin-horizontal: 4px;
   max-width: 65%;
   align-self: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
 `;
