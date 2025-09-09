@@ -535,105 +535,115 @@ function ProfileScreen() {
   };
 
   // --- [Modified] handleTakePhoto function ---
+  // Unified image upload function
+  const uploadImageToSupabase = async (uri: string, base64: string, source: 'camera' | 'gallery') => {
+    if (selectedImageIndex === null) return;
+    
+    console.log(`[ProfileScreen] Starting ${source} image upload at position ${selectedImageIndex}`);
+    
+    // Set loading state immediately
+    const loadingImages = [...currentImages];
+    loadingImages[selectedImageIndex] = { uri, isLoading: true };
+    setCurrentImages(loadingImages);
+    
+    try {
+      // Upload to Supabase Storage
+      const fileExt = uri.split(".").pop()?.toLowerCase() ?? "jpeg";
+      const filePath = `${session!.user.id}/${new Date().getTime()}.${fileExt}`;
+      const contentType = `image/${fileExt}`;
+      
+      const { data, error: uploadError } = await supabase.storage
+        .from("user-images")
+        .upload(filePath, decode(base64), { contentType });
+        
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("user-images")
+        .getPublicUrl(data.path);
+        
+      // Update state with Supabase URL
+      const finalImages = [...currentImages];
+      finalImages[selectedImageIndex] = { url: publicUrl, isLoading: false };
+      setCurrentImages(finalImages);
+      
+      console.log(`[ProfileScreen] ${source} image uploaded successfully at position ${selectedImageIndex}`);
+    } catch (error) {
+      console.error(`${source} image upload failed:`, error);
+      Alert.alert("Error", "Failed to upload image. Please try again.");
+      
+      // Revert loading state
+      const revertedImages = [...currentImages];
+      revertedImages[selectedImageIndex] = null;
+      setCurrentImages(revertedImages);
+    }
+  };
+
   const handleTakePhoto = async () => {
     console.log("[ProfileScreen] handleTakePhoto started");
     setShowImageOptionsModal(false);
+    
+    if (!session?.user) {
+      Alert.alert("Error", "You must be logged in to upload images.");
+      return;
+    }
 
-    console.log("[ProfileScreen] Requesting camera permission");
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      console.log("[ProfileScreen] Camera permission denied");
       Alert.alert("Permission Required", "Camera permission is required.");
       return;
     }
-    console.log("[ProfileScreen] Camera permission granted");
 
-    console.log("[ProfileScreen] Launching camera");
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
-      base64: true, // Added base64 option
-    });
-
-    console.log("[ProfileScreen] Camera result:", {
-      canceled: result.canceled,
-      hasAssets: !!result.assets,
-      assetCount: result.assets?.length || 0,
-      selectedIndex: selectedImageIndex,
+      base64: true,
     });
 
     if (!result.canceled && result.assets?.[0]) {
       const { uri, base64 } = result.assets[0];
-      console.log("[ProfileScreen] Image captured by camera:", {
-        uri,
-        base64Length: base64?.length || 0,
-        selectedIndex: selectedImageIndex,
-      });
-
-      const newProfileImage: ProfileImage = { uri, base64 }; // Store both uri and base64
-      const updatedImages = [...currentImages];
-      if (selectedImageIndex !== null) {
-        updatedImages[selectedImageIndex] = newProfileImage;
-        setCurrentImages(updatedImages);
-        console.log(
-          `[ProfileScreen] Camera image set at position ${selectedImageIndex} complete`
-        );
+      
+      if (!base64) {
+        Alert.alert("Error", "Failed to process image. Please try again.");
+      } else {
+        await uploadImageToSupabase(uri, base64, 'camera');
       }
     }
     setSelectedImageIndex(null);
   };
 
-  // --- [Modified] handlePickImage function ---
   const handlePickImage = async () => {
     console.log("[ProfileScreen] handlePickImage started");
     setShowImageOptionsModal(false);
-
-    console.log("[ProfileScreen] Requesting gallery permission");
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      console.log("[ProfileScreen] Gallery permission denied");
-      Alert.alert(
-        "Permission Required",
-        "Photo library permission is required."
-      );
+    
+    if (!session?.user) {
+      Alert.alert("Error", "You must be logged in to upload images.");
       return;
     }
-    console.log("[ProfileScreen] Gallery permission granted");
 
-    console.log("[ProfileScreen] Launching gallery");
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert("Permission Required", "Photo library permission is required.");
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
-      base64: true, // Added base64 option
-    });
-
-    console.log("[ProfileScreen] Gallery result:", {
-      canceled: result.canceled,
-      hasAssets: !!result.assets,
-      assetCount: result.assets?.length || 0,
-      selectedIndex: selectedImageIndex,
+      base64: true,
     });
 
     if (!result.canceled && result.assets?.[0]) {
       const { uri, base64 } = result.assets[0];
-      console.log("[ProfileScreen] Image selected from gallery:", {
-        uri,
-        base64Length: base64?.length || 0,
-        selectedIndex: selectedImageIndex,
-      });
-
-      const newProfileImage: ProfileImage = { uri, base64 }; // Store both uri and base64
-      const updatedImages = [...currentImages];
-      if (selectedImageIndex !== null) {
-        updatedImages[selectedImageIndex] = newProfileImage;
-        setCurrentImages(updatedImages);
-        console.log(
-          `[ProfileScreen] Gallery image set at position ${selectedImageIndex} complete`
-        );
+      
+      if (!base64) {
+        Alert.alert("Error", "Failed to process image. Please try again.");
+      } else {
+        await uploadImageToSupabase(uri, base64, 'gallery');
       }
     }
     setSelectedImageIndex(null);
@@ -1006,10 +1016,16 @@ function ProfileScreen() {
           activeOpacity={0.7}
         >
           {imageAsset ? (
-            <Image
-              source={{ uri: imageAsset.url || imageAsset.uri }}
-              style={styles.imagePreview}
-            />
+            imageAsset.isLoading ? (
+              <View style={[styles.imagePreview, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.lightGray }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <Image
+                source={{ uri: imageAsset.url || imageAsset.uri }}
+                style={styles.imagePreview}
+              />
+            )
           ) : (
             <>
               <Text style={[styles.imageSlotNumber, { color: colors.black }]}>
