@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   avatarContainer: {
     width: 60,
     height: 56,
-    marginRight: 12,
+    marginRight: 30,
     flexDirection: "row",
     alignItems: "center",
   },

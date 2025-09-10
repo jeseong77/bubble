@@ -204,7 +204,7 @@ export default function MessageListScreen() {
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 115 }}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: 71 }}
       />
     </SafeAreaView>
   );
