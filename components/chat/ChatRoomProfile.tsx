@@ -74,12 +74,17 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
         </MemberInfo>
         <ProfileImageContainer>
           <PlaceholderImage>
-            {member.primary_image && (
-              <ProfileImage 
+            {member.primary_image ? (
+              <Image 
                 source={{ uri: member.primary_image }} 
-                imageSize={160}
+                style={{ 
+                  position: 'absolute',
+                  width: 170, 
+                  height: 170, 
+                  borderRadius: 85 
+                }}
               />
-            )}
+            ) : null}
           </PlaceholderImage>
         </ProfileImageContainer>
       </MemberCard>
@@ -180,6 +185,8 @@ const ProfileImageContainer = styled.View`
 
 const ProfileImage = styled.Image<{ imageSize: number }>`
   position: absolute;
+  top: 0;
+  left: 0;
   width: ${props => props.imageSize}px;
   height: ${props => props.imageSize}px;
   border-radius: ${props => props.imageSize / 2}px;
