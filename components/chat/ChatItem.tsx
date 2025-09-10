@@ -62,7 +62,7 @@ export const ChatItem: React.FC<ChatItemProps> = ({ match, onPress }) => {
           {match.other_group_name}
         </Text>
         <Text style={styles.lastMessage} numberOfLines={1}>
-          {match.last_message_content || "새로운 매칭! 대화를 시작해보세요."}
+          {match.last_message_content || "New match! Start your conversation"}
         </Text>
       </View>
 

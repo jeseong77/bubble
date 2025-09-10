@@ -196,11 +196,8 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
           ))}
         </View>
 
-        {/* 중앙 정렬된 타이틀 */}
-        <View style={[
-          styles.textContainer, 
-          { marginLeft: 30 }
-        ]}>
+        {/* 화면 중앙에 절대 위치로 정렬된 타이틀 */}
+        <View style={styles.absoluteTextContainer}>
           <Text style={styles.title}>{name || "Unnamed Bubble"}</Text>
           {isActive && (
             <Text style={styles.activeText}>Active</Text>
@@ -269,10 +266,15 @@ const styles = StyleSheet.create({
     color: "#999",
     fontWeight: "bold",
   },
-  textContainer: {
-    flex: 1,
+  absoluteTextContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     justifyContent: "center",
     alignItems: "center",
+    pointerEvents: "none", // Allow touches to pass through to background elements
   },
   title: {
     fontSize: 16,

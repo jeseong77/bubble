@@ -919,6 +919,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: "#222",
     marginTop: 4,
+    fontWeight: "600",
   },
   emptyBubble: {
     backgroundColor: "#f0f0f0",
