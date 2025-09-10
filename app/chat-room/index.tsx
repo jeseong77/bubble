@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
+import { TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Keyboard, Image } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import styled from "@emotion/native";
@@ -12,6 +12,7 @@ interface ChatMessage {
   message_id: number;
   sender_id: string;
   sender_name: string;
+  sender_avatar_url?: string;
   content: string;
   message_type: string;
   created_at: string;
@@ -167,10 +168,27 @@ export default function ChatRoomScreen() {
         senderName = chatRoomData?.other_group_name || 'Other';
       }
       
+      // Fetch sender avatar URL for real-time messages
+      let senderAvatarUrl: string | undefined;
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('avatar_url')
+          .eq('id', payload.message.sender_id)
+          .single();
+        
+        if (!userError && userData?.avatar_url) {
+          senderAvatarUrl = userData.avatar_url;
+        }
+      } catch (err) {
+        console.warn('[ChatRoomScreen] Failed to fetch avatar for real-time message:', err);
+      }
+
       const formattedMessage: ChatMessage = {
         message_id: payload.message.message_id,
         sender_id: payload.message.sender_id,
         sender_name: senderName,
+        sender_avatar_url: senderAvatarUrl,
         content: payload.message.content,
         message_type: payload.message.message_type,
         created_at: payload.message.created_at,
@@ -181,17 +199,17 @@ export default function ChatRoomScreen() {
         read_by_count: 0
       };
 
-      // Only add if not a duplicate (check by content and timestamp for optimistic messages)
+      // Only add if not a duplicate (check by message_id first)
       setMessages(prevMessages => {
         const isDuplicate = prevMessages.some(msg => 
-          msg.message_id === payload.message.message_id ||
-          (msg.content === payload.message.content && 
-           Math.abs(new Date(msg.created_at).getTime() - new Date(payload.message.created_at).getTime()) < 5000) // 5 second window
+          msg.message_id === payload.message.message_id
         );
+        
         if (isDuplicate) {
           console.log('📨 [ChatRoomScreen] Duplicate message from EventBus, skipping:', payload.message.message_id);
           return prevMessages;
         }
+        
         console.log('📨 [ChatRoomScreen] Adding new message from EventBus:', payload.message.message_id);
         return [...prevMessages, formattedMessage];
       });
@@ -530,7 +548,7 @@ export default function ChatRoomScreen() {
                   <FlatList
                     ref={flatListRef}
                     data={messages}
-                    keyExtractor={(item) => item.message_id.toString()}
+                    keyExtractor={(item, index) => `${item.message_id}-${index}`}
                     renderItem={({ item, index }) => {
                       const prevMessage = index > 0 ? messages[index - 1] : null;
                       const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
@@ -557,7 +575,18 @@ export default function ChatRoomScreen() {
                           <MessageRow isOwn={item.is_own} isGrouped={!isFirstInGroup}>
                             {!item.is_own && isFirstInGroup && (
                               <UserAvatar>
-                                <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
+                                {item.sender_avatar_url ? (
+                                  <Image 
+                                    source={{ uri: item.sender_avatar_url }} 
+                                    style={{ 
+                                      width: 32, 
+                                      height: 32, 
+                                      borderRadius: 16 
+                                    }}
+                                  />
+                                ) : (
+                                  <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
+                                )}
                               </UserAvatar>
                             )}
                             {item.is_own && isLastInGroup && (

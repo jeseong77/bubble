@@ -2034,3 +2034,118 @@ GRANT EXECUTE ON FUNCTION get_bubble(UUID) TO anon;
 GRANT EXECUTE ON FUNCTION get_bubble(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION join_bubble_direct(UUID, UUID, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION join_bubble_direct(UUID, UUID, TEXT) TO authenticated;
+
+-- =====================================================
+-- CHAT MESSAGES FUNCTIONS
+-- =====================================================
+
+-- Get chat messages with user avatar URLs
+CREATE OR REPLACE FUNCTION get_chat_messages(
+  p_room_id UUID,
+  p_limit INTEGER DEFAULT 50,
+  p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE(
+  message_id BIGINT,
+  sender_id UUID,
+  sender_name TEXT,
+  sender_avatar_url TEXT,
+  content TEXT,
+  message_type TEXT,
+  created_at TIMESTAMPTZ,
+  edited_at TIMESTAMPTZ,
+  reply_to_id BIGINT,
+  reply_to_content TEXT,
+  is_own BOOLEAN,
+  read_by_count INTEGER
+) AS $$
+DECLARE
+  v_current_user_id UUID;
+BEGIN
+  -- Get current user ID
+  v_current_user_id := auth.uid();
+  
+  RETURN QUERY
+  SELECT 
+    cm.id as message_id,
+    cm.sender_id,
+    COALESCE(u.first_name, 'Unknown') as sender_name,
+    u.avatar_url as sender_avatar_url,
+    cm.content,
+    cm.message_type,
+    cm.created_at,
+    cm.edited_at,
+    cm.reply_to_id,
+    cm.reply_to_content,
+    (cm.sender_id = v_current_user_id) as is_own,
+    COALESCE(mr.read_count, 0) as read_by_count
+  FROM chat_messages cm
+  LEFT JOIN users u ON cm.sender_id = u.id
+  LEFT JOIN (
+    SELECT message_id, COUNT(*) as read_count
+    FROM message_reads
+    GROUP BY message_id
+  ) mr ON cm.id = mr.message_id
+  WHERE cm.chat_room_id = p_room_id
+  ORDER BY cm.created_at DESC
+  LIMIT p_limit
+  OFFSET p_offset;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Mark messages as read in a chat room
+CREATE OR REPLACE FUNCTION mark_messages_as_read(p_room_id UUID)
+RETURNS VOID AS $$
+DECLARE
+  v_current_user_id UUID;
+BEGIN
+  -- Get current user ID
+  v_current_user_id := auth.uid();
+  
+  -- Mark unread messages as read for this user
+  INSERT INTO message_reads (message_id, user_id, read_at)
+  SELECT cm.id, v_current_user_id, NOW()
+  FROM chat_messages cm
+  WHERE cm.chat_room_id = p_room_id
+    AND cm.sender_id != v_current_user_id  -- Don't mark own messages
+    AND NOT EXISTS (
+      SELECT 1 FROM message_reads mr 
+      WHERE mr.message_id = cm.id AND mr.user_id = v_current_user_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get chat room members with their profile data
+CREATE OR REPLACE FUNCTION get_chat_room_members(p_chat_room_id UUID)
+RETURNS JSON AS $$
+DECLARE
+  v_result JSON;
+BEGIN
+  SELECT json_agg(
+    json_build_object(
+      'user_id', u.id,
+      'first_name', u.first_name,
+      'last_name', u.last_name,
+      'avatar_url', u.avatar_url,
+      'age', u.age,
+      'gender', u.gender,
+      'about_me', u.about_me
+    )
+  ) INTO v_result
+  FROM chat_rooms cr
+  JOIN matches m ON cr.match_id = m.id
+  JOIN groups g1 ON m.group1_id = g1.id
+  JOIN groups g2 ON m.group2_id = g2.id
+  JOIN group_members gm ON (gm.group_id = g1.id OR gm.group_id = g2.id)
+  JOIN users u ON gm.user_id = u.id
+  WHERE cr.id = p_chat_room_id
+    AND gm.status = 'joined';
+    
+  RETURN COALESCE(v_result, '[]'::json);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant permissions for chat functions
+GRANT EXECUTE ON FUNCTION get_chat_messages(UUID, INTEGER, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION mark_messages_as_read(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_chat_room_members(UUID) TO authenticated;
