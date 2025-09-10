@@ -40,11 +40,23 @@ const AgeInputStep = ({
     }
   };
 
+  const handleMonthBlur = () => {
+    if (month.length === 1) {
+      onMonthChange('0' + month);
+    }
+  };
+
   const handleDayChange = (text: string) => {
     const numericText = text.replace(/[^0-9]/g, "");
     onDayChange(numericText);
     if (numericText.length === 2) {
       yearInputRef.current?.focus();
+    }
+  };
+
+  const handleDayBlur = () => {
+    if (day.length === 1) {
+      onDayChange('0' + day);
     }
   };
 
@@ -85,6 +97,7 @@ const AgeInputStep = ({
             keyboardType="numeric"
             value={month}
             onChangeText={handleMonthChange}
+            onBlur={handleMonthBlur}
             maxLength={2}
             returnKeyType="next"
             onSubmitEditing={() => dayInputRef.current?.focus()}
@@ -108,6 +121,7 @@ const AgeInputStep = ({
             keyboardType="numeric"
             value={day}
             onChangeText={handleDayChange}
+            onBlur={handleDayBlur}
             maxLength={2}
             returnKeyType="next"
             onSubmitEditing={() => yearInputRef.current?.focus()}
@@ -160,7 +174,7 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: 12,
     height: 56,
-    fontSize: 12,
+    fontSize: 16,
     fontFamily: "Quicksand-Regular",
   },
   monthAndDayInput: {

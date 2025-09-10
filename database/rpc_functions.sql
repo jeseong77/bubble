@@ -20,7 +20,7 @@
 -- WHERE current_num_users >= max_size AND status = 'forming';
 -- =====================================================
 
--- 사용자가 속한 그룹 조회 (joined 상태 유저만, 디버그 추가) - NEW VERSION
+-- Get user's groups (joined users only, debug added) - NEW VERSION
 CREATE OR REPLACE FUNCTION get_my_bubbles_v2(p_user_id UUID)
 RETURNS TABLE(
     id UUID,
@@ -53,22 +53,22 @@ BEGIN
     g.name,
     g.status,
     g.max_size,
-    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 - ALL members including joined and invited
+    -- Create member list for each group as JSON array - ALL members including joined and invited
     COALESCE(
       (
         SELECT json_agg(
-          -- 각 멤버 정보를 JSON 객체로 만듭니다.
+          -- Create each member info as JSON object.
           json_build_object(
             'id', u.id,
             'first_name', u.first_name,
             'last_name', u.last_name,
             'status', gm2.status,
-            -- 각 멤버의 이미지 목록을 다시 JSON 배열로 만듭니다.
+            -- Create image list for each member as JSON array again.
             'images', (
               SELECT COALESCE(json_agg(
                 json_build_object(
                   'id', ui.id,
-                  -- 직접 공개 URL 사용 (storage.get_public_url() 제거)
+                  -- Use public URL directly (remove storage.get_public_url())
                   'image_url', ui.image_url,
                   'position', ui.position
                 ) ORDER BY ui.position
@@ -90,7 +90,7 @@ BEGIN
     ) as members,
     gm.status as user_status,
     gm.invited_at,
-    -- 그룹 생성자 정보 추가
+    -- Add group creator info
     COALESCE(
       (
         SELECT json_build_object(
@@ -130,7 +130,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 매칭 그룹 찾기
+-- Find matching groups
 CREATE OR REPLACE FUNCTION find_matching_group(
   p_group_id UUID, 
   p_limit INTEGER DEFAULT 10,
@@ -206,13 +206,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 특정 그룹 정보 조회 (joined 상태 유저만)
+-- Get specific group info (joined users only)
 DROP FUNCTION IF EXISTS get_bubble(uuid);
 
 CREATE OR REPLACE FUNCTION get_bubble(p_group_id UUID)
 RETURNS TABLE (
   id UUID,
   name TEXT,
+  max_size INTEGER,
   members JSONB
 )
 LANGUAGE plpgsql
@@ -223,6 +224,7 @@ BEGIN
   SELECT 
     g.id,
     g.name,
+    g.max_size,
     COALESCE(
       jsonb_agg(
         jsonb_build_object(
@@ -245,11 +247,11 @@ BEGIN
   JOIN users u ON gm.user_id = u.id
   WHERE g.id = p_group_id
     AND gm.status = 'joined'
-  GROUP BY g.id, g.name;
+  GROUP BY g.id, g.name, g.max_size;
 END;
 $$;
 
--- 사용자 상세 정보 조회
+-- Get user detail info
 CREATE OR REPLACE FUNCTION fetch_user(p_user_id UUID)
 RETURNS TABLE (
   id UUID,
@@ -293,7 +295,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 그룹 좋아요
+-- Group like
 CREATE OR REPLACE FUNCTION like_group(p_user_id UUID, p_target_group_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -308,7 +310,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 수락
+-- Accept invitation
 CREATE OR REPLACE FUNCTION accept_invitation(p_group_id UUID, p_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -457,7 +459,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 거절
+-- Decline invitation
 CREATE OR REPLACE FUNCTION decline_invitation(p_group_id UUID, p_user_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -472,7 +474,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 전송 (Fixed schema mismatch)
+-- Send invitation (Fixed schema mismatch)
 CREATE OR REPLACE FUNCTION send_invitation(p_group_id UUID, p_invited_user_id UUID, p_invited_by_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -541,7 +543,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- 초대 취소 (Diagnostic Debug)
+-- Cancel invitation (Diagnostic Debug)
 CREATE OR REPLACE FUNCTION cancel_invitation(p_group_id UUID, p_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -713,7 +715,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 그룹 생성
+-- Create group
 CREATE OR REPLACE FUNCTION create_group(p_creator_id UUID, p_max_size INTEGER, p_group_name TEXT, p_preferred_gender TEXT)
 RETURNS UUID AS $$
 DECLARE
@@ -755,7 +757,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 사용자 검색
+-- Search users
 CREATE OR REPLACE FUNCTION search_users(p_search_term TEXT, p_exclude_user_id UUID, p_exclude_group_id UUID)
 RETURNS TABLE (
   id UUID,
@@ -800,7 +802,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 그룹 멤버 상태 조회
+-- Get group member status
 CREATE OR REPLACE FUNCTION get_group_member_statuses(p_group_id UUID)
 RETURNS TABLE (
   user_id UUID,
@@ -814,7 +816,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 테스트용 그룹 생성 (개발용)
+-- Create test group (for development)
 CREATE OR REPLACE FUNCTION test_create_group()
 RETURNS UUID AS $$
 DECLARE
@@ -836,10 +838,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
--- 그룹 나가기 관련 RPC 함수들
+-- Group leave related RPC functions
 -- =====================================================
 
--- 사용자가 그룹에서 나가기 (버블 터뜨리기)
+-- User leaves group (bubble popping)
 -- Note: "Popping" a bubble destroys it for ALL members
 CREATE OR REPLACE FUNCTION leave_group(p_user_id UUID, p_group_id UUID)
 RETURNS JSON AS $$
@@ -949,10 +951,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
--- 활성 그룹 관련 RPC 함수들
+-- Active group related RPC functions
 -- =====================================================
 
--- 사용자의 활성 그룹 조회
+-- Get user's active group
 CREATE OR REPLACE FUNCTION get_user_active_bubble(p_user_id UUID)
 RETURNS TABLE(
     id UUID,
@@ -971,22 +973,22 @@ BEGIN
     g.id,
     g.name,
     g.status,
-    -- 각 그룹의 멤버 목록을 JSON 배열로 만듭니다 (joined 상태만)
+    -- Create member list for each group as JSON array (joined status only)
     COALESCE(
       (
         SELECT json_agg(
-          -- 각 멤버 정보를 JSON 객체로 만듭니다.
+          -- Create each member info as JSON object.
           json_build_object(
             'id', u.id,
             'first_name', u.first_name,
             'last_name', u.last_name,
             'status', gm2.status,
-            -- 각 멤버의 이미지 목록을 다시 JSON 배열로 만듭니다.
+            -- Create image list for each member as JSON array again.
             'images', (
               SELECT COALESCE(json_agg(
                 json_build_object(
                   'id', ui.id,
-                  -- 직접 공개 URL 사용 (storage.get_public_url() 제거)
+                  -- Use public URL directly (remove storage.get_public_url())
                   'image_url', ui.image_url,
                   'position', ui.position
                 ) ORDER BY ui.position
@@ -1018,7 +1020,7 @@ BEGIN
 END;
 $$;
 
--- 사용자의 활성 그룹 설정
+-- Set user's active group
 CREATE OR REPLACE FUNCTION set_user_active_bubble(p_user_id UUID, p_group_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -1029,19 +1031,19 @@ DECLARE
   group_exists BOOLEAN;
   user_in_group BOOLEAN;
 BEGIN
-  -- 사용자가 존재하는지 확인
+  -- Check if user exists
   SELECT EXISTS(SELECT 1 FROM users WHERE id = p_user_id) INTO user_exists;
   IF NOT user_exists THEN
     RETURN FALSE;
   END IF;
 
-  -- 그룹이 존재하는지 확인
+  -- Check if group exists
   SELECT EXISTS(SELECT 1 FROM groups WHERE id = p_group_id) INTO group_exists;
   IF NOT group_exists THEN
     RETURN FALSE;
   END IF;
 
-  -- 사용자가 해당 그룹에 속해있는지 확인
+  -- Check if user belongs to the group
   SELECT EXISTS(
     SELECT 1 FROM group_members 
     WHERE user_id = p_user_id 
@@ -1053,7 +1055,7 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  -- 활성 그룹 설정
+  -- Set active group
   UPDATE users 
   SET active_group_id = p_group_id, 
       updated_at = NOW()
@@ -2028,5 +2030,158 @@ $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION generate_invitation_token(UUID, UUID, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION validate_invitation_token(UUID, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION validate_invitation_token(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_bubble(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION get_bubble(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION join_bubble_direct(UUID, UUID, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION join_bubble_direct(UUID, UUID, TEXT) TO authenticated;
+
+-- =====================================================
+-- CHAT MESSAGES FUNCTIONS
+-- =====================================================
+
+-- Get chat messages with user avatar URLs
+CREATE OR REPLACE FUNCTION get_chat_messages(
+  p_room_id UUID,
+  p_limit INTEGER DEFAULT 50,
+  p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE(
+  message_id BIGINT,
+  sender_id UUID,
+  sender_name TEXT,
+  sender_avatar_url TEXT,
+  content TEXT,
+  message_type TEXT,
+  created_at TIMESTAMPTZ,
+  edited_at TIMESTAMPTZ,
+  reply_to_id BIGINT,
+  reply_to_content TEXT,
+  is_own BOOLEAN,
+  read_by_count INTEGER
+) AS $$
+DECLARE
+  v_current_user_id UUID;
+BEGIN
+  -- Get current user ID
+  v_current_user_id := auth.uid();
+  
+  RETURN QUERY
+  SELECT 
+    cm.id as message_id,
+    cm.sender_id,
+    COALESCE(u.first_name, 'Unknown') as sender_name,
+    u.avatar_url as sender_avatar_url,
+    cm.content,
+    cm.message_type,
+    cm.created_at,
+    cm.edited_at,
+    cm.reply_to_id,
+    cm.reply_to_content,
+    (cm.sender_id = v_current_user_id) as is_own,
+    COALESCE(mr.read_count, 0) as read_by_count
+  FROM chat_messages cm
+  LEFT JOIN users u ON cm.sender_id = u.id
+  LEFT JOIN (
+    SELECT message_id, COUNT(*) as read_count
+    FROM message_reads
+    GROUP BY message_id
+  ) mr ON cm.id = mr.message_id
+  WHERE cm.chat_room_id = p_room_id
+  ORDER BY cm.created_at DESC
+  LIMIT p_limit
+  OFFSET p_offset;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Mark messages as read in a chat room
+CREATE OR REPLACE FUNCTION mark_messages_as_read(p_room_id UUID)
+RETURNS VOID AS $$
+DECLARE
+  v_current_user_id UUID;
+BEGIN
+  -- Get current user ID
+  v_current_user_id := auth.uid();
+  
+  -- Mark unread messages as read for this user
+  INSERT INTO message_reads (message_id, user_id, read_at)
+  SELECT cm.id, v_current_user_id, NOW()
+  FROM chat_messages cm
+  WHERE cm.chat_room_id = p_room_id
+    AND cm.sender_id != v_current_user_id  -- Don't mark own messages
+    AND NOT EXISTS (
+      SELECT 1 FROM message_reads mr 
+      WHERE mr.message_id = cm.id AND mr.user_id = v_current_user_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get chat room members with their profile data
+CREATE OR REPLACE FUNCTION get_chat_room_members(p_chat_room_id UUID)
+RETURNS JSON AS $$
+DECLARE
+  v_result JSON;
+BEGIN
+  SELECT json_build_object(
+    'success', true,
+    'all_members', COALESCE(
+      (SELECT json_agg(
+        json_build_object(
+          'id', u.id,
+          'first_name', u.first_name,
+          'last_name', u.last_name,
+          'age', u.age,
+          'gender', u.gender,
+          'bio', u.bio,
+          'images', COALESCE(
+            (SELECT json_agg(
+              json_build_object(
+                'id', ui.id::text,
+                'image_url', ui.image_url,
+                'position', COALESCE(ui.position, 0)
+              )
+            )
+            FROM user_images ui 
+            WHERE ui.user_id = u.id 
+            ORDER BY ui.position), 
+            '[]'::json
+          ),
+          'primary_image', (
+            SELECT ui.image_url 
+            FROM user_images ui 
+            WHERE ui.user_id = u.id 
+            ORDER BY ui.position 
+            LIMIT 1
+          )
+        )
+      )
+      FROM chat_rooms cr
+      JOIN matches m ON cr.match_id = m.id
+      JOIN groups g1 ON m.group1_id = g1.id
+      JOIN groups g2 ON m.group2_id = g2.id
+      JOIN group_members gm ON (gm.group_id = g1.id OR gm.group_id = g2.id)
+      JOIN users u ON gm.user_id = u.id
+      WHERE cr.id = p_chat_room_id
+        AND gm.status = 'joined'), 
+      '[]'::json
+    ),
+    'total_members', (
+      SELECT COUNT(DISTINCT u.id)
+      FROM chat_rooms cr
+      JOIN matches m ON cr.match_id = m.id
+      JOIN groups g1 ON m.group1_id = g1.id
+      JOIN groups g2 ON m.group2_id = g2.id
+      JOIN group_members gm ON (gm.group_id = g1.id OR gm.group_id = g2.id)
+      JOIN users u ON gm.user_id = u.id
+      WHERE cr.id = p_chat_room_id
+        AND gm.status = 'joined'
+    )
+  ) INTO v_result;
+    
+  RETURN v_result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant permissions for chat functions
+GRANT EXECUTE ON FUNCTION get_chat_messages(UUID, INTEGER, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION mark_messages_as_read(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_chat_room_members(UUID) TO authenticated;

@@ -33,6 +33,7 @@ import {
   ErrorState,
   EmptyState,
   NoGroupState,
+  NoMoreGroupsState,
 } from "@/components/matchmaking/MatchmakingStates";
 import { GroupMember } from "@/hooks/useMatchmaking";
 import { useAuth } from "@/providers/AuthProvider";
@@ -49,7 +50,7 @@ const overlapRatio = 0.32;
 const centerBubbleImageSize = centerBubbleDiameter * 0.44;
 const centerBubbleOverlap = centerBubbleImageSize * 0.18;
 
-// 사용자 그룹 정보 타입
+// User group information type
 interface UserBubble {
   id: string;
   name: string;
@@ -92,7 +93,6 @@ export default function MatchScreen() {
   const [recentMatches, setRecentMatches] = useState<string[]>([]);
   const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
   const [userBubbleLoading, setUserBubbleLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Helper function to format reset time for small display
   const formatResetTime = (resetTimeISO: string) => {
@@ -112,27 +112,7 @@ export default function MatchScreen() {
     }
   };
 
-  // Helper function to format countdown timer (HH:MM format)
-  const formatCountdownTime = (resetTimeISO: string) => {
-    const resetTime = new Date(resetTimeISO);
-    const diff = resetTime.getTime() - currentTime.getTime();
-    
-    if (diff <= 0) return "00:00";
-    
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  };
 
-  // Update timer every minute for countdown
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000); // Update every minute
-
-    return () => clearInterval(timer);
-  }, []);
 
   // Safety check: Reset index if it goes out of bounds after group removal
   useEffect(() => {
@@ -145,17 +125,17 @@ export default function MatchScreen() {
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
 
-  // 초기 로딩 시에만 데이터 가져오기 (useFocusEffect 제거)
+  // Fetch data only on initial loading (useFocusEffect removed)
   useEffect(() => {
     console.log("[MatchScreen] 🎯 Initial data loading...");
 
-    // 사용자 Active 그룹 정보 가져오기 (Profile Screen과 동일한 로직 사용)
+    // Get user's active group info (using same logic as Profile Screen)
     const fetchUserBubble = async () => {
       if (!session?.user) return;
 
       setUserBubbleLoading(true);
       try {
-        console.log("[MatchScreen] 🔍 Active 버블 정보 가져오기 시작 (Profile Screen 로직 사용)");
+        console.log("[MatchScreen] 🔍 Starting to fetch active bubble info (using Profile Screen logic)");
 
         // Step 1: Get user's active_group_id from users table (same as profile screen)
         const { data: userData, error: userError } = await supabase
@@ -223,7 +203,7 @@ export default function MatchScreen() {
               ? completeData.members
               : JSON.parse(completeData.members);
           } catch (parseError) {
-            console.error("[MatchScreen] 멤버 정보 파싱 실패:", parseError);
+            console.error("[MatchScreen] Failed to parse member info:", parseError);
             members = [];
           }
         }
@@ -240,7 +220,7 @@ export default function MatchScreen() {
             first_name: member.first_name,
             last_name: member.last_name,
             avatar_url: member.avatar_url,
-            signedUrl: member.avatar_url, // 이미 공개 URL이므로 그대로 사용
+            signedUrl: member.avatar_url, // Already public URL, use as is
           };
         });
 
@@ -250,7 +230,7 @@ export default function MatchScreen() {
           members: transformedMembers,
         };
 
-        console.log("[MatchScreen] 🎯 최종 사용자 그룹 데이터 설정:", {
+        console.log("[MatchScreen] 🎯 Setting final user group data:", {
           id: userBubbleData.id,
           name: userBubbleData.name,
           totalMembers: userBubbleData.members.length,
@@ -263,7 +243,7 @@ export default function MatchScreen() {
         setUserBubble(userBubbleData);
 
       } catch (error) {
-        console.error("[MatchScreen] 사용자 그룹 정보 가져오기 실패:", error);
+        console.error("[MatchScreen] Failed to fetch user group info:", error);
         setUserBubble(null);
       } finally {
         setUserBubbleLoading(false);
@@ -271,9 +251,9 @@ export default function MatchScreen() {
     };
 
     fetchUserBubble();
-  }, [session?.user]); // session?.user가 변경될 때만 실행
+  }, [session?.user]); // Execute only when session?.user changes
 
-  // 사용자 버블 새로고침 함수 (버블 팝 후 상태 업데이트용)
+  // User bubble refresh function (for state updates after bubble pop)
   const refreshUserBubble = async () => {
     if (!session?.user) return;
 
@@ -342,7 +322,7 @@ export default function MatchScreen() {
             ? completeData.members
             : JSON.parse(completeData.members);
         } catch (parseError) {
-          console.error("[MatchScreen] 멤버 정보 파싱 실패 during refresh:", parseError);
+          console.error("[MatchScreen] Failed to parse member info during refresh:", parseError);
           members = [];
         }
       }
@@ -372,7 +352,7 @@ export default function MatchScreen() {
     }
   };
 
-  // 버블 팝 함수 (프로필 화면과 동일한 로직)
+  // Bubble pop function (same logic as profile screen)
   const handlePopBubble = async (bubbleId: string) => {
     if (!session?.user) return;
     
@@ -389,7 +369,7 @@ export default function MatchScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              console.log("[MatchScreen] 그룹 나가기 시작:", bubbleId);
+              console.log("[MatchScreen] Starting to leave group:", bubbleId);
               
               const { data, error } = await supabase.rpc("leave_group", {
                 p_user_id: session.user.id,
@@ -410,7 +390,7 @@ export default function MatchScreen() {
 
               console.log(`[MatchScreen] Successfully popped bubble: "${data.group_name}" by ${data.popper_name}`);
               
-              // 버블 목록 새로고침
+              // Refresh bubble list
               await refreshUserBubble();
               
               Alert.alert(
@@ -501,7 +481,7 @@ export default function MatchScreen() {
                 ? completeData.members
                 : JSON.parse(completeData.members);
             } catch (parseError) {
-              console.error("[MatchScreen] 멤버 정보 파싱 실패 on focus:", parseError);
+              console.error("[MatchScreen] Failed to parse member info on focus:", parseError);
               members = [];
             }
           }
@@ -539,7 +519,7 @@ export default function MatchScreen() {
     }, [refreshAll, session?.user])
   );
 
-  // 🔍 DEBUG: 매칭 그룹 데이터 로깅
+  // 🔍 DEBUG: Logging matching group data
   useEffect(() => {
     console.log("=== 🔍 MATCHING GROUPS IN INDEX ===");
     console.log("Total matching groups:", matchingGroups.length);
@@ -572,7 +552,7 @@ export default function MatchScreen() {
     }
   }, [currentGroup, currentGroupIndex, matchingGroups.length]);
 
-  // 🔍 DEBUG: 매칭 컨텍스트 상태 로깅
+  // 🔍 DEBUG: Logging matchmaking context state
   useEffect(() => {
     console.log("=== 🔍 MATCHMAKING CONTEXT STATE ===");
     console.log("isLoading:", isLoading);
@@ -608,28 +588,37 @@ export default function MatchScreen() {
     console.log("matchingGroups.length:", matchingGroups.length);
     console.log("currentGroup:", currentGroup);
 
-    // 사용자 버블 로딩 중
+    // User bubble loading
     if (userBubbleLoading) {
       console.log("⏳ User bubble loading - showing LoadingState");
       return <LoadingState message="Loading your bubble..." />;
     }
 
-    // 사용자가 속한 그룹이 없음 OR 그룹이 아직 형성중
+    // User has no group OR group is still forming
     if (!userBubble || currentUserGroupStatus === 'forming') {
       console.log("❌ No user bubble or forming group - showing NoGroupState");
       console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
-        <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
+        <SafeAreaView
+          style={[styles.safeArea, { paddingTop: insets.top }]}
+          edges={["top"]}
+        >
+          <LinearGradient
+            colors={["#FFFFFF", "#FFFFFF", "#FFFFFF"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
+        </SafeAreaView>
       );
     }
 
-    // 매칭 그룹 로딩 중
+    // Matching groups loading
     if (isLoading) {
       console.log("⏳ Matching groups loading - showing LoadingState");
       return <LoadingState message="Finding your perfect matches..." />;
     }
 
-    // 매칭 에러
+    // Matching error
     if (error) {
       console.log("❌ Error - showing ErrorState");
       return (
@@ -716,14 +705,11 @@ export default function MatchScreen() {
             </View>
           )}
 
-          {/* Large Countdown Display */}
+          {/* Message Display */}
           <View style={styles.limitReachedContainer}>
             <Text style={styles.limitReachedMessage}>
               You've used all your swipes for today.{'\n'}
               Please wait for new Bubbles tomorrow!
-            </Text>
-            <Text style={styles.countdownTimer}>
-              {formatCountdownTime(swipeLimitInfo.reset_time)}
             </Text>
           </View>
 
@@ -746,12 +732,21 @@ export default function MatchScreen() {
       );
     }
 
-    // 매칭 그룹이 없음
+    // No matching groups
     if (matchingGroups.length === 0 && !isLoading) {
+      console.log("📭 No matching groups - checking if user has swipes remaining");
+      
+      // If user still has swipes, show "No more groups available" 
+      if (swipeLimitInfo && swipeLimitInfo.can_swipe) {
+        console.log("🚫 No groups but user has swipes - showing NoMoreGroupsState");
+        return <NoMoreGroupsState />;
+      }
+      
+      // Otherwise show the regular empty state (no swipes left or first time)
       console.log("📭 No matching groups - showing EmptyState");
       return (
         <EmptyState
-          message="No more matches available right now. Check back later!"
+          message="No new matches available. Check back later!"
           onRefresh={() => {
             console.log("[MatchScreen] Refreshing empty state...");
             refetch();
@@ -865,7 +860,7 @@ export default function MatchScreen() {
             animatedBubbleStyle,
           ]}
         >
-          {/* 🔍 DEBUG: MatchCard에 전달되는 데이터 로깅 */}
+          {/* 🔍 DEBUG: Logging data passed to MatchCard */}
           {(() => {
             console.log("=== 🎯 PASSING TO MATCHCARD ===");
             console.log("Current Group:", currentGroup);
@@ -877,7 +872,8 @@ export default function MatchScreen() {
           <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
-        {/* Swipe Counter and Limit Info */}
+        {/* Swipe Counter and Limit Info - Hidden from UI */}
+        {/* 
         {swipeLimitInfo && (
           <View style={styles.swipeCounterContainer}>
             <BlurView
@@ -896,6 +892,7 @@ export default function MatchScreen() {
             </BlurView>
           </View>
         )}
+        */}
 
         {/* Swipe Controls */}
         <View style={styles.swipeControls}>
@@ -948,7 +945,7 @@ export default function MatchScreen() {
       router.push({
         pathname: "/bubble/user/[userId]",
         params: {
-          userId: user.id, // user_id 대신 id 사용
+          userId: user.id, // Use id instead of user_id
         },
       });
     },
@@ -963,7 +960,7 @@ export default function MatchScreen() {
       return;
     }
 
-    // 🔍 DEBUG: 배열 범위 체크
+    // 🔍 DEBUG: Array bounds check
     console.log("=== 🔄 CHANGE BUBBLE DEBUG ===");
     console.log("Current Index before:", currentGroupIndex);
     console.log("Groups Length:", matchingGroups.length);

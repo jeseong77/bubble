@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, Dimensions } from 'react-native';
+import { View, Text, Image, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import styled from '@emotion/native';
+import { useRouter } from 'expo-router';
 
 interface Member {
   id: string;
@@ -34,6 +35,7 @@ interface ChatRoomProfileProps {
 const { width: screenWidth } = Dimensions.get('window');
 
 export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoading }) => {
+  const router = useRouter();
   if (isLoading) {
     return (
       <Container>
@@ -58,45 +60,56 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
   const allMembers = data.all_members || [];
   const totalMembers = allMembers.length;
   
-  // Determine grid layout based on total members
-  const getGridConfig = (memberCount: number) => {
-    if (memberCount <= 4) {
-      return { columns: 2, rows: 2, gridSize: '2x2', imageSize: 90 };
-    } else if (memberCount <= 6) {
-      return { columns: 3, rows: 2, gridSize: '3x2', imageSize: 80 };
-    } else {
-      return { columns: 4, rows: 2, gridSize: '4x2', imageSize: 70 };
-    }
-  };
+  // Always use 2x2 grid with HUGE images like in the design
+  const gridConfig = { columns: 2, rows: 2, gridSize: '2x2', imageSize: 150 };
+  const containerPadding = 60;
+  const itemGap = 20;
+  const itemWidth = (screenWidth - containerPadding - itemGap) / 2;
 
-  const gridConfig = getGridConfig(totalMembers);
-  const itemWidth = (screenWidth - 40) / gridConfig.columns; // 40px for padding and gaps
+  const handleUserPress = (userId: string) => {
+    router.push(`/bubble/user/${userId}`);
+  };
 
   const renderMemberCard = (member: Member, index: number) => {
     return (
-      <MemberCard key={member.id} itemWidth={itemWidth}>
-        <ProfileImageContainer>
-          {member.primary_image ? (
-            <ProfileImage 
-              source={{ uri: member.primary_image }} 
-              imageSize={gridConfig.imageSize}
-            />
-          ) : (
-            <PlaceholderImage imageSize={gridConfig.imageSize}>
-              <PlaceholderText imageSize={gridConfig.imageSize}>
-                {member.first_name.charAt(0)}
-              </PlaceholderText>
-            </PlaceholderImage>
-          )}
-        </ProfileImageContainer>
+      <MemberCard key={member.id}>
         <MemberInfo>
-          <MemberName numberOfLines={1} fontSize={gridConfig.imageSize >= 80 ? 16 : 14}>
-            {member.first_name} {member.last_name.charAt(0)}.
+          <MemberName numberOfLines={1} style={{fontSize: 20}}>
+            {member.first_name} {member.age}
           </MemberName>
-          <MemberAge fontSize={gridConfig.imageSize >= 80 ? 14 : 12}>{member.age}</MemberAge>
         </MemberInfo>
+        <ProfileImageContainer>
+          <TouchableOpacity onPress={() => handleUserPress(member.id)}>
+            <PlaceholderImage>
+              {member.primary_image ? (
+                <Image 
+                  source={{ uri: member.primary_image }} 
+                  style={{ 
+                    position: 'absolute',
+                    width: 170, 
+                    height: 170, 
+                    borderRadius: 85 
+                  }}
+                />
+              ) : null}
+            </PlaceholderImage>
+          </TouchableOpacity>
+        </ProfileImageContainer>
       </MemberCard>
     );
+  };
+
+  const renderGrid = () => {
+    const rows = [];
+    for (let i = 0; i < allMembers.length; i += 2) {
+      const rowMembers = allMembers.slice(i, i + 2);
+      rows.push(
+        <GridRow key={i}>
+          {rowMembers.map((member, index) => renderMemberCard(member, i + index))}
+        </GridRow>
+      );
+    }
+    return rows;
   };
 
   return (
@@ -106,9 +119,7 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
         showsVerticalScrollIndicator={false}
       >
         <GridContainer>
-          <MembersGrid columns={gridConfig.columns}>
-            {allMembers.map((member, index) => renderMemberCard(member, index))}
-          </MembersGrid>
+          {renderGrid()}
         </GridContainer>
       </ScrollView>
     </Container>
@@ -157,68 +168,55 @@ const ErrorSubText = styled.Text`
 
 const GridContainer = styled.View`
   flex: 1;
-  padding: 20px;
+  padding: 30px;
   justify-content: center;
 `;
 
-const MembersGrid = styled.View<{ columns: number }>`
+const GridRow = styled.View`
   flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
+  justify-content: center;
+  margin-bottom: 40px;
+  width: 100%;
+  gap: 20px;
 `;
 
-const MemberCard = styled.View<{ itemWidth: number }>`
-  width: ${props => props.itemWidth}px;
-  margin-bottom: 24px;
+const MemberCard = styled.View`
   align-items: center;
-  padding: 0 4px;
+  flex: 1;
+  max-width: 50%;
 `;
 
 const ProfileImageContainer = styled.View`
   position: relative;
-  margin-bottom: 8px;
+  margin-top: 8px;
 `;
 
 const ProfileImage = styled.Image<{ imageSize: number }>`
+  position: absolute;
+  top: 0;
+  left: 0;
   width: ${props => props.imageSize}px;
   height: ${props => props.imageSize}px;
   border-radius: ${props => props.imageSize / 2}px;
-  background-color: #F4F4F4;
 `;
 
-const PlaceholderImage = styled.View<{ imageSize: number }>`
-  width: ${props => props.imageSize}px;
-  height: ${props => props.imageSize}px;
-  border-radius: ${props => props.imageSize / 2}px;
+const PlaceholderImage = styled.View`
+  width: 170px;
+  height: 170px;
+  border-radius: 85px;
   background-color: #CEE3FF;
   justify-content: center;
   align-items: center;
 `;
 
-const PlaceholderText = styled.Text<{ imageSize: number }>`
-  font-size: ${props => Math.max(props.imageSize * 0.35, 20)}px;
-  font-weight: 600;
-  color: #303030;
-  font-family: Quicksand-SemiBold;
-`;
-
 const MemberInfo = styled.View`
   align-items: center;
+  margin-bottom: 8px;
 `;
 
-const MemberName = styled.Text<{ fontSize: number }>`
-  font-size: ${props => props.fontSize}px;
-  font-weight: 600;
+const MemberName = styled.Text`
+  font-weight: normal;
   color: #303030;
-  font-family: Quicksand-SemiBold;
   text-align: center;
-  margin-bottom: 2px;
-`;
-
-const MemberAge = styled.Text<{ fontSize: number }>`
-  font-size: ${props => props.fontSize}px;
-  color: #7A7A7A;
-  font-family: Quicksand-Regular;
 `;
 

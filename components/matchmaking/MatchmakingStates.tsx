@@ -70,11 +70,19 @@ export const NoGroupState: React.FC<NoGroupStateProps> = ({
       <Feather name="users" size={48} color="#8ec3ff" />
       <Text style={styles.emptyTitle}>No Active Group</Text>
       <Text style={styles.emptyMessage}>
-        You need to be part of a complete group to start matching
+        Form a bubble to start matching!
       </Text>
       <TouchableOpacity style={styles.createButton} onPress={onCreateGroup}>
         <Text style={styles.createButtonText}>Create Group</Text>
       </TouchableOpacity>
+    </View>
+  );
+};
+
+export const NoMoreGroupsState: React.FC = () => {
+  return (
+    <View style={styles.noMoreGroupsContainer}>
+      <Text style={styles.noMoreGroupsMessage}>No more groups available</Text>
     </View>
   );
 };
@@ -152,5 +160,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  noMoreGroupsContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  noMoreGroupsMessage: {
+    fontSize: 18,
+    color: "#303030",
+    fontWeight: "500",
+    textAlign: "center",
   },
 });

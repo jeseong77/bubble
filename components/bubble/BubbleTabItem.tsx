@@ -159,7 +159,7 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
               key={member.id} 
               style={[
                 styles.avatarWrapper, 
-                index > 0 && { marginLeft: -20, zIndex: totalSpotsToShow - index }
+                index > 0 && { marginLeft: -30, zIndex: totalSpotsToShow - index }
               ]}
             >
               {!imageErrors[index] && memberSignedUrls[index] ? (
@@ -184,7 +184,7 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
               style={[
                 styles.avatarWrapper, 
                 { 
-                  marginLeft: -20, 
+                  marginLeft: -30, 
                   zIndex: totalSpotsToShow - joinedMembers.length - index - 1
                 }
               ]}
@@ -196,11 +196,8 @@ const BubbleTabItem: React.FC<BubbleTabItemProps> = ({
           ))}
         </View>
 
-        {/* 중앙 정렬된 타이틀 */}
-        <View style={[
-          styles.textContainer, 
-          { marginLeft: Math.max(36, (totalSpotsToShow - 1) * 20 + 36) }
-        ]}>
+        {/* 화면 중앙에 절대 위치로 정렬된 타이틀 */}
+        <View style={styles.absoluteTextContainer}>
           <Text style={styles.title}>{name || "Unnamed Bubble"}</Text>
           {isActive && (
             <Text style={styles.activeText}>Active</Text>
@@ -248,10 +245,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
     borderColor: "#FFFFFF",
   },
   placeholderAvatar: {
@@ -269,9 +266,15 @@ const styles = StyleSheet.create({
     color: "#999",
     fontWeight: "bold",
   },
-  textContainer: {
+  absoluteTextContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     justifyContent: "center",
     alignItems: "center",
+    pointerEvents: "none", // Allow touches to pass through to background elements
   },
   title: {
     fontSize: 16,

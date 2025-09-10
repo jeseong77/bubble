@@ -35,6 +35,7 @@ import {
 } from "@/components/matchmaking/MatchmakingStates";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { EventBus } from "@/services/EventBus";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -46,7 +47,7 @@ const userBubbleImageSize = userBubbleDiameter * 0.54;
 const overlapRatio = 0.32;
 const centerBubbleImageSize = centerBubbleDiameter * 0.44;
 
-// 사용자 그룹 정보 타입 (same as main screen)
+// User group information type (same as main screen)
 interface UserBubble {
   id: string;
   name: string;
@@ -87,27 +88,43 @@ export default function LikesYouScreen() {
   // Get current group from real data (incoming likes instead of matching groups)
   const currentGroup = incomingLikes[currentGroupIndex];
 
-  // 초기 로딩 시에만 데이터 가져오기 (useFocusEffect 제거)
+  // Set up EventBus listeners for real-time updates
+  useEffect(() => {
+    console.log('[LikesYouScreen] Setting up EventBus listeners');
+    
+    // Listen for new likes/incoming likes events
+    const unsubscribeRefreshLikes = EventBus.onEvent('REFRESH_LIKES_COUNT', () => {
+      console.log('[LikesYouScreen] Refresh likes event received, refetching data');
+      refetch();
+    });
+
+    return () => {
+      console.log('[LikesYouScreen] Cleaning up EventBus listeners');
+      unsubscribeRefreshLikes();
+    };
+  }, [refetch]);
+
+  // Fetch data only on initial loading (useFocusEffect removed)
   useEffect(() => {
     console.log("[LikesYouScreen] 🎯 Initial data loading...");
 
-    // 사용자 그룹 정보 가져오기 (same as main screen)
+    // Fetch user group information (same as main screen)
     const fetchUserBubble = async () => {
       if (!session?.user) return;
 
       setUserBubbleLoading(true);
       try {
-        console.log("[LikesYouScreen] 사용자 그룹 정보 가져오기 시작");
+        console.log("[LikesYouScreen] Starting to fetch user group information");
 
-        // 먼저 Active 버블을 확인
-        console.log("[LikesYouScreen] Active 버블 확인 중...");
+        // First check Active bubble
+        console.log("[LikesYouScreen] Checking Active bubble...");
         const { data: activeBubbleData, error: activeBubbleError } =
           await supabase.rpc("get_user_active_bubble", {
             p_user_id: session.user.id,
           });
 
-        console.log("[LikesYouScreen] Active 버블 조회 결과:", activeBubbleData);
-        console.log("[LikesYouScreen] Active 버블 에러:", activeBubbleError);
+        console.log("[LikesYouScreen] Active bubble query result:", activeBubbleData);
+        console.log("[LikesYouScreen] Active bubble error:", activeBubbleError);
 
         let targetBubble: any = null;
 
@@ -116,33 +133,33 @@ export default function LikesYouScreen() {
           activeBubbleData &&
           activeBubbleData.length > 0
         ) {
-          // Active 버블이 있으면 사용
+          // Use Active bubble if available
           targetBubble = activeBubbleData[0];
-          console.log("[LikesYouScreen] Active 버블 사용:", targetBubble);
+        console.log("[LikesYouScreen] Using Active bubble:", targetBubble);
         } else {
-          // Active 버블이 없으면 get_my_bubbles에서 첫 번째 joined 그룹 사용
-          console.log("[LikesYouScreen] Active 버블 없음, get_my_bubbles 사용");
+          // If no Active bubble, use first joined group from get_my_bubbles
+          console.log("[LikesYouScreen] No Active bubble, using get_my_bubbles");
           const { data, error } = await supabase.rpc("get_my_bubbles", {
             p_user_id: session.user.id,
           });
 
           if (error) {
-            console.error("[LikesYouScreen] 사용자 버블 정보 조회 실패:", error);
+            console.error("[LikesYouScreen] Failed to fetch user bubble information:", error);
             throw error;
           }
 
           console.log("[LikesYouScreen] get_my_bubbles 응답:", data);
 
-          // joined 상태인 버블 중 첫 번째 것을 사용
+          // Use the first bubble with 'joined' status
           targetBubble = data?.find(
             (bubble: any) => bubble.user_status === "joined"
           );
         }
 
         if (targetBubble) {
-          console.log("[LikesYouScreen] 사용자 그룹 발견:", targetBubble);
+          console.log("[LikesYouScreen] User group found:", targetBubble);
 
-          // 멤버 정보 파싱 (새로운 구조에 맞게)
+          // Parse member information (according to new structure)
           let members: {
             id: string;
             first_name: string;
@@ -159,9 +176,9 @@ export default function LikesYouScreen() {
             }
           }
 
-          // 새로운 구조에 맞게 멤버 데이터 변환
+          // Transform member data according to new structure
           const membersWithUrls = members.map((member) => {
-            // 첫 번째 이미지를 아바타로 사용
+            // Use first image as avatar
             const avatarUrl =
               member.images && member.images.length > 0
                 ? member.images[0].image_url
@@ -172,7 +189,7 @@ export default function LikesYouScreen() {
               first_name: member.first_name,
               last_name: member.last_name,
               avatar_url: avatarUrl,
-              signedUrl: avatarUrl, // 이미 공개 URL이므로 그대로 사용
+              signedUrl: avatarUrl, // Use as is since it's already a public URL
             };
           });
 
@@ -182,14 +199,14 @@ export default function LikesYouScreen() {
             members: membersWithUrls,
           };
 
-          console.log("[LikesYouScreen] 사용자 그룹 데이터 설정:", userBubbleData);
+          console.log("[LikesYouScreen] Setting user group data:", userBubbleData);
           setUserBubble(userBubbleData);
         } else {
-          console.log("[LikesYouScreen] 사용자가 속한 그룹이 없습니다");
+          console.log("[LikesYouScreen] User is not in any group");
           setUserBubble(null);
         }
       } catch (error) {
-        console.error("[LikesYouScreen] 사용자 그룹 정보 가져오기 실패:", error);
+        console.error("[LikesYouScreen] Failed to fetch user group information:", error);
         setUserBubble(null);
       } finally {
         setUserBubbleLoading(false);
@@ -199,7 +216,7 @@ export default function LikesYouScreen() {
     fetchUserBubble();
   }, [session?.user]); // session?.user가 변경될 때만 실행
 
-  // 🔍 DEBUG: 매칭 그룹 데이터 로깅
+  // 🔍 DEBUG: Matching group data logging
   useEffect(() => {
     console.log("=== 🔍 INCOMING LIKES IN LIKES YOU ===");
     console.log("Total incoming likes:", incomingLikes.length);
@@ -232,7 +249,7 @@ export default function LikesYouScreen() {
     }
   }, [currentGroup, currentGroupIndex, incomingLikes.length]);
 
-  // 🔍 DEBUG: 매칭 컨텍스트 상태 로깅
+  // 🔍 DEBUG: Matching context state logging
   useEffect(() => {
     console.log("=== 🔍 LIKES YOU CONTEXT STATE ===");
     console.log("isLoading:", isLoading);
@@ -287,7 +304,7 @@ export default function LikesYouScreen() {
       return;
     }
 
-    // 🔍 DEBUG: 배열 범위 체크
+    // 🔍 DEBUG: Array bounds check
     console.log("=== 🔄 CHANGE BUBBLE DEBUG (LIKES YOU) ===");
     console.log("Current Index:", currentGroupIndex);
     console.log("Next Index:", nextIndex);
@@ -438,13 +455,13 @@ export default function LikesYouScreen() {
     console.log("incomingLikes.length:", incomingLikes.length);
     console.log("currentGroup:", currentGroup);
 
-    // 사용자 버블 로딩 중
+    // User bubble loading
     if (userBubbleLoading) {
       console.log("⏳ User bubble loading - showing LoadingState");
       return <LoadingState message="Loading your bubble..." />;
     }
 
-    // 사용자가 속한 그룹이 없음 OR 그룹이 아직 형성중
+    // User has no group OR group is still forming
     if (!userBubble || currentUserGroupStatus === 'forming') {
       console.log("❌ No user bubble or forming group - showing NoGroupState");
       console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
@@ -453,13 +470,13 @@ export default function LikesYouScreen() {
       );
     }
 
-    // 매칭 그룹 로딩 중
+    // Matching groups loading
     if (isLoading) {
       console.log("⏳ Incoming likes loading - showing LoadingState");
       return <LoadingState message="Loading your admirers..." />;
     }
 
-    // 매칭 에러
+    // Matching error
     if (error) {
       console.log("❌ Error - showing ErrorState");
       return (
@@ -473,7 +490,7 @@ export default function LikesYouScreen() {
       );
     }
 
-    // 매칭 그룹이 없음
+    // No matching groups
     if (incomingLikes.length === 0 && !isLoading) {
       console.log("📭 No incoming likes - showing EmptyState");
       return (
@@ -519,15 +536,27 @@ export default function LikesYouScreen() {
         <View style={styles.swipeControls}>
           <TouchableOpacity
             style={styles.xButton}
-            onPress={() => handleSwipe("left")}
+            onPress={() => {
+              console.log("❌ [LikesYou] X button pressed! isAnimating:", isAnimating);
+              handleSwipe("left");
+            }}
+            onPressIn={() => console.log("❌ [LikesYou] X button press started")}
             disabled={isAnimating}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
           >
             <Feather name="x" size={32} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.checkButton}
-            onPress={() => handleSwipe("right")}
+            onPress={() => {
+              console.log("💖 [LikesYou] Heart button pressed! isAnimating:", isAnimating);
+              handleSwipe("right");
+            }}
+            onPressIn={() => console.log("💖 [LikesYou] Heart button press started")}
             disabled={isAnimating}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
           >
             <Feather name="heart" size={32} color="#fff" />
           </TouchableOpacity>
@@ -678,9 +707,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   xButton: {
-    position: "absolute",
-    left: 32,
-    bottom: 48,
     backgroundColor: "#8ec3ff",
     width: 74,
     height: 74,
@@ -691,12 +717,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 5,
+    zIndex: 101,
   },
   checkButton: {
-    position: "absolute",
-    right: 32,
-    bottom: 48,
     backgroundColor: "#8ec3ff",
     width: 74,
     height: 74,
@@ -707,7 +731,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 5,
+    zIndex: 101,
   },
   loadingMoreContainer: {
     position: "absolute",
@@ -739,6 +764,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 32,
+    zIndex: 100,
+    pointerEvents: "box-none",
   },
 
   // Header styles

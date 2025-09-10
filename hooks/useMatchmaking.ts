@@ -13,7 +13,7 @@ export interface MatchingGroup {
   members?: GroupMember[];
 }
 
-// GroupMember 인터페이스의 모든 필드를 포함합니다.
+// Includes all fields of the GroupMember interface.
 export interface GroupMember {
   id: string;
   user_id: string;
@@ -28,10 +28,10 @@ export interface GroupMember {
   joined_at: string;
 }
 
-// [수정 1] like_group RPC의 새로운 응답 타입을 정의합니다.
+// [Change 1] Define new response type for like_group RPC.
 export interface LikeResponse {
   status: "liked" | "matched" | "limit_exceeded" | "error";
-  chat_room_id?: string; // 'matched' 상태일 때만 존재합니다.
+  chat_room_id?: string; // Only exists when status is 'matched'.
   message?: string; // Error message if status is error or limit_exceeded
   swipe_info?: SwipeLimitInfo; // Daily swipe limit information
 }
@@ -239,7 +239,7 @@ export const useMatchmaking = () => {
     fetchMatchingGroups,
   ]);
 
-  // [수정 2] likeGroup 함수의 반환 타입을 새로운 응답 타입에 맞게 변경합니다.
+  // [Change 2] Change likeGroup function return type to match new response type.
   const likeGroup = useCallback(
     async (targetGroupId: string): Promise<LikeResponse | null> => {
       if (!currentUserGroup) return null;
@@ -270,7 +270,7 @@ export const useMatchmaking = () => {
           }
         }
 
-        // [수정 3] RPC 결과를 명시적 타입으로 변환하여 반환합니다.
+        // [Change 3] Convert RPC result to explicit type and return.
         return response;
       } catch (err) {
         console.error("Error liking group:", err);

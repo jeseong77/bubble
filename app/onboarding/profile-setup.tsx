@@ -51,12 +51,21 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
       if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31)
         return false;
       const date = new Date(yearNum, monthNum - 1, dayNum);
-      return (
-        date.getFullYear() === yearNum &&
-        date.getMonth() === monthNum - 1 &&
-        date.getDate() === dayNum &&
-        date <= new Date()
-      );
+      const today = new Date();
+      
+      // Check if date is valid and not in the future
+      if (
+        date.getFullYear() !== yearNum ||
+        date.getMonth() !== monthNum - 1 ||
+        date.getDate() !== dayNum ||
+        date > today
+      ) {
+        return false;
+      }
+      
+      // Calculate age and check maximum (99 years old)
+      const age = calculateAge(date);
+      return age <= 99;
     case 3:
       return true; // Height is optional, always valid
     case 4:
@@ -71,7 +80,7 @@ const isStepValid = (step: number, data: ProfileFormData): boolean => {
     case 7:
       return !!data.preferredGender;
     case 8:
-      return !!data.aboutMe;
+      return true; // About me is optional, always valid
     case 9:
       return (
         data.images &&
@@ -237,6 +246,13 @@ export default function ProfileSetupScreen() {
     },
     [updateProfileField]
   );
+
+  const handleAboutMeSkip = useCallback(() => {
+    updateProfileField("aboutMe", "");
+    if (currentStep < TOTAL_STEPS - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [updateProfileField, currentStep]);
 
   const handleImagesChange = useCallback(
     (newImages: (ProfileImage | null)[]) => {
@@ -496,6 +512,7 @@ export default function ProfileSetupScreen() {
           <AboutMeInputStep
             currentAboutMe={profileData.aboutMe}
             onAboutMeChange={handleAboutMeChange}
+            onSkip={handleAboutMeSkip}
           />
         );
       case 9:

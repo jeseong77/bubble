@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { ChatItem, MatchData } from "@/components/chat/ChatItem";
 import { useUIStore } from "@/stores/uiStore";
+import { EventBus } from "@/services/EventBus";
 
 export default function MessageListScreen() {
   const router = useRouter();
@@ -93,6 +94,36 @@ export default function MessageListScreen() {
 
     setRefreshMessagesCount(refreshForUser);
   }, [fetchMatches, setRefreshMessagesCount]);
+
+  // Set up EventBus listeners for real-time updates
+  useEffect(() => {
+    console.log('[ChatsScreen] Setting up EventBus listeners');
+    
+    // Listen for new messages to refresh the list
+    const unsubscribeNewMessage = EventBus.onEvent('NEW_MESSAGE', () => {
+      console.log('[ChatsScreen] New message event received, refreshing matches');
+      fetchMatches();
+    });
+
+    // Listen for new matches
+    const unsubscribeNewMatch = EventBus.onEvent('NEW_MATCH', () => {
+      console.log('[ChatsScreen] New match event received, refreshing matches');
+      fetchMatches();
+    });
+
+    // Listen for refresh messages count events
+    const unsubscribeRefreshMessages = EventBus.onEvent('REFRESH_MESSAGES_COUNT', () => {
+      console.log('[ChatsScreen] Refresh messages count event received');
+      fetchMatches();
+    });
+
+    return () => {
+      console.log('[ChatsScreen] Cleaning up EventBus listeners');
+      unsubscribeNewMessage();
+      unsubscribeNewMatch();
+      unsubscribeRefreshMessages();
+    };
+  }, [fetchMatches]);
 
   // useFocusEffect를 사용하여 화면이 포커될 때마다 데이터를 새로고침합니다.
   useFocusEffect(
@@ -173,7 +204,7 @@ export default function MessageListScreen() {
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 115 }}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: 71 }}
       />
     </SafeAreaView>
   );
@@ -208,7 +239,7 @@ const styles = StyleSheet.create({
   },
   emptySubText: {
     fontSize: 15,
-    color: "#888",
+    color: "#666",
     textAlign: "center",
   },
   // Header styles (matching Likes You)

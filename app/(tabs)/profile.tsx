@@ -27,15 +27,15 @@ import BubbleTabItem from "@/components/bubble/BubbleTabItem";
 import CreateBubbleModal from "@/components/ui/CreateBubbleModal";
 import * as Camera from "expo-camera";
 
-// --- 데이터 연동을 위한 import 추가 ---
+// --- Imports for data integration ---
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
-import { decode } from "base64-arraybuffer"; // base64 디코딩 라이브러리 추가
+import { decode } from "base64-arraybuffer"; // Added base64 decoding library
 
 // BubbleTabItem에서 사용하는 타입을 import
 import { BubbleTabItemData } from "@/components/bubble/BubbleTabItem";
 
-// 화면에 표시될 버블의 정보 (BubbleTabItemData와 동일한 구조)
+// Information for bubbles displayed on screen (same structure as BubbleTabItemData)
 type Bubble = BubbleTabItemData;
 
 const TABS_DATA: TabInfo[] = [
@@ -180,7 +180,7 @@ function ProfileScreen() {
   const { colors } = useAppTheme();
   const bottomHeight = useBottomTabBarHeight();
 
-  // --- 상태 관리 ---
+  // --- State management ---
   const { session, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileFormData | null>(null);
   const [editingProfile, setEditingProfile] = useState<ProfileFormData | null>(
@@ -197,20 +197,20 @@ function ProfileScreen() {
   const [bubblesLoading, setBubblesLoading] = useState(true);
   const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
 
-  // --- 새로운 상태들 ---
+  // --- New states ---
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showImageOptionsModal, setShowImageOptionsModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
     null
   );
 
-  // --- [수정됨] 데이터 Fetching useEffect ---
+  // --- [Modified] Data Fetching useEffect ---
   useEffect(() => {
     const fetchProfileData = async () => {
-      console.log("[ProfileScreen] fetchProfileData 시작");
+      console.log("[ProfileScreen] fetchProfileData started");
 
       if (!session?.user) {
-        console.log("[ProfileScreen] 세션이 없어 로딩을 중단합니다.");
+        console.log("[ProfileScreen] No session, stopping loading.");
         setLoading(false);
         return;
       }
@@ -218,11 +218,11 @@ function ProfileScreen() {
       try {
         setLoading(true);
         const { user } = session;
-        console.log(`[ProfileScreen] 사용자 ID: ${user.id}`);
+        console.log(`[ProfileScreen] User ID: ${user.id}`);
 
-        // 1. public.users 테이블에서 프로필 정보 가져오기
+        // 1. Get profile information from public.users table
         console.log(
-          "[ProfileScreen] 1단계: users 테이블에서 프로필 정보 조회 시작"
+          "[ProfileScreen] Step 1: Starting profile data query from users table"
         );
         const { data: profileData, error: profileError } = await supabase
           .from("users")
@@ -232,24 +232,24 @@ function ProfileScreen() {
 
         if (profileError) {
           console.error(
-            "[ProfileScreen] 프로필 데이터 조회 실패:",
+            "[ProfileScreen] Profile data query failed:",
             profileError
           );
           throw profileError;
         }
         if (!profileData) {
-          console.error("[ProfileScreen] 프로필 데이터가 없습니다.");
+          console.error("[ProfileScreen] No profile data found.");
           throw new Error("Profile not found.");
         }
-        console.log("[ProfileScreen] 프로필 데이터 조회 성공:", {
+        console.log("[ProfileScreen] Profile data query successful:", {
           id: profileData.id,
           firstName: profileData.first_name,
           lastName: profileData.last_name,
         });
 
-        // 2. public.user_images 테이블에서 이미지 경로(URL) 가져오기
+        // 2. Get image paths (URLs) from public.user_images table
         console.log(
-          "[ProfileScreen] 2단계: user_images 테이블에서 이미지 정보 조회 시작"
+          "[ProfileScreen] Step 2: Starting image information query from user_images table"
         );
         const { data: imagesData, error: imagesError } = await supabase
           .from("user_images")
@@ -259,23 +259,23 @@ function ProfileScreen() {
 
         if (imagesError) {
           console.error(
-            "[ProfileScreen] 이미지 데이터 조회 실패:",
+            "[ProfileScreen] Image data query failed:",
             imagesError
           );
           throw imagesError;
         }
-        console.log("[ProfileScreen] 이미지 데이터 조회 성공:", {
+        console.log("[ProfileScreen] Image data query successful:", {
           count: imagesData?.length || 0,
           images: imagesData,
         });
 
-        // --- 👇 [핵심 수정] 이제 이미지 URL이 이미 영구적인 공개 URL입니다 ---
-        // 3. 이미지 URL을 그대로 사용 (Signed URL 생성 불필요)
-        console.log("[ProfileScreen] 3단계: 이미지 URL 처리 시작");
-        console.log("[ProfileScreen] 이미지 데이터:", imagesData);
+        // --- 👇 [Core Fix] Image URLs are now already permanent public URLs ---
+        // 3. Use image URLs as-is (no need to generate Signed URLs)
+        console.log("[ProfileScreen] Step 3: Starting image URL processing");
+        console.log("[ProfileScreen] Image data:", imagesData);
 
-        // 4. 데이터 가공 및 상태 업데이트
-        console.log("[ProfileScreen] 5단계: 데이터 가공 시작");
+        // 4. Data processing and state updates
+        console.log("[ProfileScreen] Step 5: Starting data processing");
         let age = 0;
         let birthDay = "",
           birthMonth = "",
@@ -306,35 +306,36 @@ function ProfileScreen() {
           mbti: profileData.mbti,
           gender: profileData.gender,
           genderVisibleOnProfile: true,
+          preferredGender: profileData.preferred_gender,
           aboutMe: profileData.bio,
           images: [],
         };
-        console.log("[ProfileScreen] 프로필 데이터 가공 완료:", fetchedProfile);
+        console.log("[ProfileScreen] Profile data processing complete:", fetchedProfile);
         setProfile(fetchedProfile);
         setEditingProfile(JSON.parse(JSON.stringify(fetchedProfile)));
 
-        // 최종적으로 화면에 표시할 이미지 상태를 영구 URL로 업데이트합니다.
-        console.log("[ProfileScreen] 6단계: 이미지 상태 업데이트 시작");
+        // Finally update image state for screen display with permanent URLs.
+        console.log("[ProfileScreen] Step 6: Starting image state update");
         const updatedImages: (ProfileImage | null)[] =
           Array(MAX_IMAGES_DEFAULT).fill(null);
 
-        // 이미지 URL을 그대로 사용 (Signed URL 생성 불필요)
+        // Use image URLs as-is (no need to generate Signed URLs)
         imagesData.forEach((imageData) => {
           updatedImages[imageData.position] = {
-            url: imageData.image_url, // 영구적인 공개 URL을 그대로 사용
+            url: imageData.image_url, // Use permanent public URL as-is
           };
           console.log(
-            `[ProfileScreen] 이미지 ${imageData.position} 위치에 URL 설정:`,
+            `[ProfileScreen] Set URL at image position ${imageData.position}:`,
             imageData.image_url
           );
         });
 
-        console.log("[ProfileScreen] 최종 이미지 상태:", updatedImages);
+        console.log("[ProfileScreen] Final image state:", updatedImages);
         setCurrentImages(updatedImages);
-        console.log("[ProfileScreen] fetchProfileData 완료");
+        console.log("[ProfileScreen] fetchProfileData complete");
       } catch (error) {
-        console.error("[ProfileScreen] fetchProfileData 에러 발생:", error);
-        console.error("[ProfileScreen] 에러 상세:", {
+        console.error("[ProfileScreen] fetchProfileData error occurred:", error);
+        console.error("[ProfileScreen] Error details:", {
           name: error instanceof Error ? error.name : "Unknown",
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
@@ -342,19 +343,19 @@ function ProfileScreen() {
         Alert.alert("Error", "Failed to load profile data.");
       } finally {
         console.log(
-          "[ProfileScreen] fetchProfileData 종료 - loading을 false로 설정"
+          "[ProfileScreen] fetchProfileData ended - setting loading to false"
         );
         setLoading(false);
       }
     };
 
-    console.log("[ProfileScreen] useEffect 실행 - session 상태:", !!session);
+    console.log("[ProfileScreen] useEffect executing - session state:", !!session);
     if (session) {
-      console.log("[ProfileScreen] 세션이 있으므로 fetchProfileData 호출");
+      console.log("[ProfileScreen] Session exists, calling fetchProfileData");
       fetchProfileData();
     } else {
       console.log(
-        "[ProfileScreen] 세션이 없어 fetchProfileData를 호출하지 않음"
+        "[ProfileScreen] No session, not calling fetchProfileData"
       );
     }
   }, [session]);
@@ -408,23 +409,23 @@ function ProfileScreen() {
         }
       }
 
-      // 서버에서 내려오는 원본 데이터 로깅 - 디버깅 강화
-      console.log("[ProfileScreen] 🔍 서버에서 내려온 원본 버블 데이터:");
-      console.log("[ProfileScreen] 전체 데이터:", JSON.stringify(allBubbles, null, 2));
+      // Logging raw data from server - enhanced debugging
+      console.log("[ProfileScreen] 🔍 Raw bubble data from server:");
+      console.log("[ProfileScreen] Complete data:", JSON.stringify(allBubbles, null, 2));
 
       if (allBubbles.length > 0) {
         allBubbles.forEach((bubble, index) => {
-          console.log(`[ProfileScreen] 🔍 버블 ${index} 상세 분석:`);
-          console.log(`[ProfileScreen] - 버블 ID: ${bubble.id}`);
-          console.log(`[ProfileScreen] - 버블 이름: ${bubble.name}`);
-          console.log(`[ProfileScreen] - 버블 상태: ${bubble.status}`);
-          console.log(`[ProfileScreen] - 최대 크기: ${bubble.max_size}`);
-          console.log(`[ProfileScreen] - 유저 상태: ${bubble.user_status}`);
-          console.log(`[ProfileScreen] - 멤버 배열:`, bubble.members);
+          console.log(`[ProfileScreen] 🔍 Detailed analysis of bubble ${index}:`);
+          console.log(`[ProfileScreen] - Bubble ID: ${bubble.id}`);
+          console.log(`[ProfileScreen] - Bubble name: ${bubble.name}`);
+          console.log(`[ProfileScreen] - Bubble status: ${bubble.status}`);
+          console.log(`[ProfileScreen] - Max size: ${bubble.max_size}`);
+          console.log(`[ProfileScreen] - User status: ${bubble.user_status}`);
+          console.log(`[ProfileScreen] - Members array:`, bubble.members);
           
           if (bubble.members && Array.isArray(bubble.members)) {
             bubble.members.forEach((member, memberIndex) => {
-              console.log(`[ProfileScreen] - 멤버 ${memberIndex}:`, {
+              console.log(`[ProfileScreen] - Member ${memberIndex}:`, {
                 id: member.id,
                 first_name: member.first_name,
                 last_name: member.last_name,
@@ -457,7 +458,7 @@ function ProfileScreen() {
               ? bubble.members
               : JSON.parse(bubble.members);
           } catch (parseError) {
-            console.error("[ProfileScreen] 멤버 정보 파싱 실패:", parseError);
+            console.error("[ProfileScreen] Member information parsing failed:", parseError);
             members = [];
           }
         }
@@ -475,7 +476,7 @@ function ProfileScreen() {
             last_name: member.last_name,
             avatar_url: member.avatar_url,
             status: 'joined', // All members from get_bubble are 'joined'
-            signedUrl: member.avatar_url, // 이미 공개 URL이므로 그대로 사용
+            signedUrl: member.avatar_url, // Already a public URL, so use as-is
           };
         });
 
@@ -488,7 +489,7 @@ function ProfileScreen() {
         };
       });
 
-      console.log("[ProfileScreen] joined 상태 버블:", transformedBubbles);
+      console.log("[ProfileScreen] Joined status bubbles:", transformedBubbles);
       setMyBubbles(transformedBubbles);
       
       // Active 버블 ID 가져오기
@@ -500,11 +501,11 @@ function ProfileScreen() {
         
       if (!userError && userData) {
         setActiveBubbleId(userData.active_group_id);
-        console.log("[ProfileScreen] Active 버블 ID:", userData.active_group_id);
+        console.log("[ProfileScreen] Active bubble ID:", userData.active_group_id);
       }
     } catch (error) {
       console.error("Error fetching my bubbles:", error);
-      setMyBubbles([]); // 에러 발생 시 빈 배열로 초기화
+      setMyBubbles([]); // Initialize with empty array on error
     } finally {
       setBubblesLoading(false);
     }
@@ -512,13 +513,13 @@ function ProfileScreen() {
 
   // My Bubble 데이터 로딩
   useEffect(() => {
-    // 'myBubble' 탭이 활성화되었을 때만 데이터를 가져옵니다.
+    // Only fetch data when 'myBubble' tab is active.
     if (activeTab === "myBubble") {
       fetchMyBubbles();
     }
   }, [activeTab, session]);
 
-  // 화면에 포커스될 때마다 myBubble 탭 데이터 새로고침
+  // Refresh myBubble tab data whenever screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       if (activeTab === "myBubble") {
@@ -527,112 +528,122 @@ function ProfileScreen() {
     }, [activeTab])
   );
 
-  // --- 이미지 관련 함수들 ---
+  // --- Image-related functions ---
   const handleImageOptions = (index: number) => {
     setSelectedImageIndex(index);
     setShowImageOptionsModal(true);
   };
 
-  // --- [수정됨] handleTakePhoto 함수 ---
-  const handleTakePhoto = async () => {
-    console.log("[ProfileScreen] handleTakePhoto 시작");
-    setShowImageOptionsModal(false);
+  // --- [Modified] handleTakePhoto function ---
+  // Unified image upload function
+  const uploadImageToSupabase = async (uri: string, base64: string, source: 'camera' | 'gallery') => {
+    if (selectedImageIndex === null) return;
+    
+    console.log(`[ProfileScreen] Starting ${source} image upload at position ${selectedImageIndex}`);
+    
+    // Set loading state immediately
+    const loadingImages = [...currentImages];
+    loadingImages[selectedImageIndex] = { uri, isLoading: true };
+    setCurrentImages(loadingImages);
+    
+    try {
+      // Upload to Supabase Storage
+      const fileExt = uri.split(".").pop()?.toLowerCase() ?? "jpeg";
+      const filePath = `${session!.user.id}/${new Date().getTime()}.${fileExt}`;
+      const contentType = `image/${fileExt}`;
+      
+      const { data, error: uploadError } = await supabase.storage
+        .from("user-images")
+        .upload(filePath, decode(base64), { contentType });
+        
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("user-images")
+        .getPublicUrl(data.path);
+        
+      // Update state with Supabase URL
+      const finalImages = [...currentImages];
+      finalImages[selectedImageIndex] = { url: publicUrl, isLoading: false };
+      setCurrentImages(finalImages);
+      
+      console.log(`[ProfileScreen] ${source} image uploaded successfully at position ${selectedImageIndex}`);
+    } catch (error) {
+      console.error(`${source} image upload failed:`, error);
+      Alert.alert("Error", "Failed to upload image. Please try again.");
+      
+      // Revert loading state
+      const revertedImages = [...currentImages];
+      revertedImages[selectedImageIndex] = null;
+      setCurrentImages(revertedImages);
+    }
+  };
 
-    console.log("[ProfileScreen] 카메라 권한 요청");
+  const handleTakePhoto = async () => {
+    console.log("[ProfileScreen] handleTakePhoto started");
+    setShowImageOptionsModal(false);
+    
+    if (!session?.user) {
+      Alert.alert("Error", "You must be logged in to upload images.");
+      return;
+    }
+
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      console.log("[ProfileScreen] 카메라 권한 거부됨");
       Alert.alert("Permission Required", "Camera permission is required.");
       return;
     }
-    console.log("[ProfileScreen] 카메라 권한 승인됨");
 
-    console.log("[ProfileScreen] 카메라 실행");
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
-      base64: true, // base64 옵션 추가
-    });
-
-    console.log("[ProfileScreen] 카메라 결과:", {
-      canceled: result.canceled,
-      hasAssets: !!result.assets,
-      assetCount: result.assets?.length || 0,
-      selectedIndex: selectedImageIndex,
+      base64: true,
     });
 
     if (!result.canceled && result.assets?.[0]) {
       const { uri, base64 } = result.assets[0];
-      console.log("[ProfileScreen] 카메라로 촬영된 이미지:", {
-        uri,
-        base64Length: base64?.length || 0,
-        selectedIndex: selectedImageIndex,
-      });
-
-      const newProfileImage: ProfileImage = { uri, base64 }; // uri와 base64 모두 저장
-      const updatedImages = [...currentImages];
-      if (selectedImageIndex !== null) {
-        updatedImages[selectedImageIndex] = newProfileImage;
-        setCurrentImages(updatedImages);
-        console.log(
-          `[ProfileScreen] 이미지 ${selectedImageIndex} 위치에 카메라 이미지 설정 완료`
-        );
+      
+      if (!base64) {
+        Alert.alert("Error", "Failed to process image. Please try again.");
+      } else {
+        await uploadImageToSupabase(uri, base64, 'camera');
       }
     }
     setSelectedImageIndex(null);
   };
 
-  // --- [수정됨] handlePickImage 함수 ---
   const handlePickImage = async () => {
-    console.log("[ProfileScreen] handlePickImage 시작");
+    console.log("[ProfileScreen] handlePickImage started");
     setShowImageOptionsModal(false);
-
-    console.log("[ProfileScreen] 갤러리 권한 요청");
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      console.log("[ProfileScreen] 갤러리 권한 거부됨");
-      Alert.alert(
-        "Permission Required",
-        "Photo library permission is required."
-      );
+    
+    if (!session?.user) {
+      Alert.alert("Error", "You must be logged in to upload images.");
       return;
     }
-    console.log("[ProfileScreen] 갤러리 권한 승인됨");
 
-    console.log("[ProfileScreen] 갤러리 실행");
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert("Permission Required", "Photo library permission is required.");
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
-      base64: true, // base64 옵션 추가
-    });
-
-    console.log("[ProfileScreen] 갤러리 결과:", {
-      canceled: result.canceled,
-      hasAssets: !!result.assets,
-      assetCount: result.assets?.length || 0,
-      selectedIndex: selectedImageIndex,
+      base64: true,
     });
 
     if (!result.canceled && result.assets?.[0]) {
       const { uri, base64 } = result.assets[0];
-      console.log("[ProfileScreen] 갤러리에서 선택된 이미지:", {
-        uri,
-        base64Length: base64?.length || 0,
-        selectedIndex: selectedImageIndex,
-      });
-
-      const newProfileImage: ProfileImage = { uri, base64 }; // uri와 base64 모두 저장
-      const updatedImages = [...currentImages];
-      if (selectedImageIndex !== null) {
-        updatedImages[selectedImageIndex] = newProfileImage;
-        setCurrentImages(updatedImages);
-        console.log(
-          `[ProfileScreen] 이미지 ${selectedImageIndex} 위치에 갤러리 이미지 설정 완료`
-        );
+      
+      if (!base64) {
+        Alert.alert("Error", "Failed to process image. Please try again.");
+      } else {
+        await uploadImageToSupabase(uri, base64, 'gallery');
       }
     }
     setSelectedImageIndex(null);
@@ -648,13 +659,13 @@ function ProfileScreen() {
     setSelectedImageIndex(null);
   };
 
-  // --- [완전히 교체됨] 서버 저장 함수 ---
+  // --- [Completely replaced] Server save function ---
   const saveProfileToServer = async () => {
-    console.log("[ProfileScreen] saveProfileToServer 시작");
+    console.log("[ProfileScreen] saveProfileToServer started");
 
     if (!session?.user || !editingProfile) {
       console.log(
-        "[ProfileScreen] 세션이나 편집 프로필이 없어 저장을 중단합니다."
+        "[ProfileScreen] No session or editing profile, stopping save."
       );
       return;
     }
@@ -664,12 +675,12 @@ function ProfileScreen() {
 
     try {
       const { user } = session;
-      console.log(`[ProfileScreen] 사용자 ID: ${user.id}`);
+      console.log(`[ProfileScreen] User ID: ${user.id}`);
 
-      // 1. 새로 추가/변경 된 이미지만 필터링하여 업로드
-      console.log("[ProfileScreen] 1단계: 이미지 업로드 준비 시작");
+      // 1. Filter and upload only newly added/changed images
+      console.log("[ProfileScreen] Step 1: Starting image upload preparation");
       console.log(
-        "[ProfileScreen] 현재 이미지 상태:",
+        "[ProfileScreen] Current image state:",
         currentImages.map((img, idx) => ({
           index: idx,
           hasImage: !!img,
@@ -682,7 +693,7 @@ function ProfileScreen() {
       );
 
       const uploadPromises = currentImages.map(async (image, index) => {
-        console.log(`[ProfileScreen] 이미지 ${index} 처리 시작:`, {
+        console.log(`[ProfileScreen] Starting image ${index} processing:`, {
           hasImage: !!image,
           hasBase64: !!image?.base64,
           hasUrl: !!image?.url,
@@ -690,21 +701,21 @@ function ProfileScreen() {
         });
 
         if (!image) {
-          console.log(`[ProfileScreen] 이미지 ${index}: 빈 슬롯`);
-          return { position: index, url: null }; // 빈 슬롯
+          console.log(`[ProfileScreen] Image ${index}: Empty slot`);
+          return { position: index, url: null }; // Empty slot
         }
 
-        // base64가 있다면 새로운 이미지이므로 업로드
+        // If base64 exists, it's a new image so upload it
         if (image.base64) {
           console.log(
-            `[ProfileScreen] 이미지 ${index}: 새로운 이미지 업로드 시작`
+            `[ProfileScreen] Image ${index}: Starting new image upload`
           );
 
           const fileExt = image.uri?.split(".").pop()?.toLowerCase() ?? "jpeg";
           const filePath = `${user.id}/${new Date().getTime()}.${fileExt}`;
           const contentType = `image/${fileExt}`;
 
-          console.log(`[ProfileScreen] 이미지 ${index} 업로드 정보:`, {
+          console.log(`[ProfileScreen] Image ${index} upload info:`, {
             fileExt,
             filePath,
             contentType,
@@ -713,59 +724,59 @@ function ProfileScreen() {
           });
 
           try {
-            console.log(`[ProfileScreen] 이미지 ${index}: Storage 업로드 시작`);
+            console.log(`[ProfileScreen] Image ${index}: Starting Storage upload`);
             const { data, error: uploadError } = await supabase.storage
               .from("user-images")
               .upload(filePath, decode(image.base64), { contentType });
 
             if (uploadError) {
               console.error(
-                `[ProfileScreen] 이미지 ${index} 업로드 실패:`,
+                `[ProfileScreen] Image ${index} upload failed:`,
                 uploadError
               );
               throw uploadError;
             }
 
-            console.log(`[ProfileScreen] 이미지 ${index} 업로드 성공:`, {
+            console.log(`[ProfileScreen] Image ${index} upload successful:`, {
               path: data.path,
               id: data.id,
             });
 
             console.log(
-              `[ProfileScreen] 이미지 ${index}: Public URL 생성 시작`
+              `[ProfileScreen] Image ${index}: Starting Public URL generation`
             );
             const { data: publicUrlData } = supabase.storage
               .from("user-images")
               .getPublicUrl(data.path);
 
             console.log(
-              `[ProfileScreen] 이미지 ${index} Public URL 생성 성공:`,
+              `[ProfileScreen] Image ${index} Public URL generation successful:`,
               publicUrlData.publicUrl
             );
             return { position: index, url: publicUrlData.publicUrl };
           } catch (uploadErr) {
             console.error(
-              `[ProfileScreen] 이미지 ${index} 업로드 중 예외 발생:`,
+              `[ProfileScreen] Exception occurred during image ${index} upload:`,
               uploadErr
             );
             throw uploadErr;
           }
         }
 
-        // base64가 없다면 기존 이미지이므로 URL만 유지
+        // If no base64, it's an existing image so just keep the URL
         console.log(
-          `[ProfileScreen] 이미지 ${index}: 기존 이미지 URL 유지:`,
+          `[ProfileScreen] Image ${index}: Keeping existing image URL:`,
           image.url || image.uri
         );
         return { position: index, url: image.url || image.uri };
       });
 
-      console.log("[ProfileScreen] 2단계: 모든 이미지 업로드 완료 대기");
+      console.log("[ProfileScreen] Step 2: Waiting for all image uploads to complete");
       const resolvedImages = await Promise.all(uploadPromises);
-      console.log("[ProfileScreen] 업로드된 이미지 결과:", resolvedImages);
+      console.log("[ProfileScreen] Uploaded image results:", resolvedImages);
 
-      // 2. DB에 저장할 최종 이미지 목록 생성
-      console.log("[ProfileScreen] 3단계: DB 저장용 이미지 목록 생성");
+      // 2. Generate final image list to save to DB
+      console.log("[ProfileScreen] Step 3: Generating image list for DB storage");
       const imagesToInsert = resolvedImages
         .filter((img): img is { position: number; url: string } => !!img?.url)
         .map((img) => ({
@@ -774,39 +785,39 @@ function ProfileScreen() {
           position: img.position,
         }));
 
-      console.log("[ProfileScreen] DB에 저장할 이미지 목록:", imagesToInsert);
+      console.log("[ProfileScreen] Image list to save to DB:", imagesToInsert);
 
-      // 3. DB 이미지 목록 원자적으로 교체 (삭제 후 삽입)
-      console.log("[ProfileScreen] 4단계: 기존 이미지 데이터 삭제");
+      // 3. Atomically replace DB image list (delete then insert)
+      console.log("[ProfileScreen] Step 4: Deleting existing image data");
       const { error: deleteError } = await supabase
         .from("user_images")
         .delete()
         .eq("user_id", user.id);
       if (deleteError) {
-        console.error("[ProfileScreen] 기존 이미지 삭제 실패:", deleteError);
+        console.error("[ProfileScreen] Failed to delete existing images:", deleteError);
         throw deleteError;
       }
-      console.log("[ProfileScreen] 기존 이미지 삭제 성공");
+      console.log("[ProfileScreen] Existing images deleted successfully");
 
       if (imagesToInsert.length > 0) {
-        console.log("[ProfileScreen] 5단계: 새 이미지 데이터 삽입");
+        console.log("[ProfileScreen] Step 5: Inserting new image data");
         const { error: imagesError } = await supabase
           .from("user_images")
           .insert(imagesToInsert);
         if (imagesError) {
           console.error(
-            "[ProfileScreen] 새 이미지 데이터 삽입 실패:",
+            "[ProfileScreen] Failed to insert new image data:",
             imagesError
           );
           throw imagesError;
         }
-        console.log("[ProfileScreen] 새 이미지 데이터 삽입 성공");
+        console.log("[ProfileScreen] New image data inserted successfully");
       } else {
-        console.log("[ProfileScreen] 삽입할 이미지가 없습니다.");
+        console.log("[ProfileScreen] No images to insert.");
       }
 
-      // 4. 프로필 텍스트 정보 업데이트
-      console.log("[ProfileScreen] 6단계: 프로필 텍스트 정보 업데이트");
+      // 4. Update profile text information
+      console.log("[ProfileScreen] Step 6: Updating profile text information");
       const birthDate =
         editingProfile.birthYear &&
         editingProfile.birthMonth &&
@@ -816,14 +827,13 @@ function ProfileScreen() {
           ? `${profile.birthYear}-${profile.birthMonth}-${profile.birthDay}`
           : null;
 
-      console.log("[ProfileScreen] 업데이트할 프로필 데이터:", {
+      console.log("[ProfileScreen] Profile data to update:", {
         id: user.id,
         firstName: editingProfile.firstName,
         lastName: editingProfile.lastName,
         birthDate,
         height: editingProfile.height,
         mbti: editingProfile.mbti,
-        gender: editingProfile.gender,
         bio: editingProfile.aboutMe,
       });
 
@@ -834,18 +844,17 @@ function ProfileScreen() {
         birth_date: birthDate,
         height_cm: editingProfile.height,
         mbti: editingProfile.mbti,
-        gender: editingProfile.gender,
         bio: editingProfile.aboutMe,
         updated_at: new Date().toISOString(),
       });
       if (profileError) {
-        console.error("[ProfileScreen] 프로필 업데이트 실패:", profileError);
+        console.error("[ProfileScreen] Profile update failed:", profileError);
         throw profileError;
       }
-      console.log("[ProfileScreen] 프로필 업데이트 성공");
+      console.log("[ProfileScreen] Profile update successful");
 
-      // 5. 로컬 상태 업데이트
-      console.log("[ProfileScreen] 7단계: 로컬 상태 업데이트");
+      // 5. Update local state
+      console.log("[ProfileScreen] Step 7: Updating local state");
       setProfile(JSON.parse(JSON.stringify(editingProfile))); // Deep copy to reflect changes
 
       // Update currentImages to remove base64 and only keep final URLs
@@ -853,16 +862,16 @@ function ProfileScreen() {
         img.url ? { url: img.url } : null
       );
       console.log(
-        "[ProfileScreen] 업데이트된 로컬 이미지 상태:",
+        "[ProfileScreen] Updated local image state:",
         updatedCurrentImages
       );
       setCurrentImages(updatedCurrentImages);
 
-      console.log("[ProfileScreen] saveProfileToServer 완료");
+      console.log("[ProfileScreen] saveProfileToServer complete");
       Alert.alert("Success", "Profile updated successfully!");
     } catch (error) {
-      console.error("[ProfileScreen] saveProfileToServer 에러 발생:", error);
-      console.error("[ProfileScreen] 에러 상세:", {
+      console.error("[ProfileScreen] saveProfileToServer error occurred:", error);
+      console.error("[ProfileScreen] Error details:", {
         name: error instanceof Error ? error.name : "Unknown",
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
@@ -870,13 +879,13 @@ function ProfileScreen() {
       Alert.alert("Error", "Failed to save profile. Please try again.");
     } finally {
       console.log(
-        "[ProfileScreen] saveProfileToServer 종료 - saving을 false로 설정"
+        "[ProfileScreen] saveProfileToServer ended - setting saving to false"
       );
       setSaving(false);
     }
   };
 
-  // --- 기존 함수들 ---
+  // --- Existing functions ---
   const navigateToSettings = () => {
     router.push("/settings");
   };
@@ -885,12 +894,12 @@ function ProfileScreen() {
     setActiveTab(tabId);
   };
 
-  // Active 버블 설정 함수
+  // Set active bubble function
   const handleSetActiveBubble = async (bubbleId: string) => {
     if (!session?.user) return;
     
     try {
-      console.log("[ProfileScreen] Active 버블 설정 시작:", bubbleId);
+      console.log("[ProfileScreen] Starting active bubble setup:", bubbleId);
       
       const { data, error } = await supabase.rpc("set_user_active_bubble", {
         p_user_id: session.user.id,
@@ -898,23 +907,23 @@ function ProfileScreen() {
       });
       
       if (error) {
-        console.error("[ProfileScreen] Active 버블 설정 실패:", error);
-        Alert.alert("오류", "Active 버블 설정에 실패했습니다.");
+        console.error("[ProfileScreen] Active bubble setup failed:", error);
+        Alert.alert("Error", "Failed to set active bubble.");
         return;
       }
       
       if (data) {
         setActiveBubbleId(bubbleId);
-        console.log("[ProfileScreen] Active 버블 설정 성공:", bubbleId);
+        console.log("[ProfileScreen] Active bubble setup successful:", bubbleId);
         Alert.alert("Success!", "Active bubble has been set");
       }
     } catch (error) {
-      console.error("[ProfileScreen] Active 버블 설정 중 에러:", error);
-      Alert.alert("오류", "Active 버블 설정에 실패했습니다.");
+      console.error("[ProfileScreen] Error during active bubble setup:", error);
+      Alert.alert("Error", "Failed to set active bubble.");
     }
   };
 
-  // 그룹에서 나가기 함수
+  // Leave group function
   const handleLeaveGroup = async (bubbleId: string) => {
     if (!session?.user) return;
     
@@ -931,7 +940,7 @@ function ProfileScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              console.log("[ProfileScreen] 그룹 나가기 시작:", bubbleId);
+              console.log("[ProfileScreen] Starting leave group:", bubbleId);
               
               const { data, error } = await supabase.rpc("leave_group", {
                 p_user_id: session.user.id,
@@ -952,12 +961,12 @@ function ProfileScreen() {
 
               console.log(`[ProfileScreen] Successfully popped bubble: "${data.group_name}" by ${data.popper_name}`);
               
-              // Active 버블이 삭제된 버블이었다면 Active 상태 제거
+              // If active bubble was the deleted bubble, remove active status
               if (activeBubbleId === bubbleId) {
                 setActiveBubbleId(null);
               }
               
-              // 버블 목록 새로고침
+              // Refresh bubble list
               fetchMyBubbles();
               
               Alert.alert(
@@ -975,7 +984,7 @@ function ProfileScreen() {
   };
 
 
-  // 이미지 그리드 레이아웃 계산
+  // Calculate image grid layout
   const screenWidth = Dimensions.get("window").width;
   const contentPaddingHorizontal =
     styles.editProfileTabContent.paddingHorizontal;
@@ -984,7 +993,7 @@ function ProfileScreen() {
   const itemSize =
     (screenWidth - contentPaddingHorizontal * 2 - totalGapSpace) / NUM_COLUMNS;
 
-  // 각 이미지 슬롯 렌더링 함수
+  // Render each image slot function
   const renderImageSlot = (index: number) => {
     const imageAsset = currentImages[index];
 
@@ -1007,10 +1016,16 @@ function ProfileScreen() {
           activeOpacity={0.7}
         >
           {imageAsset ? (
-            <Image
-              source={{ uri: imageAsset.url || imageAsset.uri }}
-              style={styles.imagePreview}
-            />
+            imageAsset.isLoading ? (
+              <View style={[styles.imagePreview, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.lightGray }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <Image
+                source={{ uri: imageAsset.url || imageAsset.uri }}
+                style={styles.imagePreview}
+              />
+            )
           ) : (
             <>
               <Text style={[styles.imageSlotNumber, { color: colors.black }]}>
@@ -1036,59 +1051,25 @@ function ProfileScreen() {
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           First name
         </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.firstName || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, firstName: text } : null
-            )
-          }
-          placeholder="Enter first name"
-          placeholderTextColor={colors.darkGray}
-        />
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
+          {editingProfile?.firstName || 'Not available'}
+        </Text>
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Last name
         </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.lastName || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, lastName: text } : null
-            )
-          }
-          placeholder="Enter last name"
-          placeholderTextColor={colors.darkGray}
-        />
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
+          {editingProfile?.lastName || 'Not available'}
+        </Text>
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Age
         </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.age?.toString() || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, age: parseInt(text) || 0 } : null
-            )
-          }
-          placeholder="Enter age"
-          placeholderTextColor={colors.darkGray}
-          keyboardType="numeric"
-        />
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
+          {editingProfile?.age ? `${editingProfile.age} years old` : 'Not available'}
+        </Text>
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
@@ -1155,20 +1136,17 @@ function ProfileScreen() {
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
           Gender
         </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.gender || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, gender: text } : null
-            )
-          }
-          placeholder="Enter gender"
-          placeholderTextColor={colors.darkGray}
-        />
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
+          {editingProfile?.gender || 'Not specified'}
+        </Text>
+      </View>
+      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
+        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
+          Preferred Gender
+        </Text>
+        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
+          {editingProfile?.preferredGender || 'Not specified'}
+        </Text>
       </View>
 
       {/* 저장 버튼 */}
@@ -1207,7 +1185,7 @@ function ProfileScreen() {
             </>
           ) : (
             <>
-              {/* 2. 버블 목록이 있을 때 */}
+              {/* 2. When there are bubbles in the list */}
               {myBubbles.length > 0 ? (
                 myBubbles.map((bubble) => (
                   <BubbleTabItem
@@ -1215,8 +1193,8 @@ function ProfileScreen() {
                     bubble={bubble}
                     isActive={activeBubbleId === bubble.id}
                     onPress={() => {
-                      // 버블 상태에 따라 다른 인터페이스로 이동
-                      // forming: 대기 화면, full: 업데이트 화면
+                      // Navigate to different interfaces based on bubble status
+                      // forming: waiting screen, full: update screen
                       router.push({
                         pathname: "/bubble/form",
                         params: {
@@ -1230,7 +1208,7 @@ function ProfileScreen() {
                   />
                 ))
               ) : (
-                // 3. 버블 목록이 없을 때 - "Make new bubble" UI 표시
+                // 3. When there are no bubbles - Show "Make new bubble" UI
                 <View style={styles.makeNewBubbleContainer}>
                   <Text style={[styles.makeNewBubbleText, { color: colors.black }]}>
                     Make new bubble !
@@ -1261,13 +1239,13 @@ function ProfileScreen() {
     } else if (activeTab === "myInfo") {
       return (
         <View style={styles.editProfileTabContent}>
-          {/* 이미지 입력 그리드 */}
+          {/* Image input grid */}
           <View style={styles.imageGridContainer}>
             {Array.from({ length: MAX_IMAGES_DEFAULT }).map((_, index) =>
               renderImageSlot(index)
             )}
           </View>
-          {/* 프로필 상세 정보 (편집 필드) */}
+          {/* Profile details (edit fields) */}
           {editingProfile && renderProfileDetails(editingProfile)}
         </View>
       );
@@ -1275,7 +1253,7 @@ function ProfileScreen() {
     return null;
   };
 
-  // --- 로딩 및 데이터 없음 UI 처리 ---
+  // --- Loading and no data UI handling ---
   if (loading) {
     return (
       <CustomView style={{ backgroundColor: colors.white }}>
@@ -1402,7 +1380,7 @@ function ProfileScreen() {
         style={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* ProfileHero에 실제 데이터 전달 */}
+        {/* Pass actual data to ProfileHero */}
         <ProfileHero
           firstName={profile.firstName}
           lastName={profile.lastName}
@@ -1420,7 +1398,7 @@ function ProfileScreen() {
         {renderTabContent()}
       </ScrollView>
 
-      {/* 저장 확인 모달 */}
+      {/* Save confirmation modal */}
       <Modal
         visible={showSaveModal}
         transparent={true}
@@ -1432,7 +1410,7 @@ function ProfileScreen() {
             style={[styles.modalContent, { backgroundColor: colors.white }]}
           >
             <Text style={[styles.modalTitle, { color: colors.black }]}>
-              변경사항을 저장하시겠습니까?
+              Do you want to save the changes?
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -1442,7 +1420,7 @@ function ProfileScreen() {
                 <Text
                   style={[styles.modalButtonText, { color: colors.darkGray }]}
                 >
-                  취소
+                  Cancel
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1453,7 +1431,7 @@ function ProfileScreen() {
                 onPress={saveProfileToServer}
               >
                 <Text style={[styles.modalButtonText, { color: colors.white }]}>
-                  확인
+                  Confirm
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1461,7 +1439,7 @@ function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* 이미지 옵션 모달 */}
+      {/* Image options modal */}
       <Modal
         visible={showImageOptionsModal}
         transparent={true}
@@ -1476,7 +1454,7 @@ function ProfileScreen() {
             ]}
           >
             <Text style={[styles.modalTitle, { color: colors.black }]}>
-              이미지 옵션
+              Image Options
             </Text>
             <TouchableOpacity
               style={styles.imageOptionButton}
@@ -1484,7 +1462,7 @@ function ProfileScreen() {
             >
               <Ionicons name="camera" size={24} color={colors.primary} />
               <Text style={[styles.imageOptionText, { color: colors.black }]}>
-                사진 찍기
+                Take Photo
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1493,7 +1471,7 @@ function ProfileScreen() {
             >
               <Ionicons name="images" size={24} color={colors.primary} />
               <Text style={[styles.imageOptionText, { color: colors.black }]}>
-                갤러리에서 선택
+                Select from Gallery
               </Text>
             </TouchableOpacity>
             {currentImages[selectedImageIndex || 0] && (
@@ -1503,7 +1481,7 @@ function ProfileScreen() {
               >
                 <Ionicons name="trash" size={24} color={colors.error} />
                 <Text style={[styles.imageOptionText, { color: colors.error }]}>
-                  삭제
+                  Delete
                 </Text>
               </TouchableOpacity>
             )}
@@ -1514,7 +1492,7 @@ function ProfileScreen() {
               <Text
                 style={[styles.imageOptionText, { color: colors.darkGray }]}
               >
-                취소
+                Cancel
               </Text>
             </TouchableOpacity>
           </View>
@@ -1545,6 +1523,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   detailInput: {
+    fontSize: 18,
+    fontFamily: "Quicksand-Regular",
+    borderBottomWidth: 1,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  detailValue: {
     fontSize: 18,
     fontFamily: "Quicksand-Regular",
     borderBottomWidth: 1,

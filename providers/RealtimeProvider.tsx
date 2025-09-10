@@ -11,6 +11,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { useUIStore } from "@/stores/uiStore";
+import { EventBus, emitNewMessage, emitNewInvitation, emitConnectionStatus, emitRefreshMessages, emitRefreshLikes, emitBubbleFormed } from "@/services/EventBus";
 
 /**
  * `public.group_members` 테이블의 데이터 구조와 일치하는 타입
@@ -213,12 +214,18 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
       }
 
       console.log(`[RealtimeProvider] 사용자 ${userId}에 대한 구독 시도...`);
-      setConnectionStatus("CONNECTED");
+      setConnectionStatus("CONNECTING");
+      
+      // Emit connecting status to EventBus
+      emitConnectionStatus('CONNECTING');
 
       try {
         channel = supabase.channel(`realtime_notifications:${userId}`);
         console.log(`[RealtimeProvider] 채널 생성됨: realtime_notifications:${userId}`);
 
+        // Add debugging for subscription setup
+        console.log("[RealtimeProvider] Setting up subscriptions...");
+        
         channel
           .on<GroupMember>(
             "postgres_changes",
@@ -231,6 +238,14 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             (payload) => {
               console.log("[RealtimeProvider] 새로운 초대 감지!", payload.new);
               setInvitations((prev) => [...prev, payload.new]);
+              
+              // Emit new invitation event to EventBus
+              emitNewInvitation(
+                payload.new.group_id,
+                'New Group', // We'll need to fetch group name if needed
+                'Unknown', // We'll need to fetch inviter info if needed
+                'Someone'
+              );
             }
           )
           .on<GroupMember>(
@@ -295,19 +310,72 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             (payload) => {
               console.log("[RealtimeProvider] Likes table changed, refreshing count...", payload);
               refreshLikesCount(userId);
+              
+              // Emit refresh likes event to EventBus
+              emitRefreshLikes();
             }
           )
+          // Listen for broadcast messages as backup for postgres_changes
+          .on("broadcast", { event: "new_message" }, (payload) => {
+            console.log("[RealtimeProvider] 🔥 BROADCAST MESSAGE RECEIVED:", payload);
+            
+            if (payload.payload && payload.payload.room_id) {
+              EventBus.emitEvent('NEW_MESSAGE', {
+                chatRoomId: payload.payload.room_id,
+                message: {
+                  message_id: payload.payload.message_id,
+                  sender_id: payload.payload.sender_id,
+                  sender_name: payload.payload.sender_name || 'Unknown',
+                  content: payload.payload.content,
+                  message_type: payload.payload.message_type || 'text',
+                  created_at: payload.payload.created_at,
+                  is_own: payload.payload.sender_id === userId
+                }
+              });
+            }
+          })
           // Subscribe to chat_messages table changes to refresh message count
           .on(
             "postgres_changes", 
             {
-              event: "*",
+              event: "INSERT",
               schema: "public",
               table: "chat_messages",
             },
             (payload) => {
-              console.log("[RealtimeProvider] Chat messages changed, refreshing count...", payload);
+              console.log("[RealtimeProvider] Chat messages changed:", {
+                eventType: payload.eventType,
+                table: payload.table,
+                roomId: payload.new?.room_id,
+                messageId: payload.new?.id,
+                content: payload.new?.content
+              });
               refreshMessagesCount(userId);
+              
+              // Emit refresh messages event to EventBus
+              emitRefreshMessages();
+              
+              // If it's a new message, emit the new message event
+              if (payload.eventType === 'INSERT' && payload.new) {
+                console.log("[RealtimeProvider] 🚀 Emitting NEW_MESSAGE event:", {
+                  chatRoomId: payload.new.room_id,
+                  messageId: payload.new.id,
+                  content: payload.new.content
+                });
+                // We'll emit a basic message event - chat screens can listen for this
+                EventBus.emitEvent('NEW_MESSAGE', {
+                  chatRoomId: payload.new.room_id,
+                  message: {
+                    message_id: payload.new.id,
+                    sender_id: payload.new.sender_id,
+                    sender_name: 'Unknown', // We'll need to resolve this
+                    content: payload.new.content,
+                    message_type: payload.new.message_type || 'text',
+                    created_at: payload.new.created_at,
+                    is_own: payload.new.sender_id === userId
+                  }
+                });
+              }
             }
           )
           // Subscribe to matches table changes to refresh both counts
@@ -321,6 +389,94 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             (payload) => {
               console.log("[RealtimeProvider] Matches table changed, refreshing counts...", payload);
               refreshNotifications();
+              
+              // If it's a new match, emit the new match event
+              if (payload.eventType === 'INSERT' && payload.new) {
+                EventBus.emitEvent('NEW_MATCH', {
+                  matchId: payload.new.id,
+                  chatRoomId: payload.new.chat_room_id,
+                  groupName: 'Matched Group' // We'll need to resolve this
+                });
+              }
+            }
+          )
+          // Subscribe to groups table changes to detect bubble formation
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public", 
+              table: "groups",
+            },
+            async (payload) => {
+              console.log("[RealtimeProvider] Groups table changed, checking for bubble formation...", payload);
+              
+              // Check if status changed from 'forming' to 'full'
+              if (payload.old.status === 'forming' && payload.new.status === 'full') {
+                console.log("[RealtimeProvider] 🎉 Bubble formed! Group:", payload.new.id);
+                
+                try {
+                  // First check if current user is a member of this group
+                  const { data: memberCheck, error: memberError } = await supabase
+                    .from('group_members')
+                    .select('*')
+                    .eq('group_id', payload.new.id)
+                    .eq('user_id', userId)
+                    .single();
+                    
+                  if (memberError || !memberCheck) {
+                    // User is not a member, ignore this event
+                    return;
+                  }
+                  
+                  // User is a member, fetch group details and all members
+                  const { data: groupDetails, error: groupError } = await supabase
+                    .from('groups')
+                    .select('*')
+                    .eq('id', payload.new.id)
+                    .single();
+                    
+                  const { data: membersData, error: membersError } = await supabase
+                    .from('group_members')
+                    .select(`
+                      user_id,
+                      users!inner (
+                        id,
+                        name,
+                        profile_image_url
+                      )
+                    `)
+                    .eq('group_id', payload.new.id)
+                    .eq('status', 'joined');
+                    
+                  if (groupError || membersError || !groupDetails || !membersData) {
+                    console.error("[RealtimeProvider] Error fetching group/members:", groupError, membersError);
+                    return;
+                  }
+                  
+                  // Format members for the announcement
+                  const members = membersData.map((item: any) => ({
+                    id: item.user_id,
+                    name: item.users?.name || `User ${item.user_id.slice(0, 8)}`,
+                    imageUrl: item.users?.profile_image_url
+                  }));
+                  
+                  console.log("[RealtimeProvider] Emitting bubble formed event:", {
+                    groupId: groupDetails.id,
+                    groupName: groupDetails.name || 'New Bubble',
+                    members: members
+                  });
+                  
+                  // Emit the bubble formed event
+                  emitBubbleFormed(
+                    groupDetails.id,
+                    groupDetails.name || 'New Bubble',
+                    members
+                  );
+                } catch (error) {
+                  console.error("[RealtimeProvider] Error handling bubble formation:", error);
+                }
+              }
             }
           )
           .subscribe((status, err) => {
@@ -329,23 +485,40 @@ export default function RealtimeProvider({ children }: PropsWithChildren) {
             if (status === "SUBSCRIBED") {
               console.log("[RealtimeProvider] 실시간 채널 구독 성공!");
               setConnectionStatus("CONNECTED");
+              
+              // Emit connection status to EventBus
+              emitConnectionStatus('CONNECTED');
             }
             if (status === "CHANNEL_ERROR") {
-              console.error("[RealtimeProvider] 채널 에러:", err);
+              const errorMessage = err?.message || 'Unknown channel error';
+              const errorName = err?.name || 'ChannelError';
+              const errorStack = err?.stack || 'No stack trace available';
+              
+              console.error("[RealtimeProvider] 채널 에러:", errorMessage);
               console.error("[RealtimeProvider] 에러 상세:", {
-                message: err?.message,
-                name: err?.name,
-                stack: err?.stack,
+                message: errorMessage,
+                name: errorName,
+                stack: errorStack,
+                originalError: err
               });
+              
+              // Emit connection status to EventBus
+              emitConnectionStatus('ERROR', errorMessage);
               setConnectionStatus("DISCONNECTED");
             }
             if (status === "TIMED_OUT") {
               console.warn("[RealtimeProvider] 연결 시간 초과");
               setConnectionStatus("DISCONNECTED");
+              
+              // Emit connection status to EventBus
+              emitConnectionStatus('DISCONNECTED', 'Connection timed out');
             }
             if (status === "CLOSED") {
               console.log("[RealtimeProvider] 채널이 닫힘");
               setConnectionStatus("DISCONNECTED");
+              
+              // Emit connection status to EventBus
+              emitConnectionStatus('DISCONNECTED', 'Channel closed');
             }
           });
       } catch (error) {

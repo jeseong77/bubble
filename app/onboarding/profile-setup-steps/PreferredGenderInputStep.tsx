@@ -36,7 +36,7 @@ const PreferredGenderInputStep = ({
     >
       <View style={styles.titleContainer}>
         <Text style={[styles.title, { color: colors.black }]}>
-          Who would you like to meet?
+          Who would you{"\n"}like to meet?
         </Text>
       </View>
 
