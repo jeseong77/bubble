@@ -145,90 +145,11 @@ export default function ChatRoomScreen() {
       console.log('📡 [ChatRoomScreen] Broadcast channel status:', status);
     });
 
-    // Listen for new messages in this chat room via EventBus (backup)
-    const unsubscribeNewMessage = EventBus.onEvent('NEW_MESSAGE', async (payload) => {
-      console.log('📨 [ChatRoomScreen] EventBus NEW_MESSAGE received:', {
-        payloadChatRoomId: payload.chatRoomId,
-        currentChatRoomId: chatRoomId,
-        messageId: payload.message.message_id,
-        content: payload.message.content
-      });
-      // Only handle messages for this chat room
-      if (payload.chatRoomId !== chatRoomId) return;
-      
-      console.log('📨 [ChatRoomScreen] New message from EventBus:', payload);
-      
-      // Get current user to determine sender name
-      const { data: { user } } = await supabase.auth.getUser();
-      let senderName = payload.message.sender_name;
-      
-      if (payload.message.sender_id === user?.id) {
-        senderName = chatRoomData?.my_group_name || 'You';
-      } else {
-        senderName = chatRoomData?.other_group_name || 'Other';
-      }
-      
-      // Fetch sender avatar URL for real-time messages
-      let senderAvatarUrl: string | undefined;
-      try {
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('avatar_url')
-          .eq('id', payload.message.sender_id)
-          .single();
-        
-        if (!userError && userData?.avatar_url) {
-          senderAvatarUrl = userData.avatar_url;
-        }
-      } catch (err) {
-        console.warn('[ChatRoomScreen] Failed to fetch avatar for real-time message:', err);
-      }
+    // EventBus listener removed to prevent duplicates - using broadcast channel only
 
-      const formattedMessage: ChatMessage = {
-        message_id: payload.message.message_id,
-        sender_id: payload.message.sender_id,
-        sender_name: senderName,
-        sender_avatar_url: senderAvatarUrl,
-        content: payload.message.content,
-        message_type: payload.message.message_type,
-        created_at: payload.message.created_at,
-        edited_at: undefined,
-        reply_to_id: undefined,
-        reply_to_content: undefined,
-        is_own: payload.message.is_own,
-        read_by_count: 0
-      };
-
-      // Only add if not a duplicate (check by message_id first)
-      setMessages(prevMessages => {
-        const isDuplicate = prevMessages.some(msg => 
-          msg.message_id === payload.message.message_id
-        );
-        
-        if (isDuplicate) {
-          console.log('📨 [ChatRoomScreen] Duplicate message from EventBus, skipping:', payload.message.message_id);
-          return prevMessages;
-        }
-        
-        console.log('📨 [ChatRoomScreen] Adding new message from EventBus:', payload.message.message_id);
-        return [...prevMessages, formattedMessage];
-      });
-
-      // Auto scroll to bottom for new messages
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-
-      // Mark messages as read if not own message
-      if (!payload.message.is_own) {
-        markMessagesAsRead();
-      }
-    });
-
-    // Cleanup EventBus listeners and broadcast channel on unmount
+    // Cleanup broadcast channel on unmount
     return () => {
       console.log('🔴 [ChatRoomScreen] Cleaning up realtime listeners');
-      unsubscribeNewMessage();
       supabase.removeChannel(broadcastChannel);
     };
   }, [chatRoomId, chatRoomData]);
@@ -247,8 +168,17 @@ export default function ChatRoomScreen() {
       if (error) throw error;
       
       console.log('✅ [ChatRoomScreen] Messages loaded:', data?.length || 0);
-      // Reverse the array since database returns newest first, but we want oldest first for proper chat flow
-      setMessages(data ? [...data].reverse() : []);
+      
+      // Remove duplicates and reverse the array
+      if (data) {
+        const uniqueMessages = data.filter((message, index, self) => 
+          index === self.findIndex(m => m.message_id === message.message_id)
+        );
+        console.log('🔍 [ChatRoomScreen] Unique messages after deduplication:', uniqueMessages.length);
+        setMessages([...uniqueMessages].reverse());
+      } else {
+        setMessages([]);
+      }
       
       // Auto scroll to bottom after messages are loaded
       setTimeout(() => {
@@ -579,9 +509,9 @@ export default function ChatRoomScreen() {
                                   <Image 
                                     source={{ uri: item.sender_avatar_url }} 
                                     style={{ 
-                                      width: 32, 
-                                      height: 32, 
-                                      borderRadius: 16 
+                                      width: 41, 
+                                      height: 41, 
+                                      borderRadius: 20.5 
                                     }}
                                   />
                                 ) : (
