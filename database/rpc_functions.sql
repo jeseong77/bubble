@@ -2121,27 +2121,63 @@ RETURNS JSON AS $$
 DECLARE
   v_result JSON;
 BEGIN
-  SELECT json_agg(
-    json_build_object(
-      'user_id', u.id,
-      'first_name', u.first_name,
-      'last_name', u.last_name,
-      'avatar_url', u.avatar_url,
-      'age', u.age,
-      'gender', u.gender,
-      'about_me', u.about_me
+  SELECT json_build_object(
+    'success', true,
+    'all_members', COALESCE(
+      (SELECT json_agg(
+        json_build_object(
+          'id', u.id,
+          'first_name', u.first_name,
+          'last_name', u.last_name,
+          'age', u.age,
+          'gender', u.gender,
+          'bio', u.bio,
+          'images', COALESCE(
+            (SELECT json_agg(
+              json_build_object(
+                'id', ui.id::text,
+                'image_url', ui.image_url,
+                'position', COALESCE(ui.position, 0)
+              )
+            )
+            FROM user_images ui 
+            WHERE ui.user_id = u.id 
+            ORDER BY ui.position), 
+            '[]'::json
+          ),
+          'primary_image', (
+            SELECT ui.image_url 
+            FROM user_images ui 
+            WHERE ui.user_id = u.id 
+            ORDER BY ui.position 
+            LIMIT 1
+          )
+        )
+      )
+      FROM chat_rooms cr
+      JOIN matches m ON cr.match_id = m.id
+      JOIN groups g1 ON m.group1_id = g1.id
+      JOIN groups g2 ON m.group2_id = g2.id
+      JOIN group_members gm ON (gm.group_id = g1.id OR gm.group_id = g2.id)
+      JOIN users u ON gm.user_id = u.id
+      WHERE cr.id = p_chat_room_id
+        AND gm.status = 'joined'), 
+      '[]'::json
+    ),
+    'total_members', (
+      SELECT COUNT(DISTINCT u.id)
+      FROM chat_rooms cr
+      JOIN matches m ON cr.match_id = m.id
+      JOIN groups g1 ON m.group1_id = g1.id
+      JOIN groups g2 ON m.group2_id = g2.id
+      JOIN group_members gm ON (gm.group_id = g1.id OR gm.group_id = g2.id)
+      JOIN users u ON gm.user_id = u.id
+      WHERE cr.id = p_chat_room_id
+        AND gm.status = 'joined'
     )
-  ) INTO v_result
-  FROM chat_rooms cr
-  JOIN matches m ON cr.match_id = m.id
-  JOIN groups g1 ON m.group1_id = g1.id
-  JOIN groups g2 ON m.group2_id = g2.id
-  JOIN group_members gm ON (gm.group_id = g1.id OR gm.group_id = g2.id)
-  JOIN users u ON gm.user_id = u.id
-  WHERE cr.id = p_chat_room_id
-    AND gm.status = 'joined';
+  ) INTO v_result;
     
-  RETURN COALESCE(v_result, '[]'::json);
+  RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
