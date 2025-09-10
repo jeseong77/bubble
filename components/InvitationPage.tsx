@@ -631,6 +631,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+    marginTop: -90,  // Move up by header height + 30px
   },
   emptyIconContainer: {
     marginBottom: 24,
