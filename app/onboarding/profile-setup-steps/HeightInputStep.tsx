@@ -232,7 +232,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   questionTextBox: {
-    marginTop: 60,
     marginBottom: 40,
     alignSelf: "stretch",
   },
