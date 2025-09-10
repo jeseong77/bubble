@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, Dimensions } from 'react-native';
+import { View, Text, Image, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import styled from '@emotion/native';
+import { useRouter } from 'expo-router';
 
 interface Member {
   id: string;
@@ -34,6 +35,7 @@ interface ChatRoomProfileProps {
 const { width: screenWidth } = Dimensions.get('window');
 
 export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoading }) => {
+  const router = useRouter();
   if (isLoading) {
     return (
       <Container>
@@ -64,6 +66,10 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
   const itemGap = 20;
   const itemWidth = (screenWidth - containerPadding - itemGap) / 2;
 
+  const handleUserPress = (userId: string) => {
+    router.push(`/bubble/user/${userId}`);
+  };
+
   const renderMemberCard = (member: Member, index: number) => {
     return (
       <MemberCard key={member.id}>
@@ -73,19 +79,21 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
           </MemberName>
         </MemberInfo>
         <ProfileImageContainer>
-          <PlaceholderImage>
-            {member.primary_image ? (
-              <Image 
-                source={{ uri: member.primary_image }} 
-                style={{ 
-                  position: 'absolute',
-                  width: 170, 
-                  height: 170, 
-                  borderRadius: 85 
-                }}
-              />
-            ) : null}
-          </PlaceholderImage>
+          <TouchableOpacity onPress={() => handleUserPress(member.id)}>
+            <PlaceholderImage>
+              {member.primary_image ? (
+                <Image 
+                  source={{ uri: member.primary_image }} 
+                  style={{ 
+                    position: 'absolute',
+                    width: 170, 
+                    height: 170, 
+                    borderRadius: 85 
+                  }}
+                />
+              ) : null}
+            </PlaceholderImage>
+          </TouchableOpacity>
         </ProfileImageContainer>
       </MemberCard>
     );

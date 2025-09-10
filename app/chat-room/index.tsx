@@ -206,6 +206,10 @@ export default function ChatRoomScreen() {
     router.back();
   };
 
+  const handleUserPress = (senderId: string) => {
+    router.push(`/bubble/user/${senderId}`);
+  };
+
   // Fetch profile data for the chat room
   const fetchProfileData = async () => {
     if (!chatRoomId || profileData) return; // Don't fetch if already loaded
@@ -504,20 +508,22 @@ export default function ChatRoomScreen() {
                           )}
                           <MessageRow isOwn={item.is_own} isGrouped={!isFirstInGroup}>
                             {!item.is_own && isFirstInGroup && (
-                              <UserAvatar>
-                                {item.sender_avatar_url ? (
-                                  <Image 
-                                    source={{ uri: item.sender_avatar_url }} 
-                                    style={{ 
-                                      width: 41, 
-                                      height: 41, 
-                                      borderRadius: 20.5 
-                                    }}
-                                  />
-                                ) : (
-                                  <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
-                                )}
-                              </UserAvatar>
+                              <TouchableOpacity onPress={() => handleUserPress(item.sender_id)}>
+                                <UserAvatar>
+                                  {item.sender_avatar_url ? (
+                                    <Image 
+                                      source={{ uri: item.sender_avatar_url }} 
+                                      style={{ 
+                                        width: 41, 
+                                        height: 41, 
+                                        borderRadius: 20.5 
+                                      }}
+                                    />
+                                  ) : (
+                                    <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
+                                  )}
+                                </UserAvatar>
+                              </TouchableOpacity>
                             )}
                             {item.is_own && isLastInGroup && (
                               <MessageTime isOwn={item.is_own}>
