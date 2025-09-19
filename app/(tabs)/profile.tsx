@@ -538,41 +538,41 @@ function ProfileScreen() {
   // Unified image upload function
   const uploadImageToSupabase = async (uri: string, base64: string, source: 'camera' | 'gallery') => {
     if (selectedImageIndex === null) return;
-    
+
     console.log(`[ProfileScreen] Starting ${source} image upload at position ${selectedImageIndex}`);
-    
-    // Set loading state immediately
+
+    // Set loading state WITHOUT local URI to prevent saving local paths to database
     const loadingImages = [...currentImages];
-    loadingImages[selectedImageIndex] = { uri, isLoading: true };
+    loadingImages[selectedImageIndex] = { isLoading: true };
     setCurrentImages(loadingImages);
-    
+
     try {
       // Upload to Supabase Storage
       const fileExt = uri.split(".").pop()?.toLowerCase() ?? "jpeg";
       const filePath = `${session!.user.id}/${new Date().getTime()}.${fileExt}`;
       const contentType = `image/${fileExt}`;
-      
+
       const { data, error: uploadError } = await supabase.storage
         .from("user-images")
         .upload(filePath, decode(base64), { contentType });
-        
+
       if (uploadError) throw uploadError;
-      
+
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from("user-images")
         .getPublicUrl(data.path);
-        
-      // Update state with Supabase URL
+
+      // Update state with Supabase URL ONLY
       const finalImages = [...currentImages];
       finalImages[selectedImageIndex] = { url: publicUrl, isLoading: false };
       setCurrentImages(finalImages);
-      
-      console.log(`[ProfileScreen] ${source} image uploaded successfully at position ${selectedImageIndex}`);
+
+      console.log(`[ProfileScreen] ${source} image uploaded successfully at position ${selectedImageIndex}: ${publicUrl}`);
     } catch (error) {
       console.error(`${source} image upload failed:`, error);
       Alert.alert("Error", "Failed to upload image. Please try again.");
-      
+
       // Revert loading state
       const revertedImages = [...currentImages];
       revertedImages[selectedImageIndex] = null;
