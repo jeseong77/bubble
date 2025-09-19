@@ -14,7 +14,7 @@ import {
   TextInput,
   Modal,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import CustomView from "@/components/CustomView";
 import { Ionicons } from "@expo/vector-icons";
@@ -179,6 +179,7 @@ function ProfileScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const bottomHeight = useBottomTabBarHeight();
+  const params = useLocalSearchParams();
 
   // --- State management ---
   const { session, signOut } = useAuth();
@@ -191,7 +192,7 @@ function ProfileScreen() {
   const [currentImages, setCurrentImages] = useState<(ProfileImage | null)[]>(
     Array(MAX_IMAGES_DEFAULT).fill(null)
   );
-  const [activeTab, setActiveTab] = useState<string>("myBubble");
+  const [activeTab, setActiveTab] = useState<string>(params.activeTab as string || "myBubble");
   const [showCreateBubbleModal, setShowCreateBubbleModal] = useState(false);
   const [myBubbles, setMyBubbles] = useState<Bubble[]>([]);
   const [bubblesLoading, setBubblesLoading] = useState(true);
@@ -519,13 +520,12 @@ function ProfileScreen() {
     }
   }, [activeTab, session]);
 
-  // Refresh myBubble tab data whenever screen comes into focus
+  // Always set to myBubble tab and refresh data whenever screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (activeTab === "myBubble") {
-        fetchMyBubbles();
-      }
-    }, [activeTab])
+      setActiveTab("myBubble");
+      fetchMyBubbles();
+    }, [])
   );
 
   // --- Image-related functions ---
@@ -1049,7 +1049,7 @@ function ProfileScreen() {
     <View style={styles.profileDetailsContainer}>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          First name
+          First name<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
         </Text>
         <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
           {editingProfile?.firstName || 'Not available'}
@@ -1057,7 +1057,7 @@ function ProfileScreen() {
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Last name
+          Last name<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
         </Text>
         <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
           {editingProfile?.lastName || 'Not available'}
@@ -1065,7 +1065,7 @@ function ProfileScreen() {
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Age
+          Age<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
         </Text>
         <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
           {editingProfile?.age ? `${editingProfile.age} years old` : 'Not available'}
@@ -1134,18 +1134,18 @@ function ProfileScreen() {
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Gender
+          Gender<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
         </Text>
         <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
-          {editingProfile?.gender || 'Not specified'}
+          {editingProfile?.gender ? editingProfile.gender.charAt(0).toUpperCase() + editingProfile.gender.slice(1) : 'Not specified'}
         </Text>
       </View>
       <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
         <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Preferred Gender
+          Preferred Gender<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
         </Text>
         <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
-          {editingProfile?.preferredGender || 'Not specified'}
+          {editingProfile?.preferredGender ? editingProfile.preferredGender.charAt(0).toUpperCase() + editingProfile.preferredGender.slice(1) : 'Not specified'}
         </Text>
       </View>
 
@@ -1211,7 +1211,7 @@ function ProfileScreen() {
                 // 3. When there are no bubbles - Show "Make new bubble" UI
                 <View style={styles.makeNewBubbleContainer}>
                   <Text style={[styles.makeNewBubbleText, { color: colors.black }]}>
-                    Make new bubble !
+                    Make a new bubble !
                   </Text>
                   <TouchableOpacity
                     style={[styles.makeNewBubbleButton, { backgroundColor: colors.primary }]}

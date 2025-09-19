@@ -41,28 +41,16 @@ const InvitationItem: React.FC<{
   const [creatorImageUrl, setCreatorImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
-  // Create signed URL for creator's avatar
+  // Use avatar URL directly as it's already a public URL
   const createSignedUrlForCreator = useCallback(async () => {
     if (!bubble.creator?.avatar_url) return;
 
     try {
-      const urlParts = bubble.creator.avatar_url.split("/user-images/");
-      const filePath = urlParts.length > 1 ? urlParts[1] : null;
-
-      if (!filePath) return;
-
-      const { data, error } = await supabase.storage
-        .from("user-images")
-        .createSignedUrl(filePath, 3600);
-
-      if (error) {
-        console.error("[InvitationItem] Signed URL creation failed:", error);
-        return;
-      }
-
-      setCreatorImageUrl(data.signedUrl);
+      console.log("[InvitationItem] Using avatar URL directly:", bubble.creator.avatar_url);
+      // Use the avatar URL directly as it's already a permanent public URL
+      setCreatorImageUrl(bubble.creator.avatar_url);
     } catch (error) {
-      console.error("[InvitationItem] Exception during Signed URL creation:", error);
+      console.error("[InvitationItem] Exception during image URL setup:", error);
     }
   }, [bubble.creator?.avatar_url]);
 
