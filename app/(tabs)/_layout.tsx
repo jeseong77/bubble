@@ -2,11 +2,12 @@ import React from "react"; // useCallback 사용을 위해 React import
 import { Tabs, useFocusEffect } from "expo-router";
 import { useUIStore } from "@/stores/uiStore"; // Zustand 스토어 import (경로 확인)
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { Image } from "react-native";
+import { Image, View } from "react-native";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { NotificationBadge } from "@/components/ui/NotificationBadge";
 
 export default function TabLayout() {
-  const { showTabBar, hideTabBar } = useUIStore();
+  const { showTabBar, hideTabBar, unreadLikesCount, totalUnreadMessages } = useUIStore();
   const { colors } = useAppTheme();
 
   useFocusEffect(
@@ -75,11 +76,14 @@ export default function TabLayout() {
           title: "",
           animation: "none",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name="heart"
-              color={focused ? colors.primary : color}
-              size={28}
-            />
+            <View style={{ position: 'relative' }}>
+              <Ionicons
+                name="heart"
+                color={focused ? colors.primary : color}
+                size={28}
+              />
+              <NotificationBadge count={unreadLikesCount} />
+            </View>
           ),
         }}
       />
@@ -89,11 +93,14 @@ export default function TabLayout() {
           title: "",
           animation: "none",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name="chatbubble"
-              color={focused ? colors.primary : color}
-              size={28}
-            />
+            <View style={{ position: 'relative' }}>
+              <Ionicons
+                name="chatbubble"
+                color={focused ? colors.primary : color}
+                size={28}
+              />
+              <NotificationBadge count={totalUnreadMessages} />
+            </View>
           ),
         }}
       />

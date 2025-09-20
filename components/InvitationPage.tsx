@@ -56,13 +56,13 @@ const InvitationItem: React.FC<{
         .createSignedUrl(filePath, 3600);
 
       if (error) {
-        console.error("[InvitationItem] Signed URL 생성 실패:", error);
+        console.error("[InvitationItem] Signed URL creation failed:", error);
         return;
       }
 
       setCreatorImageUrl(data.signedUrl);
     } catch (error) {
-      console.error("[InvitationItem] Signed URL 생성 중 예외:", error);
+      console.error("[InvitationItem] Exception during Signed URL creation:", error);
     }
   }, [bubble.creator?.avatar_url]);
 
@@ -211,19 +211,19 @@ export default function InvitationPage() {
   }, [session]);
 
   const handleAcceptInvitation = async (bubbleId: string) => {
-    console.log("[InvitationPage] 🟢 handleAcceptInvitation 시작");
-    console.log("[InvitationPage] 버블 ID:", bubbleId);
-    console.log("[InvitationPage] 현재 세션 유저 ID:", session?.user?.id);
+    console.log("[InvitationPage] 🟢 handleAcceptInvitation started");
+    console.log("[InvitationPage] Bubble ID:", bubbleId);
+    console.log("[InvitationPage] Current session user ID:", session?.user?.id);
 
     if (!session?.user) {
-      console.error("[InvitationPage] ❌ 세션이 없어 초대 수락을 중단합니다.");
+      console.error("[InvitationPage] ❌ Stopping invitation acceptance due to no session.");
       Alert.alert("Error", "You must be logged in to accept invitations.");
       return;
     }
 
     try {
-      console.log("[InvitationPage] 📡 accept_invitation RPC 호출 시작");
-      console.log("[InvitationPage] RPC 파라미터:", {
+      console.log("[InvitationPage] 📡 accept_invitation RPC call started");
+      console.log("[InvitationPage] RPC parameters:", {
         p_group_id: bubbleId,
         p_user_id: session.user.id,
       });
@@ -233,66 +233,111 @@ export default function InvitationPage() {
         p_user_id: session.user.id,
       });
 
-      console.log("[InvitationPage] 📡 RPC 응답 받음");
-      console.log("[InvitationPage] RPC 응답 데이터:", data);
-      console.log("[InvitationPage] RPC 에러:", error);
+      console.log("[InvitationPage] 📡 RPC response received");
+      console.log("[InvitationPage] RPC response data:", JSON.stringify(data, null, 2));
+      console.log("[InvitationPage] RPC error:", error);
 
       if (error) {
-        console.error("[InvitationPage] ❌ RPC 에러 발생:", error);
-        console.error("[InvitationPage] 에러 상세:", {
+        console.error("[InvitationPage] ❌ RPC error occurred:", error);
+        console.error("[InvitationPage] Error details:", {
           message: error.message,
           details: error.details,
           hint: error.hint,
           code: error.code,
         });
-        throw error;
+        
+        Alert.alert("Error", error.message || "Failed to accept invitation. Please try again.");
+        return;
       }
 
-      console.log("[InvitationPage] ✅ RPC 호출 성공");
-      console.log("[InvitationPage] 반환된 데이터:", data);
+      // Handle the new JSON response format
+      if (!data || !data.success) {
+        console.error("[InvitationPage] ❌ RPC return failed:", data);
+        
+        // Handle specific error cases
+        let errorMessage = "Failed to accept invitation.";
+        let errorTitle = "Error";
+        
+        if (data?.error === 'GROUP_FULL') {
+          errorTitle = "Bubble Full";
+          errorMessage = `This bubble is already full (${data.current_size}/${data.max_size} members).`;
+        } else if (data?.error === 'GROUP_NOT_FORMING') {
+          errorTitle = "Bubble Not Available";
+          errorMessage = "This bubble is no longer accepting new members.";
+        } else if (data?.error === 'NO_PENDING_INVITATION') {
+          errorTitle = "Invalid Invitation";
+          errorMessage = "You don't have a pending invitation to this bubble.";
+        } else if (data?.error === 'GROUP_NOT_FOUND') {
+          errorTitle = "Bubble Not Found";
+          errorMessage = "This bubble no longer exists.";
+        } else if (data?.message) {
+          errorMessage = data.message;
+        }
+        
+        Alert.alert(errorTitle, errorMessage);
+        
+        // If the invitation is no longer valid, remove it from the UI
+        if (data?.error === 'GROUP_FULL' || 
+            data?.error === 'GROUP_NOT_FORMING' || 
+            data?.error === 'NO_PENDING_INVITATION' || 
+            data?.error === 'GROUP_NOT_FOUND') {
+          setInvitedBubbles((prev) => prev.filter((bubble) => bubble.id !== bubbleId));
+        }
+        
+        return;
+      }
 
-      // Optimistic UI update - Remove from local state immediately
-      console.log("[InvitationPage] 🎨 Optimistic UI 업데이트 시작");
-      console.log(
-        "[InvitationPage] 업데이트 전 초대 목록 개수:",
-        invitedBubbles.length
-      );
+      console.log("[InvitationPage] ✅ RPC call successful");
+      console.log("[InvitationPage] Group information:", {
+        name: data.group_name,
+        isFull: data.group_full,
+        finalSize: data.final_size || data.current_size,
+        maxSize: data.max_size,
+        cleanedUpInvitations: data.cleaned_up_invitations
+      });
 
+      // Remove this invitation from local state
       setInvitedBubbles((prev) => {
         const updated = prev.filter((bubble) => bubble.id !== bubbleId);
-        console.log(
-          "[InvitationPage] 업데이트 후 초대 목록 개수:",
-          updated.length
-        );
-        console.log("[InvitationPage] 제거된 버블 ID:", bubbleId);
+        console.log("[InvitationPage] Bubble ID removed from UI:", bubbleId);
+        console.log("[InvitationPage] Remaining invitation count:", updated.length);
         return updated;
       });
 
-      console.log("[InvitationPage] 🎉 초대 수락 완료!");
-      Alert.alert("Success", "You have successfully joined the bubble! 🎉", [
+      // Show success message with additional context
+      let successMessage = `You've successfully joined "${data.group_name}"! 🎉`;
+      
+      if (data.group_full && data.cleaned_up_invitations > 0) {
+        successMessage += `\n\nThe bubble is now full (${data.final_size}/${data.max_size}), and ${data.cleaned_up_invitations} other pending invitation(s) have been automatically removed.`;
+      } else if (data.group_full) {
+        successMessage += `\n\nThe bubble is now full (${data.final_size}/${data.max_size})!`;
+      } else {
+        successMessage += `\n\nBubble size: ${data.current_size}/${data.max_size}`;
+      }
+
+      console.log("[InvitationPage] 🎉 Invitation acceptance complete!");
+      Alert.alert("Joined Bubble!", successMessage, [
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] 사용자가 성공 알림을 확인했습니다.");
+            console.log("[InvitationPage] User confirmed success alert.");
           },
         },
       ]);
+      
     } catch (error) {
+      console.error("[InvitationPage] ❌ handleAcceptInvitation exception occurred:", error);
+      console.error("[InvitationPage] Error type:", typeof error);
       console.error(
-        "[InvitationPage] ❌ handleAcceptInvitation 전체 에러:",
-        error
-      );
-      console.error("[InvitationPage] 에러 타입:", typeof error);
-      console.error(
-        "[InvitationPage] 에러 메시지:",
+        "[InvitationPage] Error message:",
         error instanceof Error ? error.message : String(error)
       );
 
-      Alert.alert("Error", "Failed to accept invitation. Please try again.", [
+      Alert.alert("Error", "An unexpected error occurred. Please try again.", [
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] 사용자가 에러 알림을 확인했습니다.");
+            console.log("[InvitationPage] User confirmed error alert.");
           },
         },
       ]);
@@ -300,19 +345,19 @@ export default function InvitationPage() {
   };
 
   const handleDeclineInvitation = async (bubbleId: string) => {
-    console.log("[InvitationPage] 🔴 handleDeclineInvitation 시작");
-    console.log("[InvitationPage] 버블 ID:", bubbleId);
-    console.log("[InvitationPage] 현재 세션 유저 ID:", session?.user?.id);
+    console.log("[InvitationPage] 🔴 handleDeclineInvitation started");
+    console.log("[InvitationPage] Bubble ID:", bubbleId);
+    console.log("[InvitationPage] Current session user ID:", session?.user?.id);
 
     if (!session?.user) {
-      console.error("[InvitationPage] ❌ 세션이 없어 초대 거절을 중단합니다.");
+      console.error("[InvitationPage] ❌ Stopping invitation decline due to no session.");
       Alert.alert("Error", "You must be logged in to decline invitations.");
       return;
     }
 
     try {
-      console.log("[InvitationPage] 📡 decline_invitation RPC 호출 시작");
-      console.log("[InvitationPage] RPC 파라미터:", {
+      console.log("[InvitationPage] 📡 decline_invitation RPC call started");
+      console.log("[InvitationPage] RPC parameters:", {
         p_group_id: bubbleId,
         p_user_id: session.user.id,
       });
@@ -322,13 +367,13 @@ export default function InvitationPage() {
         p_user_id: session.user.id,
       });
 
-      console.log("[InvitationPage] 📡 RPC 응답 받음");
-      console.log("[InvitationPage] RPC 응답 데이터:", data);
-      console.log("[InvitationPage] RPC 에러:", error);
+      console.log("[InvitationPage] 📡 RPC response received");
+      console.log("[InvitationPage] RPC response data:", data);
+      console.log("[InvitationPage] RPC error:", error);
 
       if (error) {
-        console.error("[InvitationPage] ❌ RPC 에러 발생:", error);
-        console.error("[InvitationPage] 에러 상세:", {
+        console.error("[InvitationPage] ❌ RPC error occurred:", error);
+        console.error("[InvitationPage] Error details:", {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -337,43 +382,43 @@ export default function InvitationPage() {
         throw error;
       }
 
-      console.log("[InvitationPage] ✅ RPC 호출 성공");
-      console.log("[InvitationPage] 반환된 데이터:", data);
+      console.log("[InvitationPage] ✅ RPC call successful");
+      console.log("[InvitationPage] Returned data:", data);
 
       // Optimistic UI update - Remove from local state immediately
-      console.log("[InvitationPage] 🎨 Optimistic UI 업데이트 시작");
+      console.log("[InvitationPage] 🎨 Optimistic UI update started");
       console.log(
-        "[InvitationPage] 업데이트 전 초대 목록 개수:",
+        "[InvitationPage] Invitation list count before update:",
         invitedBubbles.length
       );
 
       setInvitedBubbles((prev) => {
         const updated = prev.filter((bubble) => bubble.id !== bubbleId);
         console.log(
-          "[InvitationPage] 업데이트 후 초대 목록 개수:",
+          "[InvitationPage] Invitation list count after update:",
           updated.length
         );
-        console.log("[InvitationPage] 제거된 버블 ID:", bubbleId);
+        console.log("[InvitationPage] Removed bubble ID:", bubbleId);
         return updated;
       });
 
-      console.log("[InvitationPage] 🎉 초대 거절 완료!");
+      console.log("[InvitationPage] 🎉 Invitation decline complete!");
       Alert.alert("Success", "Invitation declined successfully.", [
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] 사용자가 성공 알림을 확인했습니다.");
+            console.log("[InvitationPage] User confirmed success alert.");
           },
         },
       ]);
     } catch (error) {
       console.error(
-        "[InvitationPage] ❌ handleDeclineInvitation 전체 에러:",
+        "[InvitationPage] ❌ handleDeclineInvitation complete error:",
         error
       );
-      console.error("[InvitationPage] 에러 타입:", typeof error);
+      console.error("[InvitationPage] Error type:", typeof error);
       console.error(
-        "[InvitationPage] 에러 메시지:",
+        "[InvitationPage] Error message:",
         error instanceof Error ? error.message : String(error)
       );
 
@@ -381,7 +426,7 @@ export default function InvitationPage() {
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] 사용자가 에러 알림을 확인했습니다.");
+            console.log("[InvitationPage] User confirmed error alert.");
           },
         },
       ]);
@@ -397,7 +442,7 @@ export default function InvitationPage() {
         You don't have any invites yet.
       </Text>
       <Text style={styles.emptySubtext}>
-        You can only join one bubble at a time !
+        You can only join one bubble at a time!
       </Text>
     </View>
   );
@@ -471,7 +516,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontFamily: 'Quicksand',
-    fontWeight: '700',
+    fontWeight: '600',
     color: 'black',
   },
   // Content styles
@@ -586,26 +631,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+    marginTop: -90,  // Move up by header height + 30px
   },
   emptyIconContainer: {
     marginBottom: 24,
   },
   emptyText: {
     textAlign: 'center',
-    color: 'black',
-    fontSize: 16,
-    fontFamily: 'Quicksand',
-    fontWeight: '500',
-    lineHeight: 24,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
   },
   emptySubtext: {
     textAlign: 'center',
-    color: '#8E8E93',
-    fontSize: 14,
-    fontFamily: 'Quicksand',
-    fontWeight: '400',
-    lineHeight: 20,
+    fontSize: 15,
+    color: '#666',
   },
   // Loading container
   loadingContainer: {

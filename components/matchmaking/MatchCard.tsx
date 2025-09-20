@@ -6,10 +6,9 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
-} from "react-native";
+ Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Platform } from "react-native";
 import { MatchingGroup, GroupMember } from "@/hooks/useMatchmaking";
 import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
 
@@ -142,12 +141,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           )}
         </View>
 
-        {group.match_score > 0 && (
-          <View style={styles.scoreContainer}>
-            <Feather name="star" size={16} color="#FFD700" />
-            <Text style={styles.scoreText}>{group.match_score}% Match</Text>
-          </View>
-        )}
       </BlurView>
     </View>
   );
@@ -167,7 +160,7 @@ const styles = StyleSheet.create({
     borderRadius: cardDiameter / 2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "#CEE3FF",
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
