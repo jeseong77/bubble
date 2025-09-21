@@ -18,7 +18,7 @@ import CustomView from "@/components/CustomView";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
+import { getAvatarUrl } from "@/utils/avatarUtils";
 import InviteModal from "@/components/InviteModal";
 
 interface SearchUser {
@@ -44,7 +44,6 @@ export default function SearchScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [signedUrls, setSignedUrls] = useState<{ [key: string]: string }>({});
   const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
@@ -59,32 +58,17 @@ export default function SearchScreen() {
     }
   };
 
-  // Get safe image URL (Supabase Storage optimized)
+  // Get safe image URL - simplified to use public URLs directly
   const getSafeImageUrl = (userId: string, avatarUrl: string | null): string => {
     const fallbackUrl = "https://via.placeholder.com/50/CCCCCC/FFFFFF?text=User";
-    
-    console.log(`[getSafeImageUrl] User ${userId}:`, {
-      hasSignedUrl: !!signedUrls[userId],
-      signedUrl: signedUrls[userId],
-      avatarUrl: avatarUrl,
-      hasAvatarUrl: !!avatarUrl
-    });
-    
-    // 1. If Signed URL exists and is valid
-    const signedUrl = signedUrls[userId];
-    if (signedUrl && isValidUrl(signedUrl)) {
-      console.log(`[getSafeImageUrl] Using signed URL for user ${userId}`);
-      return signedUrl;
-    }
-    
-    // 2. If Avatar URL exists and is valid
+
+    // Use avatar URL directly if available and valid, otherwise fallback
     if (avatarUrl && isValidUrl(avatarUrl)) {
-      console.log(`[getSafeImageUrl] Using avatar URL for user ${userId}`);
+      console.log(`[getSafeImageUrl] Using public avatar URL for user ${userId}`);
       return avatarUrl;
     }
-    
-    // 3. If all URLs are invalid, use fallback
-    console.log(`[getSafeImageUrl] Using fallback for user ${userId}`);
+
+    console.log(`[getSafeImageUrl] Using fallback URL for user ${userId}`);
     return fallbackUrl;
   };
 
@@ -134,44 +118,6 @@ export default function SearchScreen() {
     return currentUserGender === targetUserGender;
   };
 
-  const generateSignedUrls = async (users: SearchUser[]) => {
-    const urls: { [key: string]: string } = {};
-
-    console.log(`[generateSignedUrls] Processing ${users.length} users`);
-
-    for (const user of users) {
-      if (user.avatar_url) {
-        try {
-          console.log(`[generateSignedUrls] Processing user ${user.id} with avatar_url: ${user.avatar_url}`);
-          
-          // Use the existing avatarUtils function
-          const signedUrl = await createSignedUrlForAvatar(user.avatar_url, 3600);
-          
-          if (signedUrl && isValidUrl(signedUrl)) {
-            console.log(`[generateSignedUrls] Signed URL generation successful for user ${user.id}`);
-            urls[user.id] = signedUrl;
-          } else {
-            console.warn(`[generateSignedUrls] Signed URL generation failed, using original URL for user ${user.id}`);
-            if (isValidUrl(user.avatar_url)) {
-              urls[user.id] = user.avatar_url;
-            } else {
-              console.error(`[generateSignedUrls] Original avatar_url is also invalid for user ${user.id}: ${user.avatar_url}`);
-            }
-          }
-        } catch (error) {
-          console.error(`[generateSignedUrls] Exception for user ${user.id}:`, error);
-          if (user.avatar_url && isValidUrl(user.avatar_url)) {
-            urls[user.id] = user.avatar_url;
-          }
-        }
-      } else {
-        console.log(`[generateSignedUrls] No avatar_url for user ${user.id}`);
-      }
-    }
-
-    console.log(`[generateSignedUrls] Generated URLs:`, Object.keys(urls).length, urls);
-    setSignedUrls(urls);
-  };
 
   const searchUsers = async (searchTerm: string) => {
     if (!searchTerm.trim() || !session?.user?.id || !groupId) {
@@ -236,11 +182,6 @@ export default function SearchScreen() {
       });
 
       setSearchResults(usersWithStatus);
-
-      // Generate Signed URLs
-      if (usersWithStatus.length > 0) {
-        generateSignedUrls(usersWithStatus);
-      }
     } catch (error) {
       console.error("[SearchScreen] Search error:", error);
       Alert.alert("Error", "Failed to search users");
@@ -448,12 +389,7 @@ export default function SearchScreen() {
               error.nativeEvent,
               `Used URL: ${getSafeImageUrl(item.id, item.avatar_url)}`
             );
-            // When image load fails, remove that user's signedUrl to use fallback again
-            setSignedUrls(prev => {
-              const updated = { ...prev };
-              delete updated[item.id];
-              return updated;
-            });
+            // Image load failed, but fallback will be handled automatically
           }}
           onLoad={() => {
             console.log(

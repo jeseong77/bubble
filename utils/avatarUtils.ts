@@ -1,86 +1,59 @@
-import { supabase } from "@/lib/supabase";
-
 /**
- * Creates a signed URL for an avatar image
+ * Returns the avatar URL directly since all images are now stored as public URLs
  * @param avatarUrl - The public URL from the database
- * @param expirySeconds - How long the signed URL should be valid (default: 1 hour)
- * @returns Promise<string | null> - The signed URL or null if failed
+ * @returns string | null - The public URL or null if not provided
  */
-export const createSignedUrlForAvatar = async (
-  avatarUrl: string | null,
-  expirySeconds: number = 3600
-): Promise<string | null> => {
-  if (!avatarUrl) return null;
-
-  try {
-    // Extract file path from public URL
-    const urlParts = avatarUrl.split("/user-images/");
-    const filePath = urlParts.length > 1 ? urlParts[1] : null;
-
-    if (!filePath) {
-      console.log("[avatarUtils] 파일 경로를 추출할 수 없습니다:", avatarUrl);
-      return null;
-    }
-
-    const { data, error } = await supabase.storage
-      .from("user-images")
-      .createSignedUrl(filePath, expirySeconds);
-
-    if (error) {
-      console.error("[avatarUtils] Signed URL 생성 실패:", error);
-      return null;
-    }
-
-    return data.signedUrl;
-  } catch (error) {
-    console.error("[avatarUtils] Signed URL 생성 중 예외:", error);
-    return null;
-  }
+export const getAvatarUrl = (avatarUrl: string | null): string | null => {
+  return avatarUrl; // Public URLs can be used directly
 };
 
 /**
- * Creates signed URLs for multiple avatars in parallel
+ * Returns avatar URLs directly for multiple avatars
  * @param avatarUrls - Array of avatar URLs
- * @param expirySeconds - How long the signed URLs should be valid
- * @returns Promise<{[key: string]: string}> - Object mapping original URLs to signed URLs
+ * @returns {[key: string]: string} - Object mapping original URLs to themselves
  */
-export const createSignedUrlsForAvatars = async (
-  avatarUrls: (string | null)[],
-  expirySeconds: number = 3600
-): Promise<{ [key: string]: string }> => {
-  const signedUrls: { [key: string]: string } = {};
+export const getAvatarUrls = (
+  avatarUrls: (string | null)[]
+): { [key: string]: string } => {
+  const urls: { [key: string]: string } = {};
 
-  const promises = avatarUrls.map(async (url) => {
-    if (!url) return;
-    const signedUrl = await createSignedUrlForAvatar(url, expirySeconds);
-    if (signedUrl) {
-      signedUrls[url] = signedUrl;
+  avatarUrls.forEach((url) => {
+    if (url) {
+      urls[url] = url; // Public URLs can be used directly
     }
   });
 
-  await Promise.all(promises);
-  return signedUrls;
+  return urls;
 };
 
 /**
- * Pre-generates signed URLs for group members
+ * Returns avatar URLs for group members
  * @param members - Array of group members with avatar_url
- * @returns Promise<{[memberId: string]: string}> - Object mapping member IDs to signed URLs
+ * @returns {[memberId: string]: string} - Object mapping member IDs to public URLs
  */
+export const getMemberAvatarUrls = (
+  members: Array<{ user_id: string; avatar_url: string | null }>
+): { [memberId: string]: string } => {
+  const urls: { [memberId: string]: string } = {};
+
+  members.forEach((member) => {
+    if (member.avatar_url) {
+      urls[member.user_id] = member.avatar_url; // Public URLs can be used directly
+    }
+  });
+
+  return urls;
+};
+
+// Legacy function names for backward compatibility - these just return public URLs directly
+export const createSignedUrlForAvatar = getAvatarUrl;
+export const createSignedUrlsForAvatars = async (
+  avatarUrls: (string | null)[]
+): Promise<{ [key: string]: string }> => {
+  return getAvatarUrls(avatarUrls);
+};
 export const generateMemberSignedUrls = async (
   members: Array<{ user_id: string; avatar_url: string | null }>
 ): Promise<{ [memberId: string]: string }> => {
-  const signedUrls: { [memberId: string]: string } = {};
-
-  const promises = members.map(async (member) => {
-    if (member.avatar_url) {
-      const signedUrl = await createSignedUrlForAvatar(member.avatar_url);
-      if (signedUrl) {
-        signedUrls[member.user_id] = signedUrl;
-      }
-    }
-  });
-
-  await Promise.all(promises);
-  return signedUrls;
+  return getMemberAvatarUrls(members);
 };

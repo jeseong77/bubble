@@ -30,7 +30,7 @@ import * as Camera from "expo-camera";
 // --- Imports for data integration ---
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
-import { decode } from "base64-arraybuffer"; // Added base64 decoding library
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 // BubbleTabItem에서 사용하는 타입을 import
 import { BubbleTabItemData } from "@/components/bubble/BubbleTabItem";
@@ -183,6 +183,7 @@ function ProfileScreen() {
 
   // --- State management ---
   const { session, signOut } = useAuth();
+  const { pickAndUploadImage, isUploading } = useImageUpload();
   const [profile, setProfile] = useState<ProfileFormData | null>(null);
   const [editingProfile, setEditingProfile] = useState<ProfileFormData | null>(
     null
@@ -534,43 +535,40 @@ function ProfileScreen() {
     setShowImageOptionsModal(true);
   };
 
-  // --- [Modified] handleTakePhoto function ---
-  // Unified image upload function
-  const uploadImageToSupabase = async (uri: string, base64: string, source: 'camera' | 'gallery') => {
-    if (selectedImageIndex === null) return;
+  // --- Image handling functions ---
 
-    console.log(`[ProfileScreen] Starting ${source} image upload at position ${selectedImageIndex}`);
+  const handleTakePhoto = async () => {
+    console.log("[ProfileScreen] handleTakePhoto started");
+    setShowImageOptionsModal(false);
 
-    // Set loading state WITHOUT local URI to prevent saving local paths to database
+    if (!session?.user || selectedImageIndex === null) {
+      Alert.alert("Error", "You must be logged in to upload images.");
+      return;
+    }
+
+    // Set loading state
     const loadingImages = [...currentImages];
     loadingImages[selectedImageIndex] = { isLoading: true };
     setCurrentImages(loadingImages);
 
     try {
-      // Upload to Supabase Storage
-      const fileExt = uri.split(".").pop()?.toLowerCase() ?? "jpeg";
-      const filePath = `${session!.user.id}/${new Date().getTime()}.${fileExt}`;
-      const contentType = `image/${fileExt}`;
+      // Use unified upload hook for camera
+      const result = await pickAndUploadImage(session.user.id, 'camera');
 
-      const { data, error: uploadError } = await supabase.storage
-        .from("user-images")
-        .upload(filePath, decode(base64), { contentType });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("user-images")
-        .getPublicUrl(data.path);
-
-      // Update state with Supabase URL ONLY
-      const finalImages = [...currentImages];
-      finalImages[selectedImageIndex] = { url: publicUrl, isLoading: false };
-      setCurrentImages(finalImages);
-
-      console.log(`[ProfileScreen] ${source} image uploaded successfully at position ${selectedImageIndex}: ${publicUrl}`);
+      if (result) {
+        // Update with public URL
+        const finalImages = [...currentImages];
+        finalImages[selectedImageIndex] = { url: result.publicUrl };
+        setCurrentImages(finalImages);
+        console.log(`[ProfileScreen] Camera image uploaded successfully at position ${selectedImageIndex}: ${result.publicUrl}`);
+      } else {
+        // Revert loading state if upload failed
+        const revertedImages = [...currentImages];
+        revertedImages[selectedImageIndex] = null;
+        setCurrentImages(revertedImages);
+      }
     } catch (error) {
-      console.error(`${source} image upload failed:`, error);
+      console.error("Camera image upload failed:", error);
       Alert.alert("Error", "Failed to upload image. Please try again.");
 
       // Revert loading state
@@ -578,74 +576,50 @@ function ProfileScreen() {
       revertedImages[selectedImageIndex] = null;
       setCurrentImages(revertedImages);
     }
-  };
 
-  const handleTakePhoto = async () => {
-    console.log("[ProfileScreen] handleTakePhoto started");
-    setShowImageOptionsModal(false);
-    
-    if (!session?.user) {
-      Alert.alert("Error", "You must be logged in to upload images.");
-      return;
-    }
-
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert("Permission Required", "Camera permission is required.");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets?.[0]) {
-      const { uri, base64 } = result.assets[0];
-      
-      if (!base64) {
-        Alert.alert("Error", "Failed to process image. Please try again.");
-      } else {
-        await uploadImageToSupabase(uri, base64, 'camera');
-      }
-    }
     setSelectedImageIndex(null);
   };
 
   const handlePickImage = async () => {
     console.log("[ProfileScreen] handlePickImage started");
     setShowImageOptionsModal(false);
-    
-    if (!session?.user) {
+
+    if (!session?.user || selectedImageIndex === null) {
       Alert.alert("Error", "You must be logged in to upload images.");
       return;
     }
 
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert("Permission Required", "Photo library permission is required.");
-      return;
-    }
+    // Set loading state
+    const loadingImages = [...currentImages];
+    loadingImages[selectedImageIndex] = { isLoading: true };
+    setCurrentImages(loadingImages);
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
-    });
+    try {
+      // Use unified upload hook for library
+      const result = await pickAndUploadImage(session.user.id, 'library');
 
-    if (!result.canceled && result.assets?.[0]) {
-      const { uri, base64 } = result.assets[0];
-      
-      if (!base64) {
-        Alert.alert("Error", "Failed to process image. Please try again.");
+      if (result) {
+        // Update with public URL
+        const finalImages = [...currentImages];
+        finalImages[selectedImageIndex] = { url: result.publicUrl };
+        setCurrentImages(finalImages);
+        console.log(`[ProfileScreen] Library image uploaded successfully at position ${selectedImageIndex}: ${result.publicUrl}`);
       } else {
-        await uploadImageToSupabase(uri, base64, 'gallery');
+        // Revert loading state if upload failed
+        const revertedImages = [...currentImages];
+        revertedImages[selectedImageIndex] = null;
+        setCurrentImages(revertedImages);
       }
+    } catch (error) {
+      console.error("Library image upload failed:", error);
+      Alert.alert("Error", "Failed to upload image. Please try again.");
+
+      // Revert loading state
+      const revertedImages = [...currentImages];
+      revertedImages[selectedImageIndex] = null;
+      setCurrentImages(revertedImages);
     }
+
     setSelectedImageIndex(null);
   };
 
@@ -677,106 +651,32 @@ function ProfileScreen() {
       const { user } = session;
       console.log(`[ProfileScreen] User ID: ${user.id}`);
 
-      // 1. Filter and upload only newly added/changed images
-      console.log("[ProfileScreen] Step 1: Starting image upload preparation");
+      // 1. Prepare image list - simplified since all images already have public URLs
+      console.log("[ProfileScreen] Step 1: Preparing image list");
       console.log(
         "[ProfileScreen] Current image state:",
         currentImages.map((img, idx) => ({
           index: idx,
           hasImage: !!img,
-          hasBase64: !!img?.base64,
           hasUrl: !!img?.url,
-          hasUri: !!img?.uri,
-          uri: img?.uri,
           url: img?.url,
         }))
       );
 
-      const uploadPromises = currentImages.map(async (image, index) => {
-        console.log(`[ProfileScreen] Starting image ${index} processing:`, {
-          hasImage: !!image,
-          hasBase64: !!image?.base64,
-          hasUrl: !!image?.url,
-          hasUri: !!image?.uri,
-        });
-
-        if (!image) {
+      // Since all images are immediately uploaded, just map them to the format we need
+      const resolvedImages = currentImages.map((image, index) => {
+        if (!image || !image.url) {
           console.log(`[ProfileScreen] Image ${index}: Empty slot`);
-          return { position: index, url: null }; // Empty slot
+          return { position: index, url: null };
         }
 
-        // If base64 exists, it's a new image so upload it
-        if (image.base64) {
-          console.log(
-            `[ProfileScreen] Image ${index}: Starting new image upload`
-          );
-
-          const fileExt = image.uri?.split(".").pop()?.toLowerCase() ?? "jpeg";
-          const filePath = `${user.id}/${new Date().getTime()}.${fileExt}`;
-          const contentType = `image/${fileExt}`;
-
-          console.log(`[ProfileScreen] Image ${index} upload info:`, {
-            fileExt,
-            filePath,
-            contentType,
-            base64Length: image.base64?.length || 0,
-            uri: image.uri,
-          });
-
-          try {
-            console.log(`[ProfileScreen] Image ${index}: Starting Storage upload`);
-            const { data, error: uploadError } = await supabase.storage
-              .from("user-images")
-              .upload(filePath, decode(image.base64), { contentType });
-
-            if (uploadError) {
-              console.error(
-                `[ProfileScreen] Image ${index} upload failed:`,
-                uploadError
-              );
-              throw uploadError;
-            }
-
-            console.log(`[ProfileScreen] Image ${index} upload successful:`, {
-              path: data.path,
-              id: data.id,
-            });
-
-            console.log(
-              `[ProfileScreen] Image ${index}: Starting Public URL generation`
-            );
-            const { data: publicUrlData } = supabase.storage
-              .from("user-images")
-              .getPublicUrl(data.path);
-
-            console.log(
-              `[ProfileScreen] Image ${index} Public URL generation successful:`,
-              publicUrlData.publicUrl
-            );
-            return { position: index, url: publicUrlData.publicUrl };
-          } catch (uploadErr) {
-            console.error(
-              `[ProfileScreen] Exception occurred during image ${index} upload:`,
-              uploadErr
-            );
-            throw uploadErr;
-          }
-        }
-
-        // If no base64, it's an existing image so just keep the URL
-        console.log(
-          `[ProfileScreen] Image ${index}: Keeping existing image URL:`,
-          image.url || image.uri
-        );
-        return { position: index, url: image.url || image.uri };
+        console.log(`[ProfileScreen] Image ${index}: Using existing public URL: ${image.url}`);
+        return { position: index, url: image.url };
       });
-
-      console.log("[ProfileScreen] Step 2: Waiting for all image uploads to complete");
-      const resolvedImages = await Promise.all(uploadPromises);
-      console.log("[ProfileScreen] Uploaded image results:", resolvedImages);
+      console.log("[ProfileScreen] Prepared image results:", resolvedImages);
 
       // 2. Generate final image list to save to DB
-      console.log("[ProfileScreen] Step 3: Generating image list for DB storage");
+      console.log("[ProfileScreen] Step 2: Generating image list for DB storage");
       const imagesToInsert = resolvedImages
         .filter((img): img is { position: number; url: string } => !!img?.url)
         .map((img) => ({
@@ -788,7 +688,7 @@ function ProfileScreen() {
       console.log("[ProfileScreen] Image list to save to DB:", imagesToInsert);
 
       // 3. Atomically replace DB image list (delete then insert)
-      console.log("[ProfileScreen] Step 4: Deleting existing image data");
+      console.log("[ProfileScreen] Step 3: Deleting existing image data");
       const { error: deleteError } = await supabase
         .from("user_images")
         .delete()
@@ -800,7 +700,7 @@ function ProfileScreen() {
       console.log("[ProfileScreen] Existing images deleted successfully");
 
       if (imagesToInsert.length > 0) {
-        console.log("[ProfileScreen] Step 5: Inserting new image data");
+        console.log("[ProfileScreen] Step 4: Inserting new image data");
         const { error: imagesError } = await supabase
           .from("user_images")
           .insert(imagesToInsert);
@@ -817,7 +717,7 @@ function ProfileScreen() {
       }
 
       // 4. Update profile text information
-      console.log("[ProfileScreen] Step 6: Updating profile text information");
+      console.log("[ProfileScreen] Step 5: Updating profile text information");
       const birthDate =
         editingProfile.birthYear &&
         editingProfile.birthMonth &&
@@ -854,10 +754,10 @@ function ProfileScreen() {
       console.log("[ProfileScreen] Profile update successful");
 
       // 5. Update local state
-      console.log("[ProfileScreen] Step 7: Updating local state");
+      console.log("[ProfileScreen] Step 6: Updating local state");
       setProfile(JSON.parse(JSON.stringify(editingProfile))); // Deep copy to reflect changes
 
-      // Update currentImages to remove base64 and only keep final URLs
+      // Update currentImages to ensure only URLs are kept
       const updatedCurrentImages = resolvedImages.map((img) =>
         img.url ? { url: img.url } : null
       );
@@ -1022,7 +922,7 @@ function ProfileScreen() {
               </View>
             ) : (
               <Image
-                source={{ uri: imageAsset.url || imageAsset.uri }}
+                source={{ uri: imageAsset.url }}
                 style={styles.imagePreview}
               />
             )
