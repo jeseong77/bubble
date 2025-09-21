@@ -233,12 +233,19 @@ export default function SearchScreen() {
           console.log(`[SearchScreen] - verification_status: ${data.verification_status}`);
           
           // Update UI to show invitation sent
-          setSearchResults(prevResults => 
-            prevResults.map(user => 
-              user.id === userId 
+          setSearchResults(prevResults =>
+            prevResults.map(user =>
+              user.id === userId
                 ? { ...user, invitationStatus: "invited" as const }
                 : user
             )
+          );
+
+          // Show success popup
+          Alert.alert(
+            "Invitation Sent!",
+            `Invitation sent to ${userName}!`,
+            [{ text: "OK", style: "default" }]
           );
         } else {
           console.error(`[SearchScreen] ❌ Invitation sending failed: ${userName}`, {
