@@ -607,7 +607,10 @@ export default function MatchScreen() {
             colors={["#FFFFFF", "#FFFFFF", "#FFFFFF"]}
             style={StyleSheet.absoluteFill}
           />
-          <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
+          <NoGroupState onCreateGroup={() => router.push({
+            pathname: "/(tabs)/profile",
+            params: { activeTab: "myBubble" }
+          })} />
         </SafeAreaView>
       );
     }

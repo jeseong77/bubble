@@ -71,6 +71,10 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
   };
 
   const renderMemberCard = (member: Member, index: number) => {
+    // Find the image at position 0
+    const position0Image = member.images?.find(img => img.position === 0);
+    const imageUrl = position0Image?.image_url;
+
     return (
       <MemberCard key={member.id}>
         <MemberInfo>
@@ -81,14 +85,14 @@ export const ChatRoomProfile: React.FC<ChatRoomProfileProps> = ({ data, isLoadin
         <ProfileImageContainer>
           <TouchableOpacity onPress={() => handleUserPress(member.id)}>
             <PlaceholderImage>
-              {member.primary_image ? (
-                <Image 
-                  source={{ uri: member.primary_image }} 
-                  style={{ 
+              {imageUrl ? (
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={{
                     position: 'absolute',
-                    width: 170, 
-                    height: 170, 
-                    borderRadius: 85 
+                    width: 170,
+                    height: 170,
+                    borderRadius: 85
                   }}
                 />
               ) : null}
@@ -191,14 +195,6 @@ const ProfileImageContainer = styled.View`
   margin-top: 8px;
 `;
 
-const ProfileImage = styled.Image<{ imageSize: number }>`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: ${props => props.imageSize}px;
-  height: ${props => props.imageSize}px;
-  border-radius: ${props => props.imageSize / 2}px;
-`;
 
 const PlaceholderImage = styled.View`
   width: 170px;
@@ -218,5 +214,6 @@ const MemberName = styled.Text`
   font-weight: normal;
   color: #303030;
   text-align: center;
+  font-family: Quicksand-Medium;
 `;
 

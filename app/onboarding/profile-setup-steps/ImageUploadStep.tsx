@@ -10,13 +10,12 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { inputFieldContainerStyles } from "@/styles/onboarding/inputFieldContainer.styles";
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 export interface ProfileImage {
-  uri?: string;
   url?: string;
   isLoading?: boolean;
 }
@@ -24,7 +23,7 @@ export interface ProfileImage {
 interface ImageUploadStepProps {
   currentImages: (ProfileImage | null)[];
   onImagesChange: (images: (ProfileImage | null)[]) => void;
-  onUploadImage?: (index: number) => Promise<void>;
+  userId: string;
   maxImages?: number;
 }
 
@@ -34,10 +33,11 @@ const MAX_IMAGES_DEFAULT = 6;
 const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   currentImages,
   onImagesChange,
-  onUploadImage,
+  userId,
   maxImages = MAX_IMAGES_DEFAULT,
 }) => {
   const { colors } = useAppTheme();
+  const { pickAndUploadImage, isUploading } = useImageUpload();
 
   const screenWidth = Dimensions.get("window").width;
   const contentPaddingHorizontal = 30;
@@ -73,37 +73,34 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
       return;
     }
 
-    if (onUploadImage) {
-      // 서버 업로드가 가능한 경우 - use the first available slot
-      await onUploadImage(targetIndex);
-    } else {
-      // 기존 로컬 방식
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          "Permission Required",
-          "Permission to access camera roll is required to upload images."
-        );
-        return;
+    // Set loading state
+    const loadingImages = [...currentImages];
+    loadingImages[targetIndex] = { isLoading: true };
+    onImagesChange(loadingImages);
+
+    try {
+      // Use unified upload hook for immediate upload
+      const result = await pickAndUploadImage(userId, 'library');
+
+      if (result) {
+        // Update with public URL
+        const updatedImages = [...currentImages];
+        updatedImages[targetIndex] = { url: result.publicUrl };
+        onImagesChange(updatedImages);
+      } else {
+        // Revert loading state if upload failed
+        const revertedImages = [...currentImages];
+        revertedImages[targetIndex] = null;
+        onImagesChange(revertedImages);
       }
-      try {
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.7,
-        });
-        if (!result.canceled && result.assets && result.assets.length > 0) {
-          const newProfileImage: ProfileImage = { uri: result.assets[0].uri };
-          const updatedImages = [...currentImages];
-          updatedImages[targetIndex] = newProfileImage;
-          onImagesChange(updatedImages);
-        }
-      } catch (error) {
-        console.error("ImagePicker Error: ", error);
-        Alert.alert("Image Error", "Could not select image. Please try again.");
-      }
+    } catch (error) {
+      console.error("Image upload error: ", error);
+      Alert.alert("Image Error", "Could not upload image. Please try again.");
+
+      // Revert loading state
+      const revertedImages = [...currentImages];
+      revertedImages[targetIndex] = null;
+      onImagesChange(revertedImages);
     }
   };
 
@@ -149,13 +146,21 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             imageAsset ? handleRemoveImage(index) : handlePickImage(index)
           }
           activeOpacity={0.7}
-          disabled={!imageAsset && findFirstEmptySlot() === -1}
+          disabled={(!imageAsset && findFirstEmptySlot() === -1) || isUploading}
         >
           {imageAsset ? (
-            <Image
-              source={{ uri: imageAsset.url || imageAsset.uri }}
-              style={styles.imagePreview}
-            />
+            imageAsset.isLoading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={[styles.loadingText, { color: colors.darkGray }]}>
+                  Uploading...
+                </Text>
+              </View>
+            ) : (
+              <Image
+                source={{ uri: imageAsset.url }}
+                style={styles.imagePreview}
+              />
+            )
           ) : (
             <>
               <Text
@@ -273,6 +278,17 @@ const styles = StyleSheet.create({
     // backgroundColor: "#f0f0f0", // 제거됨 (동적 적용)
     borderRadius: 15, // 기존 값 유지
     padding: 1, // 기존 값 유지 (아이콘과 배경 사이 약간의 여백 효과)
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  loadingText: {
+    fontSize: 12,
+    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif-medium",
+    fontWeight: "500",
   },
 });
 

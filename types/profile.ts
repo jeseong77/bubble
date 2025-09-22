@@ -1,11 +1,8 @@
 // src/types/profile.ts
 
-// 이미지 타입 정의 (기존과 동일하거나, 사용자님의 정의를 따릅니다)
+// 이미지 타입 정의 - 통합된 이미지 업로드 패턴을 위해 간소화
 export interface ProfileImage {
-  uri?: string; // 로컬 이미지의 경우 require()의 결과, 원격 이미지의 경우 URL
-  url?: string; // Supabase Storage에서 업로드된 이미지의 URL
-  path?: string; // 영구 파일 경로 (Supabase Storage 내부 경로)
-  base64?: string; // base64 인코딩된 이미지 데이터
+  url?: string; // Supabase Storage public URL
   isLoading?: boolean; // 이미지 업로드 중인지 여부
 }
 

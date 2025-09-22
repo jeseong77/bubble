@@ -25,8 +25,6 @@ import AboutMeInputStep from "./profile-setup-steps/AboutMeInputStep";
 import ImageUploadStep from "./profile-setup-steps/ImageUploadStep";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { supabase } from "@/lib/supabase";
-import * as ImagePicker from "expo-image-picker";
-import { decode } from "base64-arraybuffer";
 
 const MAX_IMAGES = 6;
 const TOTAL_STEPS = 10;
@@ -292,70 +290,6 @@ export default function ProfileSetupScreen() {
     fetchUserProfile();
   }, [session, updateProfileField]); // session 정보가 준비되면 이 로직이 실행됩니다.
 
-  // [추가] 이미지 업로드 함수
-  const handleImageUpload = async (index: number) => {
-    if (!session?.user) {
-      Alert.alert("Error", "You must be logged in to upload images.");
-      return;
-    }
-
-    // 1. 앨범 접근 권한 요청
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission required",
-        "Please grant access to your photo library."
-      );
-      return;
-    }
-
-    // 2. 이미지 선택
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-      base64: true,
-    });
-
-    if (result.canceled || !result.assets?.[0]?.base64) return;
-    const imageAsset = result.assets[0];
-
-    // 3. 상태 업데이트 (로딩 시작)
-    const newImages = [...profileData.images];
-    newImages[index] = { url: imageAsset.uri, isLoading: true };
-    handleImagesChange(newImages);
-
-    try {
-      // 4. Supabase Storage에 업로드
-      const fileExt = imageAsset.uri.split(".").pop()?.toLowerCase() ?? "jpeg";
-      const filePath = `${session.user.id}/${new Date().getTime()}.${fileExt}`;
-      const contentType = `image/${fileExt}`;
-
-      const { data, error: uploadError } = await supabase.storage
-        .from("user-images")
-        .upload(filePath, decode(imageAsset.base64), { contentType });
-
-      if (uploadError) throw uploadError;
-
-      // 5. 업로드된 파일의 공개 URL 가져오기
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("user-images").getPublicUrl(data.path);
-
-      // 6. 상태 업데이트 (URL 저장, 로딩 종료)
-      const finalImages = [...profileData.images];
-      finalImages[index] = { url: publicUrl, isLoading: false };
-      handleImagesChange(finalImages);
-    } catch (error) {
-      console.error("Image upload failed:", error);
-      Alert.alert("Error", "Failed to upload image.");
-      // 실패 시 로딩 상태 되돌리기
-      const revertedImages = [...profileData.images];
-      revertedImages[index] = null;
-      handleImagesChange(revertedImages);
-    }
-  };
 
   const handleNextStep = () => {
     if (!isStepValid(currentStep, profileData)) return;
@@ -520,7 +454,7 @@ export default function ProfileSetupScreen() {
           <ImageUploadStep
             currentImages={profileData.images}
             onImagesChange={handleImagesChange}
-            onUploadImage={handleImageUpload}
+            userId={session?.user?.id || ""}
             maxImages={MAX_IMAGES}
           />
         );
