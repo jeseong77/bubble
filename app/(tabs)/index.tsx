@@ -811,7 +811,7 @@ export default function MatchScreen() {
                     avatarUrl: user.avatar_url,
                     signedUrl: user.signedUrl
                   });
-                  
+
                   return (
                     <View
                       key={user.id}
@@ -820,18 +820,37 @@ export default function MatchScreen() {
                         zIndex: userBubble.members.length - idx, // Highest index gets highest z-index
                       }}
                     >
-                      <Image
-                        source={{ uri: user.signedUrl || user.avatar_url }}
+                      <View
                         style={{
+                          position: "relative",
                           width: userBubbleImageSize,
                           height: userBubbleImageSize,
-                          borderRadius: userBubbleImageSize / 2,
-                          borderWidth: 2,
-                          borderColor: "#fff",
                         }}
-                        onError={() => console.log(`[MatchScreen] ❌ Image load error for member ${idx}:`, user.signedUrl || user.avatar_url)}
-                        onLoad={() => console.log(`[MatchScreen] ✅ Image loaded for member ${idx}`)}
-                      />
+                      >
+                        <Image
+                          source={{ uri: user.signedUrl || user.avatar_url }}
+                          style={{
+                            width: userBubbleImageSize,
+                            height: userBubbleImageSize,
+                            borderRadius: userBubbleImageSize / 2,
+                            borderWidth: 2,
+                            borderColor: "#fff",
+                          }}
+                          onError={() => console.log(`[MatchScreen] ❌ Image load error for member ${idx}:`, user.signedUrl || user.avatar_url)}
+                          onLoad={() => console.log(`[MatchScreen] ✅ Image loaded for member ${idx}`)}
+                        />
+                        <Image
+                          source={require("@/assets/images/bubble-frame.png")}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: userBubbleImageSize,
+                            height: userBubbleImageSize,
+                            resizeMode: "cover",
+                          }}
+                        />
+                      </View>
                     </View>
                   );
                 })}
