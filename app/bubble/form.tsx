@@ -898,6 +898,7 @@ const styles = StyleSheet.create({
   titleInput: {
     fontSize: 24,
     fontWeight: "bold",
+    fontFamily: "Quicksand-Bold",
     color: "#222",
     textAlign: "center",
     paddingVertical: 8,
@@ -917,6 +918,7 @@ const styles = StyleSheet.create({
   },
   nameText: {
     fontSize: 20,
+    fontFamily: "Quicksand-Bold",
     color: "#222",
     marginTop: 4,
     fontWeight: "600",
@@ -941,6 +943,7 @@ const styles = StyleSheet.create({
   inviteButtonText: {
     color: "#fff",
     fontSize: 18,
+    fontFamily: "Quicksand-SemiBold",
     fontWeight: "600",
     textAlign: "center",
   },
@@ -995,6 +998,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: "#fff",
     fontSize: 36,
+    fontFamily: "Quicksand-Bold",
     fontWeight: "bold",
     lineHeight: 40,
   },
@@ -1016,6 +1020,7 @@ const styles = StyleSheet.create({
   newBubbleTitle: {
     fontSize: 28,
     fontWeight: "bold",
+    fontFamily: "Quicksand-Bold",
     color: "#000",
     marginTop: 100,
     marginBottom: 80,
@@ -1023,6 +1028,7 @@ const styles = StyleSheet.create({
   },
   creatorName: {
     fontSize: 20,
+    fontFamily: "Quicksand-Bold",
     color: "#000",
     marginBottom: 15,
     textAlign: "center",
@@ -1068,6 +1074,7 @@ const styles = StyleSheet.create({
   },
   waitingText: {
     fontSize: 16,
+    fontFamily: "Quicksand-Regular",
     color: "#666",
     textAlign: "center",
     marginBottom: 60,
@@ -1118,6 +1125,7 @@ const styles = StyleSheet.create({
   },
   triangleMemberName: {
     fontSize: 16,
+    fontFamily: "Quicksand-Bold",
     color: "#000",
     marginBottom: 10,
     textAlign: "center",
@@ -1148,6 +1156,7 @@ const styles = StyleSheet.create({
   },
   diamondMemberName: {
     fontSize: 14,
+    fontFamily: "Quicksand-Bold",
     color: "#000",
     marginBottom: 8,
     textAlign: "center",

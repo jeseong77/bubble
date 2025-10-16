@@ -102,28 +102,33 @@ export default function ChatRoomScreen() {
 
     // Subscribe to chat room broadcast channel directly
     const broadcastChannel = supabase.channel(`chat_room:${chatRoomId}`);
-    
-    broadcastChannel.on('broadcast', { event: 'new_message' }, (payload) => {
+
+    broadcastChannel.on('broadcast', { event: 'new_message' }, async (payload) => {
       console.log('🔥 [ChatRoomScreen] DIRECT BROADCAST RECEIVED:', payload);
-      
+
       if (payload.payload && payload.payload.room_id === chatRoomId) {
         const message = payload.payload;
+
+        // Get current user to properly determine if message is own
+        const { data: { user } } = await supabase.auth.getUser();
+
         const formattedMessage: ChatMessage = {
           message_id: message.message_id,
           sender_id: message.sender_id,
           sender_name: message.sender_name,
+          sender_avatar_url: message.sender_avatar_url,
           content: message.content,
           message_type: message.message_type,
           created_at: message.created_at,
-          is_own: message.sender_id === chatRoomData.my_group_name, // This needs to be fixed
+          is_own: user?.id === message.sender_id,
           read_by_count: 0
         };
 
         // Add message if not duplicate
         setMessages(prevMessages => {
-          const isDuplicate = prevMessages.some(msg => 
+          const isDuplicate = prevMessages.some(msg =>
             msg.message_id === message.message_id ||
-            (msg.content === message.content && 
+            (msg.content === message.content &&
              Math.abs(new Date(msg.created_at).getTime() - new Date(message.created_at).getTime()) < 5000)
           );
           if (isDuplicate) {
@@ -192,11 +197,15 @@ export default function ChatRoomScreen() {
   // Mark messages as read
   const markMessagesAsRead = async () => {
     if (!chatRoomId) return;
-    
+
     try {
       await supabase.rpc('mark_messages_as_read', {
         p_room_id: chatRoomId
       });
+
+      // Trigger event to refresh chat list unread counts
+      EventBus.emitEvent('REFRESH_MESSAGES_COUNT', {});
+      console.log('✅ [ChatRoomScreen] Messages marked as read, triggered refresh event');
     } catch (err) {
       console.error('❌ [ChatRoomScreen] Failed to mark messages as read:', err);
     }
@@ -270,18 +279,28 @@ export default function ChatRoomScreen() {
     const messageText = newMessage.trim();
     const tempMessageId = Date.now(); // Temporary ID for optimistic update
     
-    // Get current user ID for optimistic update
+    // Get current user ID and name for optimistic update
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setSendingMessage(false);
       return;
     }
 
+    // Get current user's actual name
+    const { data: userData } = await supabase
+      .from('users')
+      .select('first_name, avatar_url')
+      .eq('id', user.id)
+      .single();
+
+    const actualUserName = userData?.first_name || 'You';
+
     // Optimistic update - add message immediately to UI
     const optimisticMessage: ChatMessage = {
       message_id: tempMessageId,
       sender_id: user.id,
-      sender_name: chatRoomData?.my_group_name || 'You',
+      sender_name: actualUserName,
+      sender_avatar_url: userData?.avatar_url,
       content: messageText,
       message_type: 'text',
       created_at: new Date().toISOString(),
@@ -334,32 +353,15 @@ export default function ChatRoomScreen() {
             room_id: chatRoomId,
             message_id: data?.message_id || tempMessageId,
             sender_id: user.id,
-            sender_name: chatRoomData?.my_group_name || 'You',
+            sender_name: actualUserName,
+            sender_avatar_url: userData?.avatar_url,
             content: messageText,
             message_type: 'text',
             created_at: new Date().toISOString()
           }
         });
         console.log('✅ [ChatRoomScreen] Message broadcast sent to chat room');
-        
-        // Test: Echo the broadcast back to ourselves to test the receive mechanism
-        setTimeout(() => {
-          console.log('🧪 [ChatRoomScreen] Testing broadcast receive with echo...');
-          broadcastChannel.send({
-            type: 'broadcast',
-            event: 'new_message', 
-            payload: {
-              room_id: chatRoomId,
-              message_id: (data?.message_id || tempMessageId) + 1000, // Different ID to avoid duplicate detection
-              sender_id: 'test-echo-sender',
-              sender_name: 'Echo Test',
-              content: 'Echo test message - if you see this, broadcast receiving works!',
-              message_type: 'text',
-              created_at: new Date().toISOString()
-            }
-          });
-        }, 2000);
-        
+
       } catch (broadcastError) {
         console.warn('⚠️ [ChatRoomScreen] Broadcast failed:', broadcastError);
       }
@@ -426,6 +428,7 @@ export default function ChatRoomScreen() {
       fetchProfileData();
     }
   }, [activeTab, chatRoomId]);
+
 
   return (
     <Container>

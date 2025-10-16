@@ -110,17 +110,23 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           activeOpacity={0.7}
           style={{ alignItems: "center" }}
         >
-          {signedUrl && !hasError ? (
+          <View style={styles.imageContainer}>
+            {signedUrl && !hasError ? (
+              <Image
+                source={{ uri: signedUrl }}
+                style={styles.memberImage}
+                onError={() => handleImageError(member.id)} // user_id 대신 id 사용
+              />
+            ) : (
+              <View style={[styles.memberImage, styles.placeholderImage]}>
+                <Feather name="user" size={memberImageSize * 0.4} color="#999" />
+              </View>
+            )}
             <Image
-              source={{ uri: signedUrl }}
-              style={styles.memberImage}
-              onError={() => handleImageError(member.id)} // user_id 대신 id 사용
+              source={require("@/assets/images/bubble-frame.png")}
+              style={styles.bubbleFrame}
             />
-          ) : (
-            <View style={[styles.memberImage, styles.placeholderImage]}>
-              <Feather name="user" size={memberImageSize * 0.4} color="#999" />
-            </View>
-          )}
+          </View>
         </TouchableOpacity>
       </View>
     );
@@ -213,5 +219,18 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: "500",
     marginLeft: 4,
+  },
+  imageContainer: {
+    position: "relative",
+    width: memberImageSize,
+    height: memberImageSize,
+  },
+  bubbleFrame: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: memberImageSize,
+    height: memberImageSize,
+    resizeMode: "cover",
   },
 });
