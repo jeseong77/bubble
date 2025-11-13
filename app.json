@@ -13,16 +13,18 @@
       "bundleIdentifier": "com.playlounge.bubble",
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.applesignin": ["Default", "Default"]
+        "com.apple.developer.applesignin": [
+          "Default"
+        ]
       },
       "associatedDomains": [
-        "applinks:your-project.supabase.co",
         "applinks:your-project.supabase.co"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "프로필 사진을 설정하거나 사진을 공유하기 위해 앨범에 접근해야 합니다.",
-        "NSCameraUsageDescription": "프로필 사진을 설정하거나 사진을 공유하기 위해 카메라에 접근해야 합니다."
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to set profile pictures or share photos.",
+        "NSCameraUsageDescription": "This app needs access to your camera to take profile pictures or share photos.",
+        "NSLocationWhenInUseUsageDescription": "This app always requires location tracking"
       }
     },
     "android": {
@@ -54,6 +56,12 @@
     "experiments": {
       "typedRoutes": true
     },
+    "linking": {
+      "prefixes": [
+        "bubble://",
+        "https://bubble.app/"
+      ]
+    },
     "splash": {
       "image": "./assets/images/bg.png",
       "resizeMode": "cover",
@@ -62,8 +70,15 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "da919264-4069-4ddf-b59d-00af9bfb0a41"
+        "projectId": "48ecd53a-6924-4352-aed2-0dd3e1e01dfb"
       }
+    },
+    "owner": "playlounge",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/48ecd53a-6924-4352-aed2-0dd3e1e01dfb"
     }
   }
 }

@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
-import { TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
+import { TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Keyboard, Image } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import styled from "@emotion/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
-import { RealtimeChannel } from "@supabase/supabase-js";
+import { ChatRoomProfile } from "@/components/chat/ChatRoomProfile";
+import { EventBus } from "@/services/EventBus";
 
 interface ChatMessage {
   message_id: number;
   sender_id: string;
   sender_name: string;
+  sender_avatar_url?: string;
   content: string;
   message_type: string;
   created_at: string;
@@ -44,9 +46,10 @@ export default function ChatRoomScreen() {
   const [newMessage, setNewMessage] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // Fetch chat room details and messages
   useEffect(() => {
@@ -91,100 +94,68 @@ export default function ChatRoomScreen() {
     fetchChatRoomData();
   }, [chatRoomId]);
 
-  // Set up real-time subscription for new messages
+  // Set up EventBus listeners and direct broadcast subscription for real-time messages
   useEffect(() => {
     if (!chatRoomId || !chatRoomData) return;
 
-    console.log('🔴 [ChatRoomScreen] Setting up real-time subscription for room:', chatRoomId);
+    console.log('🔴 [ChatRoomScreen] Setting up realtime listeners for room:', chatRoomId);
 
-    // Create channel for this specific chat room
-    const channel = supabase
-      .channel(`chat-room-${chatRoomId}`)
-      .on(
-        'broadcast',
-        { event: 'typing' },
-        (payload) => {
-          console.log('⌨️ [ChatRoomScreen] Typing event:', payload);
-          if (payload.payload.isTyping) {
-            setOtherUserTyping(true);
-            // Clear typing after 3 seconds
-            setTimeout(() => setOtherUserTyping(false), 3000);
-          } else {
-            setOtherUserTyping(false);
+    // Subscribe to chat room broadcast channel directly
+    const broadcastChannel = supabase.channel(`chat_room:${chatRoomId}`);
+
+    broadcastChannel.on('broadcast', { event: 'new_message' }, async (payload) => {
+      console.log('🔥 [ChatRoomScreen] DIRECT BROADCAST RECEIVED:', payload);
+
+      if (payload.payload && payload.payload.room_id === chatRoomId) {
+        const message = payload.payload;
+
+        // Get current user to properly determine if message is own
+        const { data: { user } } = await supabase.auth.getUser();
+
+        const formattedMessage: ChatMessage = {
+          message_id: message.message_id,
+          sender_id: message.sender_id,
+          sender_name: message.sender_name,
+          sender_avatar_url: message.sender_avatar_url,
+          content: message.content,
+          message_type: message.message_type,
+          created_at: message.created_at,
+          is_own: user?.id === message.sender_id,
+          read_by_count: 0
+        };
+
+        // Add message if not duplicate
+        setMessages(prevMessages => {
+          const isDuplicate = prevMessages.some(msg =>
+            msg.message_id === message.message_id ||
+            (msg.content === message.content &&
+             Math.abs(new Date(msg.created_at).getTime() - new Date(message.created_at).getTime()) < 5000)
+          );
+          if (isDuplicate) {
+            console.log('🔥 [ChatRoomScreen] Duplicate broadcast message, skipping');
+            return prevMessages;
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `room_id=eq.${chatRoomId}`,
-        },
-        async (payload) => {
-          console.log('📨 [ChatRoomScreen] New message received:', payload);
-          
-          // Get current user to determine if message is own
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          // Add the new message to the list
-          const newMsg = payload.new as any;
-          const isOwnMessage = user?.id === newMsg.sender_id;
-          
-          // Get sender name (could be cached or fetched)
-          let senderName = 'Unknown';
-          if (isOwnMessage) {
-            senderName = chatRoomData?.my_group_name || 'You';
-          } else {
-            senderName = chatRoomData?.other_group_name || 'Other';
-          }
-          
-          const formattedMessage: ChatMessage = {
-            message_id: newMsg.id,
-            sender_id: newMsg.sender_id,
-            sender_name: senderName,
-            content: newMsg.content,
-            message_type: newMsg.message_type || 'text',
-            created_at: newMsg.created_at,
-            edited_at: newMsg.edited_at,
-            reply_to_id: newMsg.reply_to_id,
-            reply_to_content: null,
-            is_own: isOwnMessage,
-            read_by_count: 0
-          };
+          console.log('🔥 [ChatRoomScreen] Adding message from broadcast');
+          return [...prevMessages, formattedMessage];
+        });
 
-          // Only add if not a duplicate (avoid adding our own optimistic messages)
-          setMessages(prevMessages => {
-            const isDuplicate = prevMessages.some(msg => msg.message_id === newMsg.id);
-            if (isDuplicate) {
-              console.log('📨 [ChatRoomScreen] Duplicate message, skipping:', newMsg.id);
-              return prevMessages;
-            }
-            return [...prevMessages, formattedMessage];
-          });
+        // Auto scroll to bottom
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    });
 
-          // Auto scroll to bottom for new messages
-          setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }, 100);
+    broadcastChannel.subscribe((status) => {
+      console.log('📡 [ChatRoomScreen] Broadcast channel status:', status);
+    });
 
-          // Mark messages as read if not own message
-          if (!isOwnMessage) {
-            markMessagesAsRead();
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('🔴 [ChatRoomScreen] Subscription status:', status);
-      });
+    // EventBus listener removed to prevent duplicates - using broadcast channel only
 
-    setRealtimeChannel(channel);
-
-    // Cleanup subscription on unmount
+    // Cleanup broadcast channel on unmount
     return () => {
-      console.log('🔴 [ChatRoomScreen] Cleaning up real-time subscription');
-      channel.unsubscribe();
+      console.log('🔴 [ChatRoomScreen] Cleaning up realtime listeners');
+      supabase.removeChannel(broadcastChannel);
     };
   }, [chatRoomId, chatRoomData]);
 
@@ -202,8 +173,22 @@ export default function ChatRoomScreen() {
       if (error) throw error;
       
       console.log('✅ [ChatRoomScreen] Messages loaded:', data?.length || 0);
-      // Reverse the array since database returns newest first, but we want oldest first for proper chat flow
-      setMessages(data ? [...data].reverse() : []);
+      
+      // Remove duplicates and reverse the array
+      if (data) {
+        const uniqueMessages = data.filter((message, index, self) => 
+          index === self.findIndex(m => m.message_id === message.message_id)
+        );
+        console.log('🔍 [ChatRoomScreen] Unique messages after deduplication:', uniqueMessages.length);
+        setMessages([...uniqueMessages].reverse());
+      } else {
+        setMessages([]);
+      }
+      
+      // Auto scroll to bottom after messages are loaded
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 200);
     } catch (err) {
       console.error('❌ [ChatRoomScreen] Failed to load messages:', err);
     }
@@ -212,11 +197,15 @@ export default function ChatRoomScreen() {
   // Mark messages as read
   const markMessagesAsRead = async () => {
     if (!chatRoomId) return;
-    
+
     try {
       await supabase.rpc('mark_messages_as_read', {
         p_room_id: chatRoomId
       });
+
+      // Trigger event to refresh chat list unread counts
+      EventBus.emitEvent('REFRESH_MESSAGES_COUNT', {});
+      console.log('✅ [ChatRoomScreen] Messages marked as read, triggered refresh event');
     } catch (err) {
       console.error('❌ [ChatRoomScreen] Failed to mark messages as read:', err);
     }
@@ -226,15 +215,37 @@ export default function ChatRoomScreen() {
     router.back();
   };
 
-  // Send typing indicator
-  const sendTypingIndicator = (isTyping: boolean) => {
-    if (realtimeChannel) {
-      realtimeChannel.send({
-        type: 'broadcast',
-        event: 'typing',
-        payload: { isTyping, userId: 'current-user' }
+  const handleUserPress = (senderId: string) => {
+    router.push(`/bubble/user/${senderId}`);
+  };
+
+  // Fetch profile data for the chat room
+  const fetchProfileData = async () => {
+    if (!chatRoomId || profileData) return; // Don't fetch if already loaded
+    
+    setProfileLoading(true);
+    try {
+      console.log('📊 [ChatRoomScreen] Fetching profile data for room:', chatRoomId);
+      
+      const { data, error } = await supabase.rpc('get_chat_room_members', {
+        p_chat_room_id: chatRoomId
       });
+      
+      if (error) throw error;
+      
+      console.log('✅ [ChatRoomScreen] Profile data loaded:', data);
+      setProfileData(data);
+    } catch (err) {
+      console.error('❌ [ChatRoomScreen] Failed to fetch profile data:', err);
+    } finally {
+      setProfileLoading(false);
     }
+  };
+
+  // Send typing indicator - we'll implement this later with EventBus if needed
+  const sendTypingIndicator = (isTyping: boolean) => {
+    // TODO: Implement typing indicators through EventBus if needed
+    console.log('[ChatRoomScreen] Typing indicator:', isTyping);
   };
 
   // Handle input text changes with typing indicators
@@ -268,18 +279,28 @@ export default function ChatRoomScreen() {
     const messageText = newMessage.trim();
     const tempMessageId = Date.now(); // Temporary ID for optimistic update
     
-    // Get current user ID for optimistic update
+    // Get current user ID and name for optimistic update
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setSendingMessage(false);
       return;
     }
 
+    // Get current user's actual name
+    const { data: userData } = await supabase
+      .from('users')
+      .select('first_name, avatar_url')
+      .eq('id', user.id)
+      .single();
+
+    const actualUserName = userData?.first_name || 'You';
+
     // Optimistic update - add message immediately to UI
     const optimisticMessage: ChatMessage = {
       message_id: tempMessageId,
       sender_id: user.id,
-      sender_name: chatRoomData?.my_group_name || 'You',
+      sender_name: actualUserName,
+      sender_avatar_url: userData?.avatar_url,
       content: messageText,
       message_type: 'text',
       created_at: new Date().toISOString(),
@@ -310,10 +331,42 @@ export default function ChatRoomScreen() {
       
       console.log('✅ [ChatRoomScreen] Message sent successfully:', data);
       
-      // Remove optimistic message and let real-time subscription add the real one
-      setMessages(prevMessages => 
-        prevMessages.filter(msg => msg.message_id !== tempMessageId)
-      );
+      // Update optimistic message with real message ID if available
+      if (data && data.message_id) {
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.message_id === tempMessageId 
+              ? { ...msg, message_id: data.message_id }
+              : msg
+          )
+        );
+      }
+      
+      // Broadcast message to chat room channel for real-time updates
+      try {
+        console.log('📡 [ChatRoomScreen] Broadcasting message to chat room channel...');
+        const broadcastChannel = supabase.channel(`chat_room:${chatRoomId}`);
+        await broadcastChannel.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: {
+            room_id: chatRoomId,
+            message_id: data?.message_id || tempMessageId,
+            sender_id: user.id,
+            sender_name: actualUserName,
+            sender_avatar_url: userData?.avatar_url,
+            content: messageText,
+            message_type: 'text',
+            created_at: new Date().toISOString()
+          }
+        });
+        console.log('✅ [ChatRoomScreen] Message broadcast sent to chat room');
+
+      } catch (broadcastError) {
+        console.warn('⚠️ [ChatRoomScreen] Broadcast failed:', broadcastError);
+      }
+      
+      // Keep optimistic message - don't remove it
       
     } catch (err) {
       console.error('❌ [ChatRoomScreen] Failed to send message:', err);
@@ -337,12 +390,17 @@ export default function ChatRoomScreen() {
     }
   }, [messages]);
 
-  // Keyboard listeners for manual height tracking
+  // Keyboard listeners for manual height tracking with auto-scroll
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (event) => {
         setKeyboardHeight(event.endCoordinates.height);
+        
+        // Auto scroll to bottom when keyboard appears
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
     );
 
@@ -350,6 +408,11 @@ export default function ChatRoomScreen() {
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setKeyboardHeight(0);
+        
+        // Auto scroll to bottom when keyboard hides
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
     );
 
@@ -358,6 +421,14 @@ export default function ChatRoomScreen() {
       keyboardDidHideListener.remove();
     };
   }, []);
+
+  // Fetch profile data when profile tab becomes active
+  useEffect(() => {
+    if (activeTab === 'profile' && chatRoomId && !profileData) {
+      fetchProfileData();
+    }
+  }, [activeTab, chatRoomId]);
+
 
   return (
     <Container>
@@ -406,7 +477,7 @@ export default function ChatRoomScreen() {
           <ChatKeyboardContainer style={{ paddingBottom: Platform.OS === 'ios' ? keyboardHeight - insets.bottom : 0 }}>
             {isLoading ? (
               <LoadingContainer>
-                <TestText>Loading chat...</TestText>
+                <LoadingText>Loading chat...</LoadingText>
               </LoadingContainer>
             ) : (
               <ChatInnerContainer>
@@ -414,29 +485,68 @@ export default function ChatRoomScreen() {
                   <FlatList
                     ref={flatListRef}
                     data={messages}
-                    keyExtractor={(item) => item.message_id.toString()}
-                    renderItem={({ item }) => (
-                      <MessageContainer isOwn={item.is_own}>
-                        {!item.is_own && (
-                          <MessageHeader>
-                            <UserAvatar>
-                              <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
-                            </UserAvatar>
-                            <SenderName>{item.sender_name}</SenderName>
-                          </MessageHeader>
-                        )}
-                        <MessageRow isOwn={item.is_own}>
-                          <MessageBubble isOwn={item.is_own}>
-                            <MessageContent>
-                              <MessageText isOwn={item.is_own}>{item.content}</MessageText>
-                            </MessageContent>
-                          </MessageBubble>
-                        </MessageRow>
-                        <MessageTime isOwn={item.is_own}>
-                          {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </MessageTime>
-                      </MessageContainer>
-                    )}
+                    keyExtractor={(item, index) => `${item.message_id}-${index}`}
+                    renderItem={({ item, index }) => {
+                      const prevMessage = index > 0 ? messages[index - 1] : null;
+                      const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                      
+                      // Check if this message should show profile/name (first in group)
+                      const isFirstInGroup = !prevMessage || 
+                        prevMessage.sender_id !== item.sender_id || 
+                        new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) !== 
+                        new Date(prevMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      
+                      // Check if this message should show timestamp (last in group)
+                      const isLastInGroup = !nextMessage || 
+                        nextMessage.sender_id !== item.sender_id || 
+                        new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) !== 
+                        new Date(nextMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                      return (
+                        <MessageContainer isOwn={item.is_own} isGrouped={!isFirstInGroup}>
+                          {!item.is_own && isFirstInGroup && (
+                            <MessageHeader>
+                              <SenderName>{item.sender_name}</SenderName>
+                            </MessageHeader>
+                          )}
+                          <MessageRow isOwn={item.is_own} isGrouped={!isFirstInGroup}>
+                            {!item.is_own && isFirstInGroup && (
+                              <TouchableOpacity onPress={() => handleUserPress(item.sender_id)}>
+                                <UserAvatar>
+                                  {item.sender_avatar_url ? (
+                                    <Image 
+                                      source={{ uri: item.sender_avatar_url }} 
+                                      style={{ 
+                                        width: 41, 
+                                        height: 41, 
+                                        borderRadius: 20.5 
+                                      }}
+                                    />
+                                  ) : (
+                                    <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
+                                  )}
+                                </UserAvatar>
+                              </TouchableOpacity>
+                            )}
+                            {item.is_own && isLastInGroup && (
+                              <MessageTime isOwn={item.is_own}>
+                                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </MessageTime>
+                            )}
+                            <MessageBubble isOwn={item.is_own}>
+                              <MessageContent>
+                                <MessageText isOwn={item.is_own}>{item.content}</MessageText>
+                              </MessageContent>
+                            </MessageBubble>
+                            {!item.is_own && isLastInGroup && (
+                              <MessageTime isOwn={item.is_own}>
+                                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </MessageTime>
+                            )}
+                          </MessageRow>
+                        </MessageContainer>
+                      );
+                    }}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ 
                       paddingBottom: 20, 
@@ -445,8 +555,23 @@ export default function ChatRoomScreen() {
                     }}
                     keyboardDismissMode="interactive"
                     keyboardShouldPersistTaps="handled"
-                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    onContentSizeChange={() => {
+                      // Auto scroll when content size changes (new messages)
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                      }, 100);
+                    }}
                     automaticallyAdjustKeyboardInsets={false}
+                    maintainVisibleContentPosition={{
+                      minIndexForVisible: 0,
+                      autoscrollToTopThreshold: 10
+                    }}
+                    onLayout={() => {
+                      // Auto scroll to bottom when FlatList first renders
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: false });
+                      }, 100);
+                    }}
                     ListHeaderComponent={
                       otherUserTyping ? (
                         <TypingIndicator>
@@ -467,8 +592,13 @@ export default function ChatRoomScreen() {
                     maxLength={1000}
                     returnKeyType="send"
                     onSubmitEditing={sendMessage}
-                    blurOnSubmit={false}
                     textAlignVertical="top"
+                    onFocus={() => {
+                      // Auto scroll to bottom when input is focused
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                      }, 300); // Longer delay to account for keyboard animation
+                    }}
                   />
                   <SendButton 
                     onPress={sendMessage} 
@@ -485,10 +615,10 @@ export default function ChatRoomScreen() {
             )}
           </ChatKeyboardContainer>
         ) : (
-          <ProfileContent>
-            <TestText>👥 Group Profile</TestText>
-            <TestText>Profile content will go here</TestText>
-          </ProfileContent>
+          <ChatRoomProfile 
+            data={profileData} 
+            isLoading={profileLoading} 
+          />
         )}
       </ContentArea>
     </Container>
@@ -581,24 +711,28 @@ const LoadingContainer = styled.View`
   background-color: #f5f5f5;
 `;
 
-const MessagesContainer = styled.View`
-  flex: 1;
-  padding-horizontal: 16px;
+const LoadingText = styled.Text`
+  font-size: 16px;
+  color: #7A7A7A;
+  font-family: Quicksand-Medium;
 `;
 
-const MessageContainer = styled.View<{ isOwn: boolean }>`
+const MessagesContainer = styled.View`
+  flex: 1;
+  padding-horizontal: 8px;
+`;
+
+const MessageContainer = styled.View<{ isOwn: boolean; isGrouped?: boolean }>`
   align-items: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
-  margin-vertical: 4px;
-  margin-horizontal: 8px;
-  max-width: 75%;
+  margin-vertical: ${props => props.isGrouped ? '1px' : '4px'};
+  margin-horizontal: 4px;
+  max-width: 65%;
   align-self: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
 `;
 
 const MessageHeader = styled.View`
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 4px;
-  margin-left: 8px;
+  margin-bottom: 2px;
+  margin-left: 53px;
 `;
 
 const UserAvatar = styled.View`
@@ -624,10 +758,10 @@ const SenderName = styled.Text`
   font-family: Quicksand-Regular;
 `;
 
-const MessageRow = styled.View<{ isOwn: boolean }>`
+const MessageRow = styled.View<{ isOwn: boolean; isGrouped?: boolean }>`
   flex-direction: row;
   align-items: flex-end;
-  margin-left: ${props => props.isOwn ? '0px' : '53px'};
+  margin-left: ${props => props.isOwn ? '0px' : (props.isGrouped ? '53px' : '0px')};
 `;
 
 const MessageBubble = styled.View<{ isOwn: boolean }>`
@@ -651,7 +785,7 @@ const MessageBubble = styled.View<{ isOwn: boolean }>`
 
 const MessageContent = styled.View`
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 `;
 
@@ -660,16 +794,18 @@ const MessageText = styled.Text<{ isOwn: boolean }>`
   font-weight: 500;
   font-family: Quicksand-Medium;
   color: #000000;
-  text-align: center;
+  text-align: left;
   line-height: 20px;
 `;
 
 const MessageTime = styled.Text<{ isOwn: boolean }>`
   font-size: 11px;
   color: #666;
-  margin-top: 4px;
+  margin-left: ${props => props.isOwn ? '0px' : '8px'};
+  margin-right: ${props => props.isOwn ? '8px' : '0px'};
+  margin-bottom: 2px;
   font-family: Quicksand-Medium;
-  align-self: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
+  align-self: flex-end;
 `;
 
 const InputContainer = styled.View`
@@ -701,20 +837,6 @@ const SendButton = styled.TouchableOpacity`
   border-radius: 20px;
   justify-content: center;
   align-items: center;
-`;
-
-const ProfileContent = styled.View`
-  flex: 1;
-  justify-content: center;
-  align-items: center;
-  padding-horizontal: 20px;
-`;
-
-const TestText = styled.Text`
-  font-size: 16px;
-  margin-bottom: 10px;
-  text-align: center;
-  color: #333;
 `;
 
 const TypingIndicator = styled.View`

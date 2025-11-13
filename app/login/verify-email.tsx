@@ -30,14 +30,14 @@ const VerifyEmailScreen = () => {
 
   const handleNext = () => {
     if (isValidEmail(email)) {
-      // 이메일 검증 완료 후 온보딩으로 이동
-      router.replace("/onboarding");
+      // 이메일 검증 완료 후 프로필 설정으로 직접 이동
+      router.replace("/onboarding/profile-setup");
     }
   };
 
   const handleNotNow = () => {
-    // 이메일 없이 온보딩으로 이동
-    router.replace("/onboarding");
+    // 이메일 없이 프로필 설정으로 직접 이동
+    router.replace("/onboarding/profile-setup");
   };
 
   return (
