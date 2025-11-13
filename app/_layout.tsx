@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/theme/ThemeContext";
 import { AuthProvider } from "@/providers/AuthProvider";
 import RealtimeProvider from "@/providers/RealtimeProvider"; // [추가] RealtimeProvider 임포트
 import { MatchmakingProvider } from "@/providers/MatchmakingProvider"; // [추가] MatchmakingProvider 임포트
+import { configurePushNotifications } from "@/lib/pushNotifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -74,6 +75,12 @@ export default function RootLayout() {
       console.error("RootLayout: Font loading error:", fontError);
     }
   }, [fontError]);
+
+  // Push Notification 핸들러 설정 (앱 시작 시 한 번)
+  useEffect(() => {
+    console.log("RootLayout: Configuring push notifications");
+    configurePushNotifications();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     console.log("RootLayout: Fonts not loaded yet. Returning null.");
