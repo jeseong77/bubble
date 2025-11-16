@@ -24,6 +24,32 @@ const MobileNumberInputPhase = ({
 }: MobileNumberInputProps) => {
   const { colors } = useAppTheme();
 
+  // Format phone number for US display (XXX) XXX-XXXX
+  const formatPhoneNumber = (text: string) => {
+    // Remove all non-numeric characters
+    const cleaned = text.replace(/\D/g, '');
+    
+    // Limit to 10 digits for US numbers
+    const truncated = cleaned.substring(0, 10);
+    
+    // Apply formatting based on length
+    if (truncated.length >= 6) {
+      return `(${truncated.substring(0, 3)}) ${truncated.substring(3, 6)}-${truncated.substring(6)}`;
+    } else if (truncated.length >= 3) {
+      return `(${truncated.substring(0, 3)}) ${truncated.substring(3)}`;
+    } else if (truncated.length > 0) {
+      return `(${truncated}`;
+    } else {
+      return '';
+    }
+  };
+
+  const handlePhoneNumberChange = (text: string) => {
+    // Store only the digits for processing
+    const digits = text.replace(/\D/g, '');
+    setPhoneNumber(digits);
+  };
+
   return (
     // Main container now uses a row layout with a gap
     <View style={styles.inputSectionContainer}>
@@ -53,12 +79,12 @@ const MobileNumberInputPhase = ({
               color: colors.black,
             },
           ]}
-          placeholder="Phone Number"
+          placeholder="(555) 123-4567"
           placeholderTextColor={colors.mediumGray || "#A9A9A9"}
           keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-          maxLength={15}
+          value={formatPhoneNumber(phoneNumber)}
+          onChangeText={handlePhoneNumberChange}
+          maxLength={14} // Max length for formatted display
         />
       </View>
     </View>

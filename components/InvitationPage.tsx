@@ -1,28 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   SafeAreaView,
   TouchableOpacity,
   Image,
   Alert,
+  StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
-import CustomAppBar from "@/components/CustomAppBar";
-import CustomView from "@/components/CustomView";
-import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BubbleTabItemData } from "@/components/bubble/BubbleTabItem";
 
-interface InvitationBubble extends BubbleTabItemData {
+interface InvitationBubble {
+  id: string;
+  name: string;
+  status: string;
+  members: any[];
   user_status: string;
   invited_at: string;
+  group_size?: string;
+  creator?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+  };
 }
 
 // Custom Invitation Item Component
@@ -30,196 +37,83 @@ const InvitationItem: React.FC<{
   bubble: InvitationBubble;
   onAccept: (bubbleId: string) => void;
   onDecline: (bubbleId: string) => void;
-  onPress: () => void;
-}> = ({ bubble, onAccept, onDecline, onPress }) => {
-  const { members, name, status } = bubble;
-  const [currentUserSignedUrl, setCurrentUserSignedUrl] = useState<
-    string | null
-  >(null);
-  const [otherMemberSignedUrl, setOtherMemberSignedUrl] = useState<
-    string | null
-  >(null);
-  const [currentUserImageError, setCurrentUserImageError] = useState(false);
-  const [otherMemberImageError, setOtherMemberImageError] = useState(false);
+}> = ({ bubble, onAccept, onDecline }) => {
+  const [creatorImageUrl, setCreatorImageUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
 
-  // members가 배열이 아닐 경우를 대비한 방어 코드
-  if (!Array.isArray(members)) {
-    return null;
-  }
-
-  // 현재 유저의 이미지 (첫 번째 멤버)
-  const currentUser = members[0];
-
-  // 다른 멤버들 (두 번째부터)
-  const otherMembers = members.slice(1);
-  const otherMember = otherMembers[0]; // 첫 번째 다른 멤버
-
-  // Signed URL을 생성하는 공통 함수
-  const createSignedUrlForMember = async (
-    avatarUrl: string | null | undefined
-  ): Promise<string | null> => {
-    if (!avatarUrl) return null;
+  // Use avatar URL directly as it's already a public URL
+  const createSignedUrlForCreator = useCallback(async () => {
+    if (!bubble.creator?.avatar_url) return;
 
     try {
-      // Public URL에서 파일 경로 추출
-      const urlParts = avatarUrl.split("/user-images/");
-      const filePath = urlParts.length > 1 ? urlParts[1] : null;
-
-      if (!filePath) {
-        console.log(
-          "[InvitationItem] 파일 경로를 추출할 수 없습니다:",
-          avatarUrl
-        );
-        return null;
-      }
-
-      console.log("[InvitationItem] Signed URL 생성 시작:", filePath);
-      const { data, error } = await supabase.storage
-        .from("user-images")
-        .createSignedUrl(filePath, 3600); // 1시간 유효
-
-      if (error) {
-        console.error("[InvitationItem] Signed URL 생성 실패:", error);
-        return null;
-      }
-
-      console.log("[InvitationItem] Signed URL 생성 성공:", data.signedUrl);
-      return data.signedUrl;
+      console.log("[InvitationItem] Using avatar URL directly:", bubble.creator.avatar_url);
+      // Use the avatar URL directly as it's already a permanent public URL
+      setCreatorImageUrl(bubble.creator.avatar_url);
     } catch (error) {
-      console.error("[InvitationItem] Signed URL 생성 중 예외:", error);
-      return null;
+      console.error("[InvitationItem] Exception during image URL setup:", error);
     }
-  };
+  }, [bubble.creator?.avatar_url]);
 
-  // 현재 유저와 다른 멤버의 Signed URL을 가져옵니다.
   useEffect(() => {
-    const loadSignedUrls = async () => {
-      // 현재 유저의 Signed URL 생성
-      const currentUserUrl = await createSignedUrlForMember(
-        currentUser?.avatar_url
-      );
-      setCurrentUserSignedUrl(currentUserUrl);
+    createSignedUrlForCreator();
+  }, [createSignedUrlForCreator]);
 
-      // 다른 멤버의 Signed URL 생성
-      if (otherMember) {
-        const otherMemberUrl = await createSignedUrlForMember(
-          otherMember.avatar_url
-        );
-        setOtherMemberSignedUrl(otherMemberUrl);
-      }
-    };
-
-    loadSignedUrls();
-  }, [currentUser?.avatar_url, otherMember?.avatar_url]);
+  const creatorName = bubble.creator ? `${bubble.creator.first_name}_${bubble.creator.last_name}` : "Someone";
+  const groupSize = bubble.group_size || "2:2";
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.invitationItemContainer}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatarWrapper}>
-            {/* 현재 유저 아바타 */}
-            {!currentUserImageError && currentUserSignedUrl ? (
-              <Image
-                source={{ uri: currentUserSignedUrl }}
-                style={styles.avatar}
-                onError={(error) => {
-                  console.error(
-                    "InvitationItem current user avatar load error:",
-                    error.nativeEvent
-                  );
-                  setCurrentUserImageError(true);
-                }}
-                onLoad={() => {
-                  console.log(
-                    "InvitationItem current user avatar loaded successfully:",
-                    currentUserSignedUrl
-                  );
-                }}
-              />
-            ) : (
-              <View style={[styles.avatar, styles.placeholderAvatar]}>
-                <Ionicons name="person" size={24} color="#999" />
-              </View>
-            )}
+    <View style={styles.invitationCard}>
+      {/* Creator Avatar */}
+      <View style={styles.avatarContainer}>
+        {!imageError && creatorImageUrl ? (
+          <Image
+            source={{ uri: creatorImageUrl }}
+            style={styles.creatorAvatar}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View style={[styles.creatorAvatar, styles.placeholderAvatar]}>
+            <Ionicons name="person" size={30} color="#999" />
           </View>
+        )}
+        <Text style={styles.creatorName}>{creatorName}</Text>
+      </View>
 
-          {/* 다른 멤버들 또는 초대 대기 상태 (오른쪽) */}
-          <View style={[styles.avatarWrapper, { marginLeft: -20, zIndex: 0 }]}>
-            {otherMembers.length > 0 ? (
-              // 다른 멤버가 있는 경우
-              <View>
-                {!otherMemberImageError && otherMemberSignedUrl ? (
-                  <Image
-                    source={{ uri: otherMemberSignedUrl }}
-                    style={styles.avatar}
-                    onError={(error) => {
-                      console.error(
-                        "InvitationItem other member avatar load error:",
-                        error.nativeEvent
-                      );
-                      setOtherMemberImageError(true);
-                    }}
-                    onLoad={() => {
-                      console.log(
-                        "InvitationItem other member avatar loaded successfully:",
-                        otherMemberSignedUrl
-                      );
-                    }}
-                  />
-                ) : (
-                  <View style={[styles.avatar, styles.placeholderAvatar]}>
-                    <Ionicons name="person" size={24} color="#999" />
-                  </View>
-                )}
-              </View>
-            ) : (
-              // 다른 멤버가 없거나 초대를 받지 않은 경우 "..." 표시
-              <View style={[styles.avatar, styles.invitePlaceholder]}>
-                <Text style={styles.inviteText}>...</Text>
-              </View>
-            )}
-          </View>
+      {/* Invitation Text and Buttons */}
+      <View style={styles.invitationContent}>
+        <View style={styles.invitationTextContainer}>
+          <Text style={styles.invitationText}>
+            <Text style={styles.normalText}> wants to form a </Text>
+            <Text style={styles.bubbleSizeText}>{groupSize}</Text>
+            <Text style={styles.normalText}> bubble</Text>
+          </Text>
         </View>
 
-        {/* 중앙 정렬된 타이틀 */}
-        <View style={styles.textContainer}>
-          <Text style={styles.bubbleTitle}>{name || "Unnamed Bubble"}</Text>
-        </View>
-
-        {/* Accept/Decline buttons replacing chevron */}
-        <View style={styles.invitationActionButtons}>
+        <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.acceptButton]}
-            onPress={(e) => {
-              e.stopPropagation();
-              onAccept(bubble.id);
-            }}
+            style={styles.declineButton}
+            onPress={() => onDecline(bubble.id)}
             activeOpacity={0.7}
           >
-            <Ionicons name="checkmark" size={20} color="#fff" />
+            <Text style={styles.declineButtonText}>Decline</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.declineButton]}
-            onPress={(e) => {
-              e.stopPropagation();
-              onDecline(bubble.id);
-            }}
+            style={styles.acceptButton}
+            onPress={() => onAccept(bubble.id)}
             activeOpacity={0.7}
           >
-            <Ionicons name="close" size={20} color="#fff" />
+            <Text style={styles.acceptButtonText}>Accept</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
 export default function InvitationPage() {
   const router = useRouter();
-  const { colors } = useAppTheme();
   const { session } = useAuth();
-  const insets = useSafeAreaInsets();
 
   const [invitedBubbles, setInvitedBubbles] = useState<InvitationBubble[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,19 +130,62 @@ export default function InvitationPage() {
 
         if (error) throw error;
 
-        // Filter only invited status bubbles
+        console.log("[InvitationPage] Raw RPC data:", JSON.stringify(data, null, 2));
+        console.log("[InvitationPage] User ID:", session.user.id);
+        console.log("[InvitationPage] RPC returned", data?.length || 0, "bubbles");
+        
+        // Filter only invited status bubbles and extract creator info
         const invited = (data || [])
-          .filter((bubble: any) => bubble.user_status === "invited")
-          .map((bubble: any) => ({
-            id: bubble.id,
-            name: bubble.name,
-            status: bubble.status,
-            members: bubble.members || [],
-            user_status: bubble.user_status,
-            invited_at: bubble.invited_at,
-          }));
+          .filter((bubble: any) => {
+            console.log(`[InvitationPage] Processing bubble ${bubble.id}:`);
+            console.log(`  - user_status: ${bubble.user_status}`);
+            console.log(`  - status: ${bubble.status}`);
+            console.log(`  - name: ${bubble.name}`);
+            console.log(`  - creator from RPC:`, JSON.stringify(bubble.creator, null, 2));
+            
+            const isInvited = bubble.user_status === "invited";
+            console.log(`  - Is invited: ${isInvited}`);
+            return isInvited;
+          })
+          .map((bubble: any, index: number) => {
+            console.log(`[InvitationPage] Processing invited bubble ${index + 1}/${bubble.id}:`);
+            
+            const members = Array.isArray(bubble.members) 
+              ? bubble.members 
+              : (bubble.members ? JSON.parse(bubble.members) : []);
+            
+            console.log(`  - Members array:`, JSON.stringify(members, null, 2));
+            
+            // Use creator info directly from RPC response instead of guessing from members
+            const creator = bubble.creator;
+            console.log(`  - Creator from RPC:`, creator ? `${creator.first_name} (${creator.id})` : 'None');
+            
+            // Determine group size based on member count or group status
+            const maxSize = members.length <= 2 ? "2:2" : "3:3";
+            console.log(`  - Group size determined: ${maxSize} (based on ${members.length} members)`);
+            
+            const result = {
+              id: bubble.id,
+              name: bubble.name,
+              status: bubble.status,
+              members: members,
+              user_status: bubble.user_status,
+              invited_at: bubble.invited_at,
+              group_size: maxSize,
+              creator: creator ? {
+                id: creator.id,
+                first_name: creator.first_name,
+                last_name: creator.last_name,
+                avatar_url: creator.avatar_url
+              } : null
+            };
+            
+            console.log(`  - Final invitation object:`, JSON.stringify(result, null, 2));
+            return result;
+          });
 
-        console.log("[InvitationPage] Invited bubbles:", invited);
+        console.log("[InvitationPage] Total filtered invited bubbles:", invited.length);
+        console.log("[InvitationPage] Invited bubbles:", JSON.stringify(invited, null, 2));
         setInvitedBubbles(invited);
       } catch (error) {
         console.error("Error fetching invited bubbles:", error);
@@ -262,19 +199,19 @@ export default function InvitationPage() {
   }, [session]);
 
   const handleAcceptInvitation = async (bubbleId: string) => {
-    console.log("[InvitationPage] 🟢 handleAcceptInvitation 시작");
-    console.log("[InvitationPage] 버블 ID:", bubbleId);
-    console.log("[InvitationPage] 현재 세션 유저 ID:", session?.user?.id);
+    console.log("[InvitationPage] 🟢 handleAcceptInvitation started");
+    console.log("[InvitationPage] Bubble ID:", bubbleId);
+    console.log("[InvitationPage] Current session user ID:", session?.user?.id);
 
     if (!session?.user) {
-      console.error("[InvitationPage] ❌ 세션이 없어 초대 수락을 중단합니다.");
+      console.error("[InvitationPage] ❌ Stopping invitation acceptance due to no session.");
       Alert.alert("Error", "You must be logged in to accept invitations.");
       return;
     }
 
     try {
-      console.log("[InvitationPage] 📡 accept_invitation RPC 호출 시작");
-      console.log("[InvitationPage] RPC 파라미터:", {
+      console.log("[InvitationPage] 📡 accept_invitation RPC call started");
+      console.log("[InvitationPage] RPC parameters:", {
         p_group_id: bubbleId,
         p_user_id: session.user.id,
       });
@@ -284,66 +221,111 @@ export default function InvitationPage() {
         p_user_id: session.user.id,
       });
 
-      console.log("[InvitationPage] 📡 RPC 응답 받음");
-      console.log("[InvitationPage] RPC 응답 데이터:", data);
-      console.log("[InvitationPage] RPC 에러:", error);
+      console.log("[InvitationPage] 📡 RPC response received");
+      console.log("[InvitationPage] RPC response data:", JSON.stringify(data, null, 2));
+      console.log("[InvitationPage] RPC error:", error);
 
       if (error) {
-        console.error("[InvitationPage] ❌ RPC 에러 발생:", error);
-        console.error("[InvitationPage] 에러 상세:", {
+        console.error("[InvitationPage] ❌ RPC error occurred:", error);
+        console.error("[InvitationPage] Error details:", {
           message: error.message,
           details: error.details,
           hint: error.hint,
           code: error.code,
         });
-        throw error;
+        
+        Alert.alert("Error", error.message || "Failed to accept invitation. Please try again.");
+        return;
       }
 
-      console.log("[InvitationPage] ✅ RPC 호출 성공");
-      console.log("[InvitationPage] 반환된 데이터:", data);
+      // Handle the new JSON response format
+      if (!data || !data.success) {
+        console.error("[InvitationPage] ❌ RPC return failed:", data);
+        
+        // Handle specific error cases
+        let errorMessage = "Failed to accept invitation.";
+        let errorTitle = "Error";
+        
+        if (data?.error === 'GROUP_FULL') {
+          errorTitle = "Bubble Full";
+          errorMessage = `This bubble is already full (${data.current_size}/${data.max_size} members).`;
+        } else if (data?.error === 'GROUP_NOT_FORMING') {
+          errorTitle = "Bubble Not Available";
+          errorMessage = "This bubble is no longer accepting new members.";
+        } else if (data?.error === 'NO_PENDING_INVITATION') {
+          errorTitle = "Invalid Invitation";
+          errorMessage = "You don't have a pending invitation to this bubble.";
+        } else if (data?.error === 'GROUP_NOT_FOUND') {
+          errorTitle = "Bubble Not Found";
+          errorMessage = "This bubble no longer exists.";
+        } else if (data?.message) {
+          errorMessage = data.message;
+        }
+        
+        Alert.alert(errorTitle, errorMessage);
+        
+        // If the invitation is no longer valid, remove it from the UI
+        if (data?.error === 'GROUP_FULL' || 
+            data?.error === 'GROUP_NOT_FORMING' || 
+            data?.error === 'NO_PENDING_INVITATION' || 
+            data?.error === 'GROUP_NOT_FOUND') {
+          setInvitedBubbles((prev) => prev.filter((bubble) => bubble.id !== bubbleId));
+        }
+        
+        return;
+      }
 
-      // Optimistic UI update - Remove from local state immediately
-      console.log("[InvitationPage] 🎨 Optimistic UI 업데이트 시작");
-      console.log(
-        "[InvitationPage] 업데이트 전 초대 목록 개수:",
-        invitedBubbles.length
-      );
+      console.log("[InvitationPage] ✅ RPC call successful");
+      console.log("[InvitationPage] Group information:", {
+        name: data.group_name,
+        isFull: data.group_full,
+        finalSize: data.final_size || data.current_size,
+        maxSize: data.max_size,
+        cleanedUpInvitations: data.cleaned_up_invitations
+      });
 
+      // Remove this invitation from local state
       setInvitedBubbles((prev) => {
         const updated = prev.filter((bubble) => bubble.id !== bubbleId);
-        console.log(
-          "[InvitationPage] 업데이트 후 초대 목록 개수:",
-          updated.length
-        );
-        console.log("[InvitationPage] 제거된 버블 ID:", bubbleId);
+        console.log("[InvitationPage] Bubble ID removed from UI:", bubbleId);
+        console.log("[InvitationPage] Remaining invitation count:", updated.length);
         return updated;
       });
 
-      console.log("[InvitationPage] 🎉 초대 수락 완료!");
-      Alert.alert("Success", "You have successfully joined the bubble! 🎉", [
+      // Show success message with additional context
+      let successMessage = `You've successfully joined "${data.group_name}"! 🎉`;
+      
+      if (data.group_full && data.cleaned_up_invitations > 0) {
+        successMessage += `\n\nThe bubble is now full (${data.final_size}/${data.max_size}), and ${data.cleaned_up_invitations} other pending invitation(s) have been automatically removed.`;
+      } else if (data.group_full) {
+        successMessage += `\n\nThe bubble is now full (${data.final_size}/${data.max_size})!`;
+      } else {
+        successMessage += `\n\nBubble size: ${data.current_size}/${data.max_size}`;
+      }
+
+      console.log("[InvitationPage] 🎉 Invitation acceptance complete!");
+      Alert.alert("Joined Bubble!", successMessage, [
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] 사용자가 성공 알림을 확인했습니다.");
+            console.log("[InvitationPage] User confirmed success alert.");
           },
         },
       ]);
+      
     } catch (error) {
+      console.error("[InvitationPage] ❌ handleAcceptInvitation exception occurred:", error);
+      console.error("[InvitationPage] Error type:", typeof error);
       console.error(
-        "[InvitationPage] ❌ handleAcceptInvitation 전체 에러:",
-        error
-      );
-      console.error("[InvitationPage] 에러 타입:", typeof error);
-      console.error(
-        "[InvitationPage] 에러 메시지:",
+        "[InvitationPage] Error message:",
         error instanceof Error ? error.message : String(error)
       );
 
-      Alert.alert("Error", "Failed to accept invitation. Please try again.", [
+      Alert.alert("Error", "An unexpected error occurred. Please try again.", [
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] 사용자가 에러 알림을 확인했습니다.");
+            console.log("[InvitationPage] User confirmed error alert.");
           },
         },
       ]);
@@ -351,19 +333,19 @@ export default function InvitationPage() {
   };
 
   const handleDeclineInvitation = async (bubbleId: string) => {
-    console.log("[InvitationPage] 🔴 handleDeclineInvitation 시작");
-    console.log("[InvitationPage] 버블 ID:", bubbleId);
-    console.log("[InvitationPage] 현재 세션 유저 ID:", session?.user?.id);
+    console.log("[InvitationPage] 🔴 handleDeclineInvitation started");
+    console.log("[InvitationPage] Bubble ID:", bubbleId);
+    console.log("[InvitationPage] Current session user ID:", session?.user?.id);
 
     if (!session?.user) {
-      console.error("[InvitationPage] ❌ 세션이 없어 초대 거절을 중단합니다.");
+      console.error("[InvitationPage] ❌ Stopping invitation decline due to no session.");
       Alert.alert("Error", "You must be logged in to decline invitations.");
       return;
     }
 
     try {
-      console.log("[InvitationPage] 📡 decline_invitation RPC 호출 시작");
-      console.log("[InvitationPage] RPC 파라미터:", {
+      console.log("[InvitationPage] 📡 decline_invitation RPC call started");
+      console.log("[InvitationPage] RPC parameters:", {
         p_group_id: bubbleId,
         p_user_id: session.user.id,
       });
@@ -373,13 +355,13 @@ export default function InvitationPage() {
         p_user_id: session.user.id,
       });
 
-      console.log("[InvitationPage] 📡 RPC 응답 받음");
-      console.log("[InvitationPage] RPC 응답 데이터:", data);
-      console.log("[InvitationPage] RPC 에러:", error);
+      console.log("[InvitationPage] 📡 RPC response received");
+      console.log("[InvitationPage] RPC response data:", data);
+      console.log("[InvitationPage] RPC error:", error);
 
       if (error) {
-        console.error("[InvitationPage] ❌ RPC 에러 발생:", error);
-        console.error("[InvitationPage] 에러 상세:", {
+        console.error("[InvitationPage] ❌ RPC error occurred:", error);
+        console.error("[InvitationPage] Error details:", {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -388,43 +370,43 @@ export default function InvitationPage() {
         throw error;
       }
 
-      console.log("[InvitationPage] ✅ RPC 호출 성공");
-      console.log("[InvitationPage] 반환된 데이터:", data);
+      console.log("[InvitationPage] ✅ RPC call successful");
+      console.log("[InvitationPage] Returned data:", data);
 
       // Optimistic UI update - Remove from local state immediately
-      console.log("[InvitationPage] 🎨 Optimistic UI 업데이트 시작");
+      console.log("[InvitationPage] 🎨 Optimistic UI update started");
       console.log(
-        "[InvitationPage] 업데이트 전 초대 목록 개수:",
+        "[InvitationPage] Invitation list count before update:",
         invitedBubbles.length
       );
 
       setInvitedBubbles((prev) => {
         const updated = prev.filter((bubble) => bubble.id !== bubbleId);
         console.log(
-          "[InvitationPage] 업데이트 후 초대 목록 개수:",
+          "[InvitationPage] Invitation list count after update:",
           updated.length
         );
-        console.log("[InvitationPage] 제거된 버블 ID:", bubbleId);
+        console.log("[InvitationPage] Removed bubble ID:", bubbleId);
         return updated;
       });
 
-      console.log("[InvitationPage] 🎉 초대 거절 완료!");
+      console.log("[InvitationPage] 🎉 Invitation decline complete!");
       Alert.alert("Success", "Invitation declined successfully.", [
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] 사용자가 성공 알림을 확인했습니다.");
+            console.log("[InvitationPage] User confirmed success alert.");
           },
         },
       ]);
     } catch (error) {
       console.error(
-        "[InvitationPage] ❌ handleDeclineInvitation 전체 에러:",
+        "[InvitationPage] ❌ handleDeclineInvitation complete error:",
         error
       );
-      console.error("[InvitationPage] 에러 타입:", typeof error);
+      console.error("[InvitationPage] Error type:", typeof error);
       console.error(
-        "[InvitationPage] 에러 메시지:",
+        "[InvitationPage] Error message:",
         error instanceof Error ? error.message : String(error)
       );
 
@@ -432,195 +414,232 @@ export default function InvitationPage() {
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] 사용자가 에러 알림을 확인했습니다.");
+            console.log("[InvitationPage] User confirmed error alert.");
           },
         },
       ]);
     }
   };
 
-  const renderInvitationItem = ({ item }: { item: InvitationBubble }) => {
-    return (
-      <InvitationItem
-        bubble={item}
-        onAccept={handleAcceptInvitation}
-        onDecline={handleDeclineInvitation}
-        onPress={() => {
-          // Navigate to bubble details or form
-          router.push({
-            pathname: "/bubble/form",
-            params: {
-              groupId: item.id,
-              isExistingBubble: "true",
-            },
-          });
-        }}
-      />
-    );
-  };
-
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="mail-outline" size={64} color={colors.darkGray} />
-      <Text style={[styles.emptyText, { color: colors.darkGray }]}>
-        No pending invitations
+      <View style={styles.emptyIconContainer}>
+        <Ionicons name="mail-outline" size={64} color="#C7C7CC" />
+      </View>
+      <Text style={styles.emptyText}>
+        You don't have any invites yet.
       </Text>
-      <Text style={[styles.emptySubtext, { color: colors.darkGray }]}>
-        You'll see invitations here when you receive them
+      <Text style={styles.emptySubtext}>
+        You can only join one bubble at a time!
       </Text>
     </View>
   );
 
   return (
-    <CustomView style={styles.container}>
-      <CustomAppBar
-        leftComponent={
-          <Text style={[styles.title, { color: colors.black }]}>
-            Invitations
-          </Text>
-        }
-        background={true}
-        blurIntensity={70}
-        extendStatusBar
-      />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      
+      {/* Simple Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Invites</Text>
+      </View>
 
-      <View style={[styles.content, { paddingTop: insets.top + 56 }]}>
+      {/* Content */}
+      <View style={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="large" color="#80B7FF" />
           </View>
         ) : (
-          <FlatList
-            data={invitedBubbles}
-            renderItem={renderInvitationItem}
-            keyExtractor={(item) => item.id}
-            ListEmptyComponent={renderEmptyState}
-            contentContainerStyle={styles.listContainer}
+          <ScrollView 
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-          />
+          >
+            {invitedBubbles.length > 0 ? (
+              invitedBubbles.map((bubble, index) => (
+                <InvitationItem
+                  key={bubble.id}
+                  bubble={bubble}
+                  onAccept={handleAcceptInvitation}
+                  onDecline={handleDeclineInvitation}
+                />
+              ))
+            ) : (
+              renderEmptyState()
+            )}
+          </ScrollView>
         )}
       </View>
-    </CustomView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'white',
   },
+  // Header styles
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 0.33,
+    borderBottomColor: '#E5E5E7',
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 4,
+  },
+  title: {
+    fontSize: 34,
+    fontFamily: 'Quicksand',
+    fontWeight: '600',
+    color: 'black',
+  },
+  // Content styles
   content: {
     flex: 1,
   },
-  title: {
-    fontFamily: "Quicksand-Bold",
-    fontSize: 22,
+  scrollContainer: {
+    flex: 1,
   },
-  listContainer: {
+  scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 20,
   },
-  // InvitationItem styles (copied from BubbleTabItem with modifications)
-  invitationItemContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderColor: "#E0E0E0",
+  // Invitation card styles
+  invitationCard: {
+    width: '100%',
+    height: 112,
+    backgroundColor: 'white',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#CEE3FF',
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
   },
   avatarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: 16,
+    alignItems: 'center',
+    marginRight: 20,
   },
-  avatarWrapper: {
-    position: "relative",
-    zIndex: 1,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
+  creatorAvatar: {
+    width: 75.07,
+    height: 75.07,
+    borderRadius: 37.5,
+    marginBottom: 8,
   },
   placeholderAvatar: {
-    backgroundColor: "#F0F0F0",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  invitePlaceholder: {
-    backgroundColor: "#F0F0F0",
-    justifyContent: "center",
-    alignItems: "center",
+  creatorName: {
+    textAlign: 'center',
+    color: 'black',
+    fontSize: 14,
+    fontFamily: 'Quicksand',
+    fontWeight: '500',
   },
-  inviteText: {
-    fontSize: 18,
-    color: "#999",
-    fontWeight: "bold",
+  invitationContent: {
+    flex: 1,
+    justifyContent: 'center',
   },
-  textContainer: {
-    marginLeft: 36,
-    justifyContent: "center",
-    alignItems: "center",
+  invitationTextContainer: {
+    marginBottom: 16,
   },
-  bubbleTitle: {
+  invitationText: {
+    textAlign: 'center',
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#000000",
-    fontFamily: "Quicksand-Bold",
-    textAlign: "center",
+    fontFamily: 'Quicksand',
   },
-  // Action buttons replacing chevron
-  invitationActionButtons: {
-    marginLeft: "auto",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingRight: 12,
+  normalText: {
+    color: 'black',
+    fontWeight: '500',
   },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 5,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  bubbleSizeText: {
+    color: '#80B7FF',
+    fontWeight: '700',
   },
-  acceptButton: {
-    backgroundColor: "#5A99E5",
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 5,
   },
   declineButton: {
-    backgroundColor: "#FF6B6B",
+    width: 108,
+    height: 35,
+    backgroundColor: 'white',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#80B7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  declineButtonText: {
+    textAlign: 'center',
+    color: 'black',
+    fontSize: 16,
+    fontFamily: 'Quicksand',
+    fontWeight: '600',
+    lineHeight: 22,
   },
+  acceptButton: {
+    width: 108,
+    height: 35,
+    backgroundColor: '#80B7FF',
+    borderRadius: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  acceptButtonText: {
+    textAlign: 'center',
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'Quicksand',
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  // Empty state styles
   emptyState: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    marginTop: -90,  // Move up by header height + 30px
+  },
+  emptyIconContainer: {
+    marginBottom: 24,
   },
   emptyText: {
+    textAlign: 'center',
     fontSize: 18,
-    fontFamily: "Quicksand-Bold",
-    marginTop: 16,
-    textAlign: "center",
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: 14,
-    fontFamily: "Quicksand-Regular",
-    marginTop: 8,
-    textAlign: "center",
-    opacity: 0.7,
+    textAlign: 'center',
+    fontSize: 15,
+    color: '#666',
+  },
+  // Loading container
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

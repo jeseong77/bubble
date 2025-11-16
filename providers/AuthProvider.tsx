@@ -7,6 +7,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { registerPushTokenForUser } from "@/lib/pushNotifications";
 import React, {
   createContext,
   PropsWithChildren,
@@ -151,6 +152,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
         syncUserProfile(session).catch((error) => {
           console.error(
             "[AuthProvider] syncUserProfile 실패했지만 계속 진행:",
+            error
+          );
+        });
+
+        // 👇 Push Notification Token 등록
+        console.log("[AuthProvider] Push notification token 등록 시작");
+        registerPushTokenForUser(session.user.id).catch((error) => {
+          console.error(
+            "[AuthProvider] Push token 등록 실패했지만 계속 진행:",
             error
           );
         });

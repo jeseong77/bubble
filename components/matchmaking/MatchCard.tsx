@@ -6,10 +6,9 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
-} from "react-native";
+ Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Platform } from "react-native";
 import { MatchingGroup, GroupMember } from "@/hooks/useMatchmaking";
 import { createSignedUrlForAvatar } from "@/utils/avatarUtils";
 
@@ -111,17 +110,23 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           activeOpacity={0.7}
           style={{ alignItems: "center" }}
         >
-          {signedUrl && !hasError ? (
+          <View style={styles.imageContainer}>
+            {signedUrl && !hasError ? (
+              <Image
+                source={{ uri: signedUrl }}
+                style={styles.memberImage}
+                onError={() => handleImageError(member.id)} // user_id 대신 id 사용
+              />
+            ) : (
+              <View style={[styles.memberImage, styles.placeholderImage]}>
+                <Feather name="user" size={memberImageSize * 0.4} color="#999" />
+              </View>
+            )}
             <Image
-              source={{ uri: signedUrl }}
-              style={styles.memberImage}
-              onError={() => handleImageError(member.id)} // user_id 대신 id 사용
+              source={require("@/assets/images/bubble-frame.png")}
+              style={styles.bubbleFrame}
             />
-          ) : (
-            <View style={[styles.memberImage, styles.placeholderImage]}>
-              <Feather name="user" size={memberImageSize * 0.4} color="#999" />
-            </View>
-          )}
+          </View>
         </TouchableOpacity>
       </View>
     );
@@ -142,12 +147,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           )}
         </View>
 
-        {group.match_score > 0 && (
-          <View style={styles.scoreContainer}>
-            <Feather name="star" size={16} color="#FFD700" />
-            <Text style={styles.scoreText}>{group.match_score}% Match</Text>
-          </View>
-        )}
       </BlurView>
     </View>
   );
@@ -167,7 +166,7 @@ const styles = StyleSheet.create({
     borderRadius: cardDiameter / 2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "#CEE3FF",
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -220,5 +219,18 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: "500",
     marginLeft: 4,
+  },
+  imageContainer: {
+    position: "relative",
+    width: memberImageSize,
+    height: memberImageSize,
+  },
+  bubbleFrame: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: memberImageSize,
+    height: memberImageSize,
+    resizeMode: "cover",
   },
 });
