@@ -74,9 +74,7 @@
       }
     },
     "owner": "playlounge",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/48ecd53a-6924-4352-aed2-0dd3e1e01dfb"
     }

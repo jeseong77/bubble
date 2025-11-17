@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Dimensions,
   Platform,
@@ -11,12 +10,6 @@ import {
   Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -44,9 +37,6 @@ const screenHeight = Dimensions.get("window").height;
 
 // Adaptive sizing
 const centerBubbleDiameter = Math.min(screenWidth * 1.12, screenHeight * 0.62);
-const userBubbleDiameter = Math.max(screenWidth * 0.32, 120);
-const userBubbleImageSize = userBubbleDiameter * 0.54;
-const overlapRatio = 0.32;
 const centerBubbleImageSize = centerBubbleDiameter * 0.44;
 const centerBubbleOverlap = centerBubbleImageSize * 0.18;
 
@@ -64,7 +54,6 @@ interface UserBubble {
 }
 
 export default function MatchScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { session } = useAuth();
 
@@ -352,61 +341,6 @@ export default function MatchScreen() {
     }
   };
 
-  // Bubble pop function (same logic as profile screen)
-  const handlePopBubble = async (bubbleId: string) => {
-    if (!session?.user) return;
-    
-    Alert.alert(
-      "Do you want to pop this bubble?",
-      "Popped bubbles can't be restored.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Pop",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              console.log("[MatchScreen] Starting to leave group:", bubbleId);
-              
-              const { data, error } = await supabase.rpc("leave_group", {
-                p_user_id: session.user.id,
-                p_group_id: bubbleId,
-              });
-              
-              if (error) {
-                console.error("[MatchScreen] Failed to leave group:", error);
-                Alert.alert("Error", "Failed to pop bubble.");
-                return;
-              }
-              
-              if (!data || !data.success) {
-                console.error("[MatchScreen] Failed to pop bubble:", data?.message || "Unknown error");
-                Alert.alert("Error", data?.message || "Failed to pop bubble.");
-                return;
-              }
-
-              console.log(`[MatchScreen] Successfully popped bubble: "${data.group_name}" by ${data.popper_name}`);
-              
-              // Refresh bubble list
-              await refreshUserBubble();
-              
-              Alert.alert(
-                "Bubble Popped! 💥", 
-                `"${data.group_name}" has been destroyed.`
-              );
-            } catch (error) {
-              console.error("[MatchScreen] Error while leaving group:", error);
-              Alert.alert("Error", "Failed to pop bubble.");
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Focus effect for automatic refresh when returning to first tab
   useFocusEffect(
     React.useCallback(() => {
@@ -599,19 +533,12 @@ export default function MatchScreen() {
       console.log("❌ No user bubble or forming group - showing NoGroupState");
       console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
-        <SafeAreaView
-          style={[styles.safeArea, { paddingTop: insets.top }]}
-          edges={["top"]}
-        >
-          <LinearGradient
-            colors={["#FFFFFF", "#FFFFFF", "#FFFFFF"]}
-            style={StyleSheet.absoluteFill}
-          />
+        <View style={styles.safeArea}>
           <NoGroupState onCreateGroup={() => router.push({
             pathname: "/(tabs)/profile",
             params: { activeTab: "myBubble" }
           })} />
-        </SafeAreaView>
+        </View>
       );
     }
 
@@ -639,75 +566,7 @@ export default function MatchScreen() {
     if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
       console.log("🚫 Daily swipe limit reached - showing limit reached state");
       return (
-        <SafeAreaView
-          style={[styles.safeArea, { paddingTop: insets.top }]}
-          edges={["top"]}
-        >
-          <LinearGradient
-            colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-
-          {/* User's bubble at top left */}
-          {userBubble && (
-            <View
-              style={[
-                styles.userBubbleContainer,
-                {
-                  left: Math.max(
-                    0,
-                    (screenWidth - centerBubbleDiameter) / 2 -
-                      userBubbleDiameter * 0.18
-                  ),
-                  top: insets.top + 24,
-                  width: userBubbleDiameter,
-                  height: userBubbleDiameter + 24,
-                },
-              ]}
-            >
-              <BlurView
-                style={styles.userBubbleBlur}
-                intensity={Platform.OS === "ios" ? 60 : 80}
-                tint="light"
-              >
-                <Text style={styles.userBubbleName}>{userBubble.name}</Text>
-                <View style={styles.userBubbleRow}>
-                  {userBubble.members.map((user, idx) => (
-                    <View
-                      key={user.id}
-                      style={{
-                        marginLeft: idx > 0 ? -userBubbleImageSize * overlapRatio : 0,
-                        zIndex: userBubble.members.length - idx,
-                      }}
-                    >
-                      <Image
-                        source={{ uri: user.signedUrl || user.avatar_url }}
-                        style={{
-                          width: userBubbleImageSize,
-                          height: userBubbleImageSize,
-                          borderRadius: userBubbleImageSize / 2,
-                          borderWidth: 2,
-                          borderColor: "#fff",
-                        }}
-                      />
-                    </View>
-                  ))}
-                </View>
-              </BlurView>
-              <TouchableOpacity 
-                style={styles.pinIconWrap}
-                onPress={() => userBubble && handlePopBubble(userBubble.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.pinCircle}>
-                  <Feather name="feather" size={18} color="#fff" />
-                </View>
-              </TouchableOpacity>
-            </View>
-          )}
-
+        <View style={styles.safeArea}>
           {/* Message Display */}
           <View style={styles.limitReachedContainer}>
             <Text style={styles.limitReachedMessage}>
@@ -731,7 +590,7 @@ export default function MatchScreen() {
               <Feather name="heart" size={32} color="#fff" />
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
       );
     }
 
@@ -761,136 +620,14 @@ export default function MatchScreen() {
     console.log("✅ Showing main content with MatchCard");
     // Main content when we have data
     return (
-      <SafeAreaView
-        style={[styles.safeArea, { paddingTop: insets.top }]}
-        edges={["top"]}
-      >
-        <LinearGradient
-          colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* User's bubble at top left */}
-        {(() => {
-          console.log("[MatchScreen] 🎨 Rendering user bubble:", {
-            hasBubble: !!userBubble,
-            bubbleName: userBubble?.name,
-            memberCount: userBubble?.members?.length || 0,
-            memberIds: userBubble?.members?.map(m => m.id) || []
-          });
-          return null;
-        })()}
-        {userBubble && (
-          <View
-            style={[
-              styles.userBubbleContainer,
-              {
-                left: Math.max(
-                  0,
-                  (screenWidth - centerBubbleDiameter) / 2 -
-                    userBubbleDiameter * 0.18
-                ),
-                top: insets.top + 24,
-                width: userBubbleDiameter,
-                height: userBubbleDiameter + 24,
-              },
-            ]}
-          >
-            <BlurView
-              style={styles.userBubbleBlur}
-              intensity={Platform.OS === "ios" ? 60 : 80}
-              tint="light"
-            >
-              <Text style={styles.userBubbleName}>{userBubble.name}</Text>
-              <View style={styles.userBubbleRow}>
-                {userBubble.members.map((user, idx) => {
-                  console.log(`[MatchScreen] 🖼️ Rendering member ${idx}:`, {
-                    id: user.id,
-                    name: `${user.first_name} ${user.last_name}`,
-                    avatarUrl: user.avatar_url,
-                    signedUrl: user.signedUrl
-                  });
-
-                  return (
-                    <View
-                      key={user.id}
-                      style={{
-                        marginLeft: idx > 0 ? -userBubbleImageSize * overlapRatio : 0,
-                        zIndex: userBubble.members.length - idx, // Highest index gets highest z-index
-                      }}
-                    >
-                      <View
-                        style={{
-                          position: "relative",
-                          width: userBubbleImageSize,
-                          height: userBubbleImageSize,
-                        }}
-                      >
-                        <Image
-                          source={{ uri: user.signedUrl || user.avatar_url }}
-                          style={{
-                            width: userBubbleImageSize,
-                            height: userBubbleImageSize,
-                            borderRadius: userBubbleImageSize / 2,
-                            borderWidth: 2,
-                            borderColor: "#fff",
-                          }}
-                          onError={() => console.log(`[MatchScreen] ❌ Image load error for member ${idx}:`, user.signedUrl || user.avatar_url)}
-                          onLoad={() => console.log(`[MatchScreen] ✅ Image loaded for member ${idx}`)}
-                        />
-                        <Image
-                          source={require("@/assets/images/bubble-frame.png")}
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: userBubbleImageSize,
-                            height: userBubbleImageSize,
-                            resizeMode: "cover",
-                          }}
-                        />
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </BlurView>
-            <TouchableOpacity 
-              style={styles.pinIconWrap}
-              onPress={() => userBubble && handlePopBubble(userBubble.id)}
-              activeOpacity={0.7}
-              disabled={!userBubble || userBubbleLoading}
-            >
-              <View style={styles.pinCircle}>
-                <Feather name="feather" size={18} color="#fff" />
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* MatchCard for the current group */}
+      <View style={styles.safeArea}>
+        {/* MatchCard for the current group - Full Screen */}
         <Animated.View
           style={[
-            styles.centerBubbleWrap,
-            {
-              top: screenHeight * 0.17 + insets.top,
-              left: (screenWidth - centerBubbleDiameter) / 2,
-              width: centerBubbleDiameter,
-              height: centerBubbleDiameter,
-            },
+            styles.fullScreenCardContainer,
             animatedBubbleStyle,
           ]}
         >
-          {/* 🔍 DEBUG: Logging data passed to MatchCard */}
-          {(() => {
-            console.log("=== 🎯 PASSING TO MATCHCARD ===");
-            console.log("Current Group:", currentGroup);
-            console.log("Has Members:", !!currentGroup?.members);
-            console.log("Members Length:", currentGroup?.members?.length || 0);
-            return null;
-          })()}
-
           <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
@@ -952,7 +689,7 @@ export default function MatchScreen() {
             </View>
           </View>
         )}
-      </SafeAreaView>
+      </View>
     );
   };
 
@@ -1176,61 +913,18 @@ export default function MatchScreen() {
   return renderContent();
 }
 
-// Styles (unchanged from original)
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "transparent" },
-  userBubbleContainer: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  fullScreenCardContainer: {
     position: "absolute",
-    zIndex: 10,
-    overflow: "visible",
-  },
-  userBubbleBlur: {
-    width: userBubbleDiameter,
-    height: userBubbleDiameter,
-    borderRadius: userBubbleDiameter / 2,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.2)",
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  userBubbleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  userBubbleName: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#222",
-    marginTop: 6,
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  pinIconWrap: {
-    position: "absolute",
-    top: -0,
-    right: -0,
-    backgroundColor: "transparent",
-    elevation: 50,
-    pointerEvents: "box-none",
-  },
-  pinCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#8ec3ff",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    zIndex: 50,
-    elevation: 50,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
   },
   centerBubbleWrap: {
     position: "absolute",
@@ -1286,7 +980,7 @@ const styles = StyleSheet.create({
   xButton: {
     position: "absolute",
     left: 32,
-    bottom: 48,
+    bottom: 10,
     backgroundColor: "#8ec3ff",
     width: 74,
     height: 74,
@@ -1302,7 +996,7 @@ const styles = StyleSheet.create({
   checkButton: {
     position: "absolute",
     right: 32,
-    bottom: 48,
+    bottom: 10,
     backgroundColor: "#8ec3ff",
     width: 74,
     height: 74,
@@ -1339,12 +1033,13 @@ const styles = StyleSheet.create({
 
   swipeControls: {
     position: "absolute",
-    bottom: 48,
+    bottom: 10,
     left: 0,
     right: 0,
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 32,
+    zIndex: 10,
   },
 
   // Swipe counter styles
