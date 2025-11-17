@@ -231,7 +231,11 @@ BEGIN
           'id', gm.user_id,
           'first_name', u.first_name,
           'last_name', u.last_name,
-          'age', EXTRACT(YEAR FROM AGE(u.birth_date)),
+          'age', CASE
+            WHEN u.birth_date IS NOT NULL
+            THEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, u.birth_date))::INTEGER
+            ELSE NULL
+          END,
           'avatar_url', (
             SELECT ui.image_url
             FROM user_images ui
