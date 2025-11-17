@@ -5,7 +5,13 @@
       "Bash(npx tsc:*)",
       "Bash(git add:*)",
       "Bash(rm:*)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "Bash(watchman watch-del-all:*)",
+      "Bash(npx expo start:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(npx expo prebuild:*)",
+      "Bash(npx expo run:ios)"
     ],
     "deny": [],
     "ask": []
