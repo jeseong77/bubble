@@ -980,7 +980,7 @@ const styles = StyleSheet.create({
   xButton: {
     position: "absolute",
     left: 32,
-    bottom: 48,
+    bottom: 10,
     backgroundColor: "#8ec3ff",
     width: 74,
     height: 74,
@@ -996,7 +996,7 @@ const styles = StyleSheet.create({
   checkButton: {
     position: "absolute",
     right: 32,
-    bottom: 48,
+    bottom: 10,
     backgroundColor: "#8ec3ff",
     width: 74,
     height: 74,
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
 
   swipeControls: {
     position: "absolute",
-    bottom: 48,
+    bottom: 10,
     left: 0,
     right: 0,
     flexDirection: "row",

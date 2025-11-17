@@ -221,7 +221,7 @@ SECURITY DEFINER
 AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     g.id,
     g.name,
     g.max_size,
@@ -231,6 +231,7 @@ BEGIN
           'id', gm.user_id,
           'first_name', u.first_name,
           'last_name', u.last_name,
+          'age', EXTRACT(YEAR FROM AGE(u.birth_date)),
           'avatar_url', (
             SELECT ui.image_url
             FROM user_images ui
