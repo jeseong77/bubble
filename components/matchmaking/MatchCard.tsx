@@ -81,6 +81,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       >
         {currentMember.avatar_url && !imageError ? (
           <Image
+            key={`${group.group_id}-${currentMemberIndex}`}
             source={{ uri: currentMember.avatar_url }}
             style={styles.fullScreenImage}
             resizeMode="cover"
@@ -100,19 +101,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           {currentMember.first_name}
           {currentMember.age ? `, ${currentMember.age}` : ''}
         </Text>
-        {group.members.length > 1 && (
-          <View style={styles.paginationDots}>
-            {group.members.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  index === currentMemberIndex && styles.activeDot,
-                ]}
-              />
-            ))}
-          </View>
-        )}
       </View>
     </View>
   );
@@ -178,20 +166,5 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
-  },
-  paginationDots: {
-    flexDirection: "row",
-    marginTop: 12,
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.5)",
-  },
-  activeDot: {
-    backgroundColor: "#FFFFFF",
-    width: 24,
   },
 });
