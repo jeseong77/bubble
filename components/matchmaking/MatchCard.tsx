@@ -61,6 +61,19 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   return (
     <View style={[styles.container, style]}>
+      {/* Top progress bar */}
+      <View style={styles.topBarContainer}>
+        {group.members.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.topBarSegment,
+              index === currentMemberIndex && styles.topBarSegmentActive,
+            ]}
+          />
+        ))}
+      </View>
+
       <TouchableOpacity
         activeOpacity={1}
         onPress={handleImageTap}
@@ -110,6 +123,25 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'relative',
+  },
+  topBarContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 6,
+    zIndex: 10,
+  },
+  topBarSegment: {
+    flex: 1,
+    height: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2.5,
+  },
+  topBarSegmentActive: {
+    backgroundColor: '#FFFFFF',
   },
   imageWrapper: {
     width: '100%',
