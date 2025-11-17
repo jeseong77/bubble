@@ -10,11 +10,6 @@ import {
   Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -59,7 +54,6 @@ interface UserBubble {
 }
 
 export default function MatchScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { session } = useAuth();
 
@@ -539,19 +533,12 @@ export default function MatchScreen() {
       console.log("❌ No user bubble or forming group - showing NoGroupState");
       console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
-        <SafeAreaView
-          style={[styles.safeArea, { paddingTop: insets.top }]}
-          edges={["top"]}
-        >
-          <LinearGradient
-            colors={["#FFFFFF", "#FFFFFF", "#FFFFFF"]}
-            style={StyleSheet.absoluteFill}
-          />
+        <View style={styles.safeArea}>
           <NoGroupState onCreateGroup={() => router.push({
             pathname: "/(tabs)/profile",
             params: { activeTab: "myBubble" }
           })} />
-        </SafeAreaView>
+        </View>
       );
     }
 
@@ -579,17 +566,7 @@ export default function MatchScreen() {
     if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
       console.log("🚫 Daily swipe limit reached - showing limit reached state");
       return (
-        <SafeAreaView
-          style={[styles.safeArea, { paddingTop: insets.top }]}
-          edges={["top"]}
-        >
-          <LinearGradient
-            colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-
+        <View style={styles.safeArea}>
           {/* Message Display */}
           <View style={styles.limitReachedContainer}>
             <Text style={styles.limitReachedMessage}>
@@ -613,7 +590,7 @@ export default function MatchScreen() {
               <Feather name="heart" size={32} color="#fff" />
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
       );
     }
 
@@ -643,39 +620,14 @@ export default function MatchScreen() {
     console.log("✅ Showing main content with MatchCard");
     // Main content when we have data
     return (
-      <SafeAreaView
-        style={[styles.safeArea, { paddingTop: insets.top }]}
-        edges={["top"]}
-      >
-        <LinearGradient
-          colors={["#e3f0ff", "#cbe2ff", "#e3f0ff"]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-
-        {/* MatchCard for the current group */}
+      <View style={styles.safeArea}>
+        {/* MatchCard for the current group - Full Screen */}
         <Animated.View
           style={[
-            styles.centerBubbleWrap,
-            {
-              top: screenHeight * 0.17 + insets.top,
-              left: (screenWidth - centerBubbleDiameter) / 2,
-              width: centerBubbleDiameter,
-              height: centerBubbleDiameter,
-            },
+            styles.fullScreenCardContainer,
             animatedBubbleStyle,
           ]}
         >
-          {/* 🔍 DEBUG: Logging data passed to MatchCard */}
-          {(() => {
-            console.log("=== 🎯 PASSING TO MATCHCARD ===");
-            console.log("Current Group:", currentGroup);
-            console.log("Has Members:", !!currentGroup?.members);
-            console.log("Members Length:", currentGroup?.members?.length || 0);
-            return null;
-          })()}
-
           <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
@@ -737,7 +689,7 @@ export default function MatchScreen() {
             </View>
           </View>
         )}
-      </SafeAreaView>
+      </View>
     );
   };
 
@@ -962,7 +914,18 @@ export default function MatchScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "transparent" },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  fullScreenCardContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
   centerBubbleWrap: {
     position: "absolute",
     alignItems: "center",
@@ -1076,6 +1039,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 32,
+    zIndex: 10,
   },
 
   // Swipe counter styles
