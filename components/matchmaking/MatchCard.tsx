@@ -47,12 +47,25 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const currentMember = group.members[currentMemberIndex];
 
-  const handleImageTap = () => {
+  const handleNextMember = () => {
     // Cycle to next member
     const nextIndex = (currentMemberIndex + 1) % group.members.length;
     setCurrentMemberIndex(nextIndex);
     setImageError(false);
-    console.log(`[MatchCard] Cycling to member ${nextIndex + 1}/${group.members.length}`);
+    console.log(`[MatchCard] Next member ${nextIndex + 1}/${group.members.length}`);
+  };
+
+  const handlePreviousMember = () => {
+    // Cycle to previous member
+    const prevIndex = currentMemberIndex === 0 ? group.members.length - 1 : currentMemberIndex - 1;
+    setCurrentMemberIndex(prevIndex);
+    setImageError(false);
+    console.log(`[MatchCard] Previous member ${prevIndex + 1}/${group.members.length}`);
+  };
+
+  const handleProfileTap = () => {
+    console.log(`[MatchCard] Opening profile for ${currentMember.first_name}`);
+    onUserPress(currentMember);
   };
 
   const handleImageError = () => {
@@ -74,11 +87,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         ))}
       </View>
 
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={handleImageTap}
-        style={styles.imageWrapper}
-      >
+      {/* Background image (non-interactive) */}
+      <View style={styles.imageWrapper}>
         {currentMember.avatar_url && !imageError ? (
           <Image
             key={`${group.group_id}-${currentMemberIndex}`}
@@ -93,7 +103,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <Text style={styles.placeholderText}>No Image</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </View>
 
       {/* Member info overlay */}
       <View style={styles.memberInfoOverlay}>
@@ -102,6 +112,28 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           {currentMember.age ? `, ${currentMember.age}` : ''}
         </Text>
       </View>
+
+      {/* Invisible tap areas */}
+      {/* Left area - Previous member */}
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={handlePreviousMember}
+        style={styles.leftTapArea}
+      />
+
+      {/* Right area - Next member */}
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={handleNextMember}
+        style={styles.rightTapArea}
+      />
+
+      {/* Bottom area - Profile popup (invisible overlay over name) */}
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={handleProfileTap}
+        style={styles.bottomTapArea}
+      />
     </View>
   );
 };
@@ -166,5 +198,32 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
+  },
+  // Tap areas
+  leftTapArea: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "40%",
+    height: "85%", // Exclude bottom area
+    zIndex: 5,
+  },
+  rightTapArea: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: "40%",
+    height: "85%", // Exclude bottom area
+    zIndex: 5,
+  },
+  bottomTapArea: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "20%", // Bottom 20% of the screen
+    zIndex: 6,
+    justifyContent: "flex-start",
+    paddingTop: 20,
   },
 });
