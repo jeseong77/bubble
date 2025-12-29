@@ -3,7 +3,7 @@
   "compilerOptions": {
     "jsx": "react-native",
     "esModuleInterop": true,
-    "strict": false,
+    "strict": true,
     "paths": {
       "@/*": [
         "./*"

@@ -11,7 +11,10 @@
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
       "Bash(npx expo prebuild:*)",
-      "Bash(npx expo run:ios)"
+      "Bash(npx expo run:ios)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

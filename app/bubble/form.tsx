@@ -15,65 +15,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase"; // supabase client added
 import { useAuth } from "@/providers/AuthProvider";
-
-// Skeleton components
-const SkeletonView = ({
-  width,
-  height,
-  style,
-}: {
-  width: number;
-  height: number;
-  style?: any;
-}) => (
-  <View
-    style={[
-      {
-        width,
-        height,
-        backgroundColor: "#f0f0f0",
-        borderRadius: 8,
-      },
-      style,
-    ]}
-  />
-);
-
-const SkeletonCircle = ({ size, style }: { size: number; style?: any }) => (
-  <View
-    style={[
-      {
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: "#f0f0f0",
-      },
-      style,
-    ]}
-  />
-);
-
-const SkeletonText = ({
-  width,
-  height,
-  style,
-}: {
-  width: number;
-  height: number;
-  style?: any;
-}) => (
-  <View
-    style={[
-      {
-        width,
-        height,
-        backgroundColor: "#f0f0f0",
-        borderRadius: 4,
-      },
-      style,
-    ]}
-  />
-);
+import { Skeleton } from "@/components/feedback/SkeletonLoader";
 
 // Member type definition (simple version)
 interface BubbleMember {
@@ -81,6 +23,7 @@ interface BubbleMember {
   first_name: string;
   last_name: string;
   avatar_url: string | null;
+  status?: "invited" | "joined" | "declined";
 }
 
 export default function BubbleFormScreen() {
@@ -573,7 +516,7 @@ export default function BubbleFormScreen() {
         <View style={[styles.contentContainer, { flex: 1 }]}>
           <View style={styles.topSection}>
             {isLoading ? (
-              <SkeletonView width={200} height={40} style={styles.titleInput} />
+              <Skeleton.Box width={200} height={40} style={styles.titleInput} />
             ) : (
               <Text style={styles.titleInput}>
                 {bubbleName || "My Bubble"}
@@ -628,12 +571,12 @@ export default function BubbleFormScreen() {
                     <View style={styles.bubbleContent}>
                       {isLoading || isMembersLoading ? (
                         <>
-                          <SkeletonText
+                          <Skeleton.Box
                             width={60}
                             height={20}
                             style={{ marginBottom: 12 }}
                           />
-                          <SkeletonCircle
+                          <Skeleton.Circle
                             size={bubbleSize}
                             style={styles.bubbleImage}
                           />
@@ -686,12 +629,12 @@ export default function BubbleFormScreen() {
                     <View style={styles.bubbleContent}>
                       {isMembersLoading ? (
                         <>
-                          <SkeletonText
+                          <Skeleton.Box
                             width={60}
                             height={20}
                             style={{ marginBottom: 12 }}
                           />
-                          <SkeletonCircle
+                          <Skeleton.Circle
                             size={bubbleSize}
                             style={styles.bubbleImage}
                           />
@@ -760,12 +703,12 @@ export default function BubbleFormScreen() {
                     <View style={styles.bubbleContent}>
                       {isLoading ? (
                         <>
-                          <SkeletonText
+                          <Skeleton.Box
                             width={80}
                             height={20}
                             style={{ marginBottom: 12 }}
                           />
-                          <SkeletonCircle
+                          <Skeleton.Circle
                             size={bubbleSize}
                             style={styles.emptyBubble}
                           />

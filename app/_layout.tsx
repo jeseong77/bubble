@@ -14,11 +14,13 @@ import BubbleFormationProvider from "@/providers/BubbleFormationProvider"; // [�
 import { MatchmakingProvider } from "@/providers/MatchmakingProvider"; // [추가] MatchmakingProvider 임포트
 import { configurePushNotifications } from "@/lib/pushNotifications";
 import { supabase } from "@/lib/supabase";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { logger } from "@/services/Logger";
 
 SplashScreen.preventAutoHideAsync();
 
 function AppInitializer() {
-  console.log("AppInitializer: Component rendering.");
+  logger.debug("AppInitializer: Component rendering");
   const { isReady: isRoutingLogicProcessed } = useInitialRouteRedirect();
   const { session } = useAuth();
   
@@ -29,20 +31,20 @@ function AppInitializer() {
   // Define helper functions outside useEffect so they can be used in multiple places
   const performDirectJoin = async (groupId: string, userId: string, bubbleName: string, token?: string | null) => {
     try {
-      console.log("[DeepLink] 🚀 Calling join_bubble_direct RPC with params:", {
+      logger.info("DeepLink: Calling join_bubble_direct RPC", {
         groupId,
         userId,
         bubbleName,
         hasToken: !!token
       });
-      
+
       const { data, error } = await supabase.rpc("join_bubble_direct", {
         p_group_id: groupId,
         p_user_id: userId,
         p_invite_token: token,
       });
 
-      console.log("[DeepLink] 📋 join_bubble_direct RPC response:", {
+      logger.debug("DeepLink: join_bubble_direct RPC response", {
         hasData: !!data,
         hasError: !!error,
         data,
@@ -50,7 +52,7 @@ function AppInitializer() {
       });
 
       if (error) {
-        console.error("[DeepLink] ❌ RPC error:", {
+        logger.error("DeepLink: RPC error", error, {
           message: error.message,
           code: error.code,
           details: error.details,
@@ -62,7 +64,7 @@ function AppInitializer() {
       }
 
       if (data?.success) {
-        console.log("[DeepLink] 🎉 Successfully joined bubble:", bubbleName);
+        logger.info("DeepLink: Successfully joined bubble", { bubbleName });
         Alert.alert(
           "Welcome to the bubble! 🎉",
           data.message || `You've successfully joined "${bubbleName}"!`,
@@ -70,7 +72,7 @@ function AppInitializer() {
             {
               text: "OK",
               onPress: () => {
-                console.log("[DeepLink] ✅ User acknowledged successful join");
+                logger.info("DeepLink: User acknowledged successful join");
                 processingDeepLink.current = false;
                 setPendingDeepLink(null); // Clear any pending deep links
               },
@@ -78,7 +80,7 @@ function AppInitializer() {
           ]
         );
       } else {
-        console.error("[DeepLink] ❌ Join failed:", {
+        logger.error("DeepLink: Join failed", undefined, {
           success: data?.success,
           message: data?.message,
           error: data?.error,
@@ -89,11 +91,8 @@ function AppInitializer() {
         processingDeepLink.current = false;
       }
     } catch (error) {
-      console.error("[DeepLink] 💥 Exception in performDirectJoin:", {
-        error,
-        message: error?.message,
-        stack: error?.stack
-      });
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      logger.error("DeepLink: Exception in performDirectJoin", errorObj);
       Alert.alert("Error", "An unexpected error occurred while joining the bubble.");
       processingDeepLink.current = false;
     }
@@ -101,22 +100,22 @@ function AppInitializer() {
 
   const handleJoinBubble = async (groupId: string, userId: string, token?: string | null) => {
     processingDeepLink.current = true;
-    console.log("[DeepLink] 🎯 Starting bubble join process:", {
+    logger.info("DeepLink: Starting bubble join process", {
       groupId,
       userId,
       hasToken: !!token,
       tokenLength: token?.length
     });
-    
+
     try {
-      console.log("[DeepLink] 📞 Calling get_bubble RPC...");
-      
+      logger.debug("DeepLink: Calling get_bubble RPC");
+
       // First, get bubble info for confirmation dialog
       const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
         p_group_id: groupId,
       });
 
-      console.log("[DeepLink] 📋 get_bubble RPC response:", {
+      logger.debug("DeepLink: get_bubble RPC response", {
         hasData: !!bubbleData,
         dataLength: bubbleData?.length,
         hasError: !!bubbleError,
@@ -124,7 +123,7 @@ function AppInitializer() {
       });
 
       if (bubbleError) {
-        console.error("[DeepLink] ❌ Error fetching bubble info:", {
+        logger.error("DeepLink: Error fetching bubble info", bubbleError, {
           message: bubbleError.message,
           code: bubbleError.code,
           details: bubbleError.details,
@@ -135,13 +134,13 @@ function AppInitializer() {
       }
 
       if (!bubbleData || bubbleData.length === 0) {
-        console.error("[DeepLink] ❌ Bubble not found in database");
+        logger.error("DeepLink: Bubble not found in database");
         Alert.alert("Error", "This bubble no longer exists or has been deleted.");
         return;
       }
 
       const bubble = bubbleData[0];
-      console.log("[DeepLink] ✅ Bubble found:", {
+      logger.info("DeepLink: Bubble found", {
         name: bubble.name,
         id: bubble.id,
         hasMembers: !!bubble.members
@@ -171,11 +170,8 @@ function AppInitializer() {
         ]
       );
     } catch (error) {
-      console.error("[DeepLink] 💥 Exception in handleJoinBubble:", {
-        error,
-        message: error?.message,
-        stack: error?.stack
-      });
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      logger.error("DeepLink: Exception in handleJoinBubble", errorObj);
       Alert.alert("Error", "An unexpected error occurred while processing the invitation.");
       processingDeepLink.current = false;
     }
@@ -363,17 +359,19 @@ export default function RootLayout() {
   );
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        {/* [변경] RealtimeProvider로 AppInitializer를 감싸줍니다. */}
-        <RealtimeProvider>
-          <BubbleFormationProvider>
-            <MatchmakingProvider>
-              <AppInitializer />
-            </MatchmakingProvider>
-          </BubbleFormationProvider>
-        </RealtimeProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          {/* [변경] RealtimeProvider로 AppInitializer를 감싸줍니다. */}
+          <RealtimeProvider>
+            <BubbleFormationProvider>
+              <MatchmakingProvider>
+                <AppInitializer />
+              </MatchmakingProvider>
+            </BubbleFormationProvider>
+          </RealtimeProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

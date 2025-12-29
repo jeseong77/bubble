@@ -1,6 +1,16 @@
 // src/types/bubble.ts
 import type { ProfileFormData, ProfileImage } from "./profile";
 
+// Bubble member type from database
+export interface BubbleMember {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  avatar_url: string | null;
+  signedUrl?: string | null;
+  status?: "invited" | "joined" | "declined";
+}
+
 // 버블 내 공유 게시물(사진/영상) 타입
 export interface BubblePost {
   id: string; // 게시물의 고유 ID

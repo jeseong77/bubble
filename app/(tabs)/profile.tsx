@@ -26,6 +26,7 @@ import * as ImagePicker from "expo-image-picker";
 import BubbleTabItem from "@/components/bubble/BubbleTabItem";
 import CreateBubbleModal from "@/components/ui/CreateBubbleModal";
 import * as Camera from "expo-camera";
+import { Skeleton } from "@/components/feedback/SkeletonLoader";
 
 // --- Imports for data integration ---
 import { useAuth } from "@/providers/AuthProvider";
@@ -48,80 +49,21 @@ const TABS_DATA: TabInfo[] = [
 const NUM_COLUMNS = 3;
 const MAX_IMAGES_DEFAULT = 6;
 
-// Skeleton Components
-const SkeletonView = ({
-  width,
-  height,
-  style,
-}: {
-  width: number | string;
-  height: number | string;
-  style?: any;
-}) => (
-  <View
-    style={[
-      {
-        width: width as any,
-        height: height as any,
-        backgroundColor: "#f0f0f0",
-        borderRadius: 8,
-      },
-      style,
-    ]}
-  />
-);
-
-const SkeletonCircle = ({ size, style }: { size: number; style?: any }) => (
-  <View
-    style={[
-      {
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: "#f0f0f0",
-      },
-      style,
-    ]}
-  />
-);
-
-const SkeletonText = ({
-  width,
-  height,
-  style,
-}: {
-  width: number | string;
-  height: number | string;
-  style?: any;
-}) => (
-  <View
-    style={[
-      {
-        width: width as any,
-        height: height as any,
-        backgroundColor: "#f0f0f0",
-        borderRadius: 4,
-      },
-      style,
-    ]}
-  />
-);
-
 // Skeleton Bubble Item Component
 const SkeletonBubbleItem = () => {
   return (
     <View style={styles.skeletonBubbleItem}>
       <View style={styles.skeletonBubbleContent}>
         <View style={styles.skeletonBubbleAvatars}>
-          <SkeletonCircle size={40} />
-          <SkeletonCircle size={40} style={{ marginLeft: -15 }} />
+          <Skeleton.Circle size={40} />
+          <Skeleton.Circle size={40} style={{ marginLeft: -15 }} />
         </View>
         <View style={styles.skeletonBubbleText}>
-          <SkeletonText width={100} height={16} style={{ marginBottom: 4 }} />
-          <SkeletonText width={60} height={12} />
+          <Skeleton.Box width={100} height={16} style={{ marginBottom: 4 }} />
+          <Skeleton.Box width={60} height={12} />
         </View>
       </View>
-      <SkeletonView width={24} height={24} />
+      <Skeleton.Box width={24} height={24} />
     </View>
   );
 };
@@ -145,7 +87,7 @@ const SkeletonImageGrid = () => {
             { width: itemSize, height: itemSize },
           ]}
         >
-          <SkeletonView
+          <Skeleton.Box
             width="100%"
             height="100%"
             style={{ borderRadius: 12 }}
@@ -162,11 +104,11 @@ const SkeletonProfileDetails = () => {
     <View style={styles.skeletonProfileDetails}>
       {Array.from({ length: 7 }).map((_, index) => (
         <View key={index} style={styles.skeletonDetailItem}>
-          <SkeletonText width={80} height={14} style={{ marginBottom: 8 }} />
-          <SkeletonText width="100%" height={20} />
+          <Skeleton.Box width={80} height={14} style={{ marginBottom: 8 }} />
+          <Skeleton.Box width="100%" height={20} />
         </View>
       ))}
-      <SkeletonView
+      <Skeleton.Box
         width="100%"
         height={50}
         style={{ marginTop: 30, borderRadius: 25 }}
