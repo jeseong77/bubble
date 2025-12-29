@@ -95,7 +95,6 @@ export default function MatchScreen() {
   // Safety check: Reset index if it goes out of bounds after group removal
   useEffect(() => {
     if (matchingGroups.length > 0 && currentGroupIndex >= matchingGroups.length) {
-      console.log(`[MatchScreen] 🔧 Index ${currentGroupIndex} out of bounds (length: ${matchingGroups.length}), resetting to 0`);
       setCurrentGroupIndex(0);
     }
   }, [matchingGroups.length, currentGroupIndex]);
@@ -103,397 +102,16 @@ export default function MatchScreen() {
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
 
-  // Fetch data only on initial loading (useFocusEffect removed)
-  useEffect(() => {
-    console.log("[MatchScreen] 🎯 Initial data loading...");
-
-    // Get user's active group info (using same logic as Profile Screen)
-    const fetchUserBubble = async () => {
-      if (!session?.user) return;
-
-      setUserBubbleLoading(true);
-      try {
-        console.log("[MatchScreen] 🔍 Starting to fetch active bubble info (using Profile Screen logic)");
-
-        // Step 1: Get user's active_group_id from users table (same as profile screen)
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("active_group_id")
-          .eq("id", session.user.id)
-          .single();
-
-        let activeBubbleId: string | null = null;
-        if (!userError && userData?.active_group_id) {
-          activeBubbleId = userData.active_group_id;
-          console.log("[MatchScreen] ✅ Found active_group_id:", activeBubbleId);
-        } else {
-          // Step 2: If no active bubble, get first joined bubble (same as profile screen fallback)
-          console.log("[MatchScreen] ❌ No active_group_id, finding first joined bubble");
-          const { data: basicBubbles, error: basicError } = await supabase
-            .from('group_members')
-            .select(`
-              groups!inner(id, name, status, max_size, creator_id),
-              status,
-              invited_at
-            `)
-            .eq('user_id', session.user.id)
-            .eq('status', 'joined')
-            .order('invited_at', { ascending: false })
-            .limit(1);
-
-          if (!basicError && basicBubbles && basicBubbles.length > 0) {
-            activeBubbleId = basicBubbles[0].groups.id;
-            console.log("[MatchScreen] 🔄 Using first joined bubble as fallback:", activeBubbleId);
-          }
-        }
-
-        if (!activeBubbleId) {
-          console.log("[MatchScreen] ❌ No active bubble or joined bubbles found");
-          setUserBubble(null);
-          return;
-        }
-
-        // Step 3: Get complete bubble data using the SAME get_bubble RPC as profile screen
-        console.log("[MatchScreen] 🎯 Fetching complete bubble data using get_bubble RPC");
-        const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
-          p_group_id: activeBubbleId,
-        });
-
-        if (bubbleError || !bubbleData || bubbleData.length === 0) {
-          console.error("[MatchScreen] ❌ get_bubble RPC failed:", bubbleError);
-          setUserBubble(null);
-          return;
-        }
-
-        const completeData = bubbleData[0];
-        console.log("[MatchScreen] ✅ get_bubble RPC success:", {
-          id: completeData.id,
-          name: completeData.name,
-          membersCount: completeData.members?.length || 0,
-          members: completeData.members
-        });
-
-        // Step 4: Transform data using EXACT same logic as profile screen
-        let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
-        if (completeData.members) {
-          try {
-            members = Array.isArray(completeData.members)
-              ? completeData.members
-              : JSON.parse(completeData.members);
-          } catch (parseError) {
-            console.error("[MatchScreen] Failed to parse member info:", parseError);
-            members = [];
-          }
-        }
-
-        console.log(`[MatchScreen] 🔍 Processing bubble "${completeData.name}" with ${members.length} members:`);
-        members.forEach((member, idx) => {
-          console.log(`[MatchScreen] - Member ${idx}: ${member.first_name} ${member.last_name} (${member.id})`);
-        });
-
-        // Transform to UserBubble structure (same as profile screen transformation)
-        const transformedMembers = members.map((member) => {
-          return {
-            id: member.id,
-            first_name: member.first_name,
-            last_name: member.last_name,
-            avatar_url: member.avatar_url,
-            signedUrl: member.avatar_url, // Already public URL, use as is
-          };
-        });
-
-        const userBubbleData: UserBubble = {
-          id: completeData.id,
-          name: completeData.name,
-          members: transformedMembers,
-        };
-
-        console.log("[MatchScreen] 🎯 Setting final user group data:", {
-          id: userBubbleData.id,
-          name: userBubbleData.name,
-          totalMembers: userBubbleData.members.length,
-          memberDetails: userBubbleData.members.map(m => ({
-            id: m.id,
-            name: `${m.first_name} ${m.last_name}`,
-            hasAvatar: !!m.avatar_url
-          }))
-        });
-        setUserBubble(userBubbleData);
-
-      } catch (error) {
-        console.error("[MatchScreen] Failed to fetch user group info:", error);
-        setUserBubble(null);
-      } finally {
-        setUserBubbleLoading(false);
-      }
-    };
-
-    fetchUserBubble();
-  }, [session?.user]); // Execute only when session?.user changes
-
-  // User bubble refresh function (for state updates after bubble pop)
-  const refreshUserBubble = async () => {
-    if (!session?.user) return;
-
-    setUserBubbleLoading(true);
-    try {
-      console.log("[MatchScreen] 🔄 Refreshing user bubble after pop...");
-
-      // Step 1: Get user's active_group_id from users table
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("active_group_id")
-        .eq("id", session.user.id)
-        .single();
-
-      let activeBubbleId: string | null = null;
-      if (!userError && userData?.active_group_id) {
-        activeBubbleId = userData.active_group_id;
-        console.log("[MatchScreen] ✅ Found active_group_id after refresh:", activeBubbleId);
-      } else {
-        // Step 2: If no active bubble, get first joined bubble
-        console.log("[MatchScreen] ❌ No active_group_id after pop, checking for other bubbles");
-        const { data: basicBubbles, error: basicError } = await supabase
-          .from('group_members')
-          .select(`
-            groups!inner(id, name, status, max_size, creator_id),
-            status,
-            invited_at
-          `)
-          .eq('user_id', session.user.id)
-          .eq('status', 'joined')
-          .order('invited_at', { ascending: false })
-          .limit(1);
-
-        if (!basicError && basicBubbles && basicBubbles.length > 0) {
-          activeBubbleId = basicBubbles[0].groups.id;
-          console.log("[MatchScreen] 🔄 Using first joined bubble as fallback:", activeBubbleId);
-        }
-      }
-
-      if (!activeBubbleId) {
-        console.log("[MatchScreen] ✅ No bubbles found after pop - user has no active bubbles");
-        setUserBubble(null);
-        return;
-      }
-
-      // Step 3: Get complete bubble data using get_bubble RPC
-      console.log("[MatchScreen] 🎯 Fetching updated bubble data");
-      const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
-        p_group_id: activeBubbleId,
-      });
-
-      if (bubbleError || !bubbleData || bubbleData.length === 0) {
-        console.error("[MatchScreen] ❌ get_bubble RPC failed during refresh:", bubbleError);
-        setUserBubble(null);
-        return;
-      }
-
-      const completeData = bubbleData[0];
-      console.log("[MatchScreen] ✅ Bubble refresh successful:", completeData.name);
-
-      // Transform data same as initial load
-      let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
-      if (completeData.members) {
-        try {
-          members = Array.isArray(completeData.members)
-            ? completeData.members
-            : JSON.parse(completeData.members);
-        } catch (parseError) {
-          console.error("[MatchScreen] Failed to parse member info during refresh:", parseError);
-          members = [];
-        }
-      }
-
-      const transformedMembers = members.map((member) => ({
-        id: member.id,
-        first_name: member.first_name,
-        last_name: member.last_name,
-        avatar_url: member.avatar_url,
-        signedUrl: member.avatar_url,
-      }));
-
-      const userBubbleData: UserBubble = {
-        id: completeData.id,
-        name: completeData.name,
-        members: transformedMembers,
-      };
-
-      setUserBubble(userBubbleData);
-      console.log("[MatchScreen] 🎯 User bubble refreshed successfully");
-
-    } catch (error) {
-      console.error("[MatchScreen] Error refreshing user bubble:", error);
-      setUserBubble(null);
-    } finally {
-      setUserBubbleLoading(false);
-    }
-  };
-
   // Focus effect for automatic refresh when returning to first tab
   useFocusEffect(
     React.useCallback(() => {
-      console.log("[MatchScreen] 🔄 Tab focused - refreshing all data...");
-      
-      // Refresh user bubble data (may have new active group)
-      const refreshUserBubbleData = async () => {
-        if (!session?.user) return;
-
-        setUserBubbleLoading(true);
-        try {
-          console.log("[MatchScreen] 🔄 Refreshing user bubble on focus...");
-
-          // Step 1: Get user's active_group_id from users table
-          const { data: userData, error: userError } = await supabase
-            .from("users")
-            .select("active_group_id")
-            .eq("id", session.user.id)
-            .single();
-
-          let activeBubbleId: string | null = null;
-          if (!userError && userData?.active_group_id) {
-            activeBubbleId = userData.active_group_id;
-            console.log("[MatchScreen] ✅ Found active_group_id on focus:", activeBubbleId);
-          } else {
-            // Step 2: If no active bubble, get first joined bubble
-            console.log("[MatchScreen] ❌ No active_group_id on focus, checking for other bubbles");
-            const { data: basicBubbles, error: basicError } = await supabase
-              .from('group_members')
-              .select(`
-                groups!inner(id, name, status, max_size, creator_id),
-                status,
-                invited_at
-              `)
-              .eq('user_id', session.user.id)
-              .eq('status', 'joined')
-              .order('invited_at', { ascending: false })
-              .limit(1);
-
-            if (!basicError && basicBubbles && basicBubbles.length > 0) {
-              activeBubbleId = basicBubbles[0].groups.id;
-              console.log("[MatchScreen] 🔄 Using first joined bubble on focus:", activeBubbleId);
-            }
-          }
-
-          if (!activeBubbleId) {
-            console.log("[MatchScreen] ✅ No bubbles found on focus - user has no active bubbles");
-            setUserBubble(null);
-            return;
-          }
-
-          // Step 3: Get complete bubble data using get_bubble RPC
-          console.log("[MatchScreen] 🎯 Fetching bubble data on focus");
-          const { data: bubbleData, error: bubbleError } = await supabase.rpc("get_bubble", {
-            p_group_id: activeBubbleId,
-          });
-
-          if (bubbleError || !bubbleData || bubbleData.length === 0) {
-            console.error("[MatchScreen] ❌ get_bubble RPC failed on focus:", bubbleError);
-            setUserBubble(null);
-            return;
-          }
-
-          const completeData = bubbleData[0];
-          console.log("[MatchScreen] ✅ Bubble data refreshed on focus:", completeData.name);
-
-          // Transform data same as initial load
-          let members: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] = [];
-          if (completeData.members) {
-            try {
-              members = Array.isArray(completeData.members)
-                ? completeData.members
-                : JSON.parse(completeData.members);
-            } catch (parseError) {
-              console.error("[MatchScreen] Failed to parse member info on focus:", parseError);
-              members = [];
-            }
-          }
-
-          const transformedMembers = members.map((member) => ({
-            id: member.id,
-            first_name: member.first_name,
-            last_name: member.last_name,
-            avatar_url: member.avatar_url,
-            signedUrl: member.avatar_url,
-          }));
-
-          const userBubbleData: UserBubble = {
-            id: completeData.id,
-            name: completeData.name,
-            members: transformedMembers,
-          };
-
-          setUserBubble(userBubbleData);
-          console.log("[MatchScreen] 🎯 User bubble refreshed successfully on focus");
-
-        } catch (error) {
-          console.error("[MatchScreen] Error refreshing user bubble on focus:", error);
-          setUserBubble(null);
-        } finally {
-          setUserBubbleLoading(false);
-        }
-      };
-      
       // Refresh matchmaking data (detects active group changes)
       refreshAll();
-      
-      // Refresh user bubble data
-      refreshUserBubbleData();
-    }, [refreshAll, session?.user])
+
+      // Refresh user bubble data from hook
+      refreshUserBubble();
+    }, [refreshAll, refreshUserBubble])
   );
-
-  // 🔍 DEBUG: Logging matching group data
-  useEffect(() => {
-    console.log("=== 🔍 MATCHING GROUPS IN INDEX ===");
-    console.log("Total matching groups:", matchingGroups.length);
-    console.log("Current group index:", currentGroupIndex);
-    console.log("Current group:", currentGroup);
-
-    if (currentGroup) {
-      console.log("=== 📋 CURRENT GROUP DETAILS ===");
-      console.log("Group ID:", currentGroup.group_id);
-      console.log("Group Name:", currentGroup.group_name);
-      console.log("Group Gender:", currentGroup.group_gender);
-      console.log("Preferred Gender:", currentGroup.preferred_gender);
-      console.log("Match Score:", currentGroup.match_score);
-      console.log("Members Count:", currentGroup.members?.length || 0);
-
-      if (currentGroup.members && currentGroup.members.length > 0) {
-        console.log("=== 👥 MEMBERS DETAILS ===");
-        currentGroup.members.forEach((member, index) => {
-          console.log(`Member ${index + 1}:`);
-          console.log("  - Name:", member.first_name, member.last_name);
-          console.log("  - Age:", member.age);
-          console.log("  - MBTI:", member.mbti);
-          console.log("  - Avatar:", member.avatar_url);
-        });
-      } else {
-        console.log("❌ No members data in current group!");
-      }
-    } else {
-      console.log("❌ No current group available");
-    }
-  }, [currentGroup, currentGroupIndex, matchingGroups.length]);
-
-  // 🔍 DEBUG: Logging matchmaking context state
-  useEffect(() => {
-    console.log("=== 🔍 MATCHMAKING CONTEXT STATE ===");
-    console.log("isLoading:", isLoading);
-    console.log("error:", error);
-    console.log("currentUserGroup:", currentUserGroup);
-    console.log("matchingGroups length:", matchingGroups.length);
-    console.log("currentGroupIndex:", currentGroupIndex);
-    console.log("hasMore:", hasMore);
-    console.log("isLoadingMore:", isLoadingMore);
-  }, [
-    isLoading,
-    error,
-    currentUserGroup,
-    matchingGroups.length,
-    currentGroupIndex,
-    hasMore,
-    isLoadingMore,
-  ]);
 
   // Unified animation values
   const translateX = useSharedValue(0);
@@ -503,24 +121,13 @@ export default function MatchScreen() {
 
   // Handle different states - moved to after all hooks are called
   const renderContent = () => {
-    console.log("=== 🎨 RENDER CONTENT DEBUG ===");
-    console.log("userBubble:", userBubble);
-    console.log("userBubbleLoading:", userBubbleLoading);
-    console.log("isLoading:", isLoading);
-    console.log("error:", error);
-    console.log("matchingGroups.length:", matchingGroups.length);
-    console.log("currentGroup:", currentGroup);
-
     // User bubble loading
     if (userBubbleLoading) {
-      console.log("⏳ User bubble loading - showing LoadingState");
       return <LoadingState message="Loading your bubble..." />;
     }
 
     // User has no group OR group is still forming
     if (!userBubble || currentUserGroupStatus === 'forming') {
-      console.log("❌ No user bubble or forming group - showing NoGroupState");
-      console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
         <View style={styles.safeArea}>
           <NoGroupState onCreateGroup={() => router.push({
@@ -533,13 +140,11 @@ export default function MatchScreen() {
 
     // Matching groups loading
     if (isLoading) {
-      console.log("⏳ Matching groups loading - showing LoadingState");
       return <LoadingState message="Finding your perfect matches..." />;
     }
 
     // Matching error
     if (error) {
-      console.log("❌ Error - showing ErrorState");
       return (
         <ErrorState
           error={error}
@@ -553,7 +158,6 @@ export default function MatchScreen() {
 
     // Check if daily swipe limit is reached
     if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
-      console.log("🚫 Daily swipe limit reached - showing limit reached state");
       return (
         <View style={styles.safeArea}>
           {/* Message Display */}
@@ -585,16 +189,12 @@ export default function MatchScreen() {
 
     // No matching groups
     if (matchingGroups.length === 0 && !isLoading) {
-      console.log("📭 No matching groups - checking if user has swipes remaining");
-      
-      // If user still has swipes, show "No more groups available" 
+      // If user still has swipes, show "No more groups available"
       if (swipeLimitInfo && swipeLimitInfo.can_swipe) {
-        console.log("🚫 No groups but user has swipes - showing NoMoreGroupsState");
         return <NoMoreGroupsState />;
       }
-      
+
       // Otherwise show the regular empty state (no swipes left or first time)
-      console.log("📭 No matching groups - showing EmptyState");
       return (
         <EmptyState
           message="No new matches available. Check back later!"
@@ -606,7 +206,6 @@ export default function MatchScreen() {
       );
     }
 
-    console.log("✅ Showing main content with MatchCard");
     // Main content when we have data
     return (
       <View style={styles.safeArea}>
@@ -685,11 +284,6 @@ export default function MatchScreen() {
   // Handle user image click
   const handleUserClick = useCallback(
     (user: GroupMember) => {
-      console.log("=== 🖼️ USER CLICK HANDLER ===");
-      console.log("User clicked:", user);
-      console.log("User ID:", user.id);
-      console.log("User name:", user.first_name);
-
       router.push({
         pathname: "/bubble/user/[userId]",
         params: {
@@ -704,24 +298,14 @@ export default function MatchScreen() {
   const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
     // Handle empty state when no more groups
     if (matchingGroups.length === 0) {
-      console.log("❌ No more groups available");
       return;
     }
-
-    // 🔍 DEBUG: Array bounds check
-    console.log("=== 🔄 CHANGE BUBBLE DEBUG ===");
-    console.log("Current Index before:", currentGroupIndex);
-    console.log("Groups Length:", matchingGroups.length);
 
     // Reset to 0 if current index is out of bounds (after group removal)
     let nextIndex = currentGroupIndex;
     if (currentGroupIndex >= matchingGroups.length) {
-      console.log("❌ Current index out of bounds, resetting to 0");
       nextIndex = 0;
     }
-
-    console.log("Next Index:", nextIndex);
-    console.log("Next Group:", matchingGroups[nextIndex]);
 
     setCurrentGroupIndex(nextIndex);
 
