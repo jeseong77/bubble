@@ -28,6 +28,7 @@ import CreateBubbleModal from "@/components/ui/CreateBubbleModal";
 import * as Camera from "expo-camera";
 import { Skeleton } from "@/components/feedback/SkeletonLoader";
 import { ProfileBubbles } from "@/components/profile/ProfileBubbles";
+import { EditProfileTab } from "@/components/profile/EditProfileTab";
 
 // --- Imports for data integration ---
 import { useAuth } from "@/providers/AuthProvider";
@@ -809,187 +810,7 @@ function ProfileScreen() {
   };
 
 
-  // Calculate image grid layout
-  const screenWidth = Dimensions.get("window").width;
-  const contentPaddingHorizontal =
-    styles.editProfileTabContent.paddingHorizontal;
-  const itemGap = 10;
-  const totalGapSpace = itemGap * (NUM_COLUMNS - 1);
-  const itemSize =
-    (screenWidth - contentPaddingHorizontal * 2 - totalGapSpace) / NUM_COLUMNS;
-
-  // Render each image slot function
-  const renderImageSlot = (index: number) => {
-    const imageAsset = currentImages[index];
-
-    return (
-      <View
-        key={index}
-        style={[
-          styles.imageSlotContainer,
-          { width: itemSize, height: itemSize },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.imageSlotButton,
-            {
-              backgroundColor: colors.lightGray,
-            },
-          ]}
-          onPress={() => handleImageOptions(index)}
-          activeOpacity={0.7}
-        >
-          {imageAsset ? (
-            imageAsset.isLoading ? (
-              <View style={[styles.imagePreview, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.lightGray }]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-              </View>
-            ) : (
-              <Image
-                source={{ uri: imageAsset.url }}
-                style={styles.imagePreview}
-              />
-            )
-          ) : (
-            <>
-              <Text style={[styles.imageSlotNumber, { color: colors.black }]}>
-                {index + 1}.
-              </Text>
-              <View style={styles.imagePlusIconContainer}>
-                <Ionicons
-                  name="add-circle-outline"
-                  size={Math.min(itemSize * 0.3, 32)}
-                  color={colors.darkGray}
-                />
-              </View>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderProfileDetails = (profile: ProfileFormData) => (
-    <View style={styles.profileDetailsContainer}>
-      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
-        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          First name<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
-        </Text>
-        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
-          {editingProfile?.firstName || 'Not available'}
-        </Text>
-      </View>
-      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
-        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Last name<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
-        </Text>
-        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
-          {editingProfile?.lastName || 'Not available'}
-        </Text>
-      </View>
-      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
-        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Age<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
-        </Text>
-        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
-          {editingProfile?.age ? `${editingProfile.age} years old` : 'Not available'}
-        </Text>
-      </View>
-      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
-        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Height (cm)
-        </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.height?.toString() || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, height: parseInt(text) || 0 } : null
-            )
-          }
-          placeholder="Enter height"
-          placeholderTextColor={colors.darkGray}
-          keyboardType="numeric"
-        />
-      </View>
-      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
-        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          MBTI
-        </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            { color: colors.black, borderBottomColor: colors.darkGray },
-          ]}
-          value={editingProfile?.mbti || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) => (prev ? { ...prev, mbti: text } : null))
-          }
-          placeholder="Enter MBTI"
-          placeholderTextColor={colors.darkGray}
-          autoCapitalize="characters"
-        />
-      </View>
-      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
-        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Description
-        </Text>
-        <TextInput
-          style={[
-            styles.detailInput,
-            {
-              color: colors.black,
-              borderBottomColor: colors.darkGray,
-            },
-          ]}
-          value={editingProfile?.aboutMe || ""}
-          onChangeText={(text) =>
-            setEditingProfile((prev) =>
-              prev ? { ...prev, aboutMe: text } : null
-            )
-          }
-          placeholder="Tell us about yourself"
-          placeholderTextColor={colors.darkGray}
-          textAlignVertical="top"
-        />
-      </View>
-      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
-        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Gender<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
-        </Text>
-        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
-          {editingProfile?.gender ? editingProfile.gender.charAt(0).toUpperCase() + editingProfile.gender.slice(1) : 'Not specified'}
-        </Text>
-      </View>
-      <View style={[styles.detailItem, { borderBottomColor: colors.darkGray }]}>
-        <Text style={[styles.detailLabel, { color: colors.darkGray }]}>
-          Preferred Gender<Text style={{ color: 'red', fontSize: 18 }}>*</Text>
-        </Text>
-        <Text style={[styles.detailValue, { color: colors.black, borderBottomColor: colors.darkGray }]}>
-          {editingProfile?.preferredGender ? editingProfile.preferredGender.charAt(0).toUpperCase() + editingProfile.preferredGender.slice(1) : 'Not specified'}
-        </Text>
-      </View>
-
-      {/* 저장 버튼 */}
-      <TouchableOpacity
-        style={[styles.saveButton, { backgroundColor: colors.primary }]}
-        onPress={() => setShowSaveModal(true)}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator color={colors.white} size="small" />
-        ) : (
-          <Text style={[styles.saveButtonText, { color: colors.white }]}>
-            Save Changes
-          </Text>
-        )}
-      </TouchableOpacity>
-    </View>
-  );
+  // --- Extracted functions moved to EditProfileTab component ---
 
   const renderTabContent = () => {
     if (activeTab === "bubblePro") {
@@ -1011,16 +832,14 @@ function ProfileScreen() {
       );
     } else if (activeTab === "myInfo") {
       return (
-        <View style={styles.editProfileTabContent}>
-          {/* Image input grid */}
-          <View style={styles.imageGridContainer}>
-            {Array.from({ length: MAX_IMAGES_DEFAULT }).map((_, index) =>
-              renderImageSlot(index)
-            )}
-          </View>
-          {/* Profile details (edit fields) */}
-          {editingProfile && renderProfileDetails(editingProfile)}
-        </View>
+        <EditProfileTab
+          editingProfile={editingProfile}
+          onProfileChange={(profile) => setEditingProfile(profile)}
+          currentImages={currentImages}
+          onImageSelect={handleImageOptions}
+          onSavePress={() => setShowSaveModal(true)}
+          saving={saving}
+        />
       );
     }
     return null;
@@ -1279,48 +1098,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  editProfileTabContent: {
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 30 : 100,
-  },
-  profileDetailsContainer: {
-    paddingTop: 30,
-  },
-  detailItem: {
-    marginBottom: 20,
-    paddingBottom: 10,
-  },
-  detailLabel: {
-    fontSize: 14,
-    fontFamily: "Quicksand-Regular",
-    marginBottom: 4,
-  },
-  detailInput: {
-    fontSize: 18,
-    fontFamily: "Quicksand-Regular",
-    borderBottomWidth: 1,
-    paddingVertical: 8,
-    marginTop: 4,
-  },
-  detailValue: {
-    fontSize: 18,
-    fontFamily: "Quicksand-Regular",
-    borderBottomWidth: 1,
-    paddingVertical: 8,
-    marginTop: 4,
-  },
-  saveButton: {
-    marginTop: 30,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontFamily: "Quicksand-Bold",
-  },
   logoutButton: {
     paddingVertical: 15,
     paddingHorizontal: 30,
@@ -1448,41 +1225,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Quicksand', 
     fontWeight: '700',
     marginLeft: 10,
-  },
-  imageGridContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    paddingTop: 20,
-  },
-  imageSlotContainer: {
-    marginBottom: 10,
-    position: "relative",
-  },
-  imageSlotButton: {
-    flex: 1,
-    justifyContent: "space-between",
-    alignItems: "stretch",
-    borderRadius: 12,
-    padding: 8,
-  },
-  imagePreview: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 10,
-  },
-  imageSlotNumber: {
-    position: "absolute",
-    top: 5,
-    left: 8,
-    fontSize: 14,
-    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif-medium",
-    fontWeight: "500",
-  },
-  imagePlusIconContainer: {
-    position: "absolute",
-    bottom: 5,
-    right: 5,
   },
   removeImageIconContainer: {
     position: "absolute",
