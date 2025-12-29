@@ -53,7 +53,6 @@ export default function SearchScreen() {
       const urlObj = new URL(url);
       return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
     } catch (error) {
-      console.warn(`Invalid URL detected: ${url}`);
       return false;
     }
   };
@@ -64,11 +63,9 @@ export default function SearchScreen() {
 
     // Use avatar URL directly if available and valid, otherwise fallback
     if (avatarUrl && isValidUrl(avatarUrl)) {
-      console.log(`[getSafeImageUrl] Using public avatar URL for user ${userId}`);
       return avatarUrl;
     }
 
-    console.log(`[getSafeImageUrl] Using fallback URL for user ${userId}`);
     return fallbackUrl;
   };
 
@@ -125,9 +122,6 @@ export default function SearchScreen() {
       return;
     }
 
-    console.log(`[SearchScreen] Search started: "${searchTerm}"`);
-    console.log(`[SearchScreen] Excluding User ID: ${session.user.id}`);
-    console.log(`[SearchScreen] Excluding Group ID: ${groupId}`);
 
     setIsSearching(true);
     try {
@@ -141,7 +135,6 @@ export default function SearchScreen() {
         }
       );
 
-      console.log(`[SearchScreen] Complete search results:`, { allUsers, searchError });
 
       if (searchError) throw searchError;
 
@@ -153,7 +146,6 @@ export default function SearchScreen() {
         }
       );
 
-      console.log(`[SearchScreen] Group member information:`, {
         groupMembers,
         membersError,
       });
@@ -174,11 +166,9 @@ export default function SearchScreen() {
           invitationStatus: memberStatusMap.get(user.id) || null, // 'invited', 'joined', 'declined' or null
         })) || [];
 
-      console.log(`[SearchScreen] Search results with status added:`, usersWithStatus);
       
       // Log avatar URLs to debug format
       usersWithStatus.forEach(user => {
-        console.log(`[SearchScreen] User ${user.id} (${user.username}) avatar_url:`, user.avatar_url);
       });
 
       setSearchResults(usersWithStatus);
@@ -198,9 +188,6 @@ export default function SearchScreen() {
       return;
     }
 
-    console.log(`[SearchScreen] Attempting to send invitation: ${userName} (ID: ${userId})`);
-    console.log(`[SearchScreen] Group ID: ${groupId}`);
-    console.log(`[SearchScreen] Inviter ID: ${session.user.id}`);
 
     try {
       const { data, error } = await supabase.rpc("send_invitation", {
@@ -209,7 +196,6 @@ export default function SearchScreen() {
         p_invited_by_user_id: session.user.id,
       });
 
-      console.log(`[SearchScreen] RPC response:`, { data, error });
 
       if (error) {
         console.error(`[SearchScreen] Invitation sending error:`, error);
@@ -217,20 +203,9 @@ export default function SearchScreen() {
       }
 
       if (data) {
-        console.log(`[SearchScreen] ==================== Invitation Sending Response Analysis ====================`);
-        console.log(`[SearchScreen] Raw response:`, JSON.stringify(data, null, 2));
-        console.log(`[SearchScreen] - success: ${data.success}`);
-        console.log(`[SearchScreen] - already_exists: ${data.already_exists}`);
-        console.log(`[SearchScreen] - inserted_count: ${data.inserted_count}`);
-        console.log(`[SearchScreen] - verification_status: ${data.verification_status}`);
-        console.log(`[SearchScreen] - parameters:`, data.parameters);
-        console.log(`[SearchScreen] - error:`, data.error);
 
         // More permissive UI update logic - update UI if invitation was successful OR already exists
         if (data.success || data.already_exists) {
-          console.log(`[SearchScreen] ✅ Invitation successful or already exists: ${userName}`);
-          console.log(`[SearchScreen] - success: ${data.success}, already_exists: ${data.already_exists}`);
-          console.log(`[SearchScreen] - verification_status: ${data.verification_status}`);
           
           // Update UI to show invitation sent
           setSearchResults(prevResults =>
@@ -258,7 +233,6 @@ export default function SearchScreen() {
           Alert.alert("Error", `Failed to send invitation: ${data.error || "Unknown error"}`);
         }
       } else {
-        console.log(
           `[SearchScreen] Invitation sending failed: ${userName} - Already invited or group is full`
         );
         Alert.alert(
@@ -281,18 +255,12 @@ export default function SearchScreen() {
       return;
     }
 
-    console.log(`[SearchScreen] ==================== CANCEL BUTTON PRESSED ====================`);
-    console.log(`[SearchScreen] Cancel button pressed for: ${userName}`);
-    console.log(`[SearchScreen] userid: ${userId} for groupid: ${groupId}`);
-    console.log(`[SearchScreen] Attempting to cancel invitation...`);
-    console.log(`[SearchScreen] Parameter types - userId: ${typeof userId}, groupId: ${typeof groupId}`);
     
     // UUID format validation
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isGroupIdValid = uuidRegex.test(groupId);
     const isUserIdValid = uuidRegex.test(userId);
     
-    console.log(`[SearchScreen] UUID validation - groupId: ${isGroupIdValid}, userId: ${isUserIdValid}`);
     
     if (!isGroupIdValid || !isUserIdValid) {
       console.error(`[SearchScreen] Invalid UUID format`, { groupId, userId });
@@ -305,23 +273,14 @@ export default function SearchScreen() {
       p_group_id: groupId,
       p_user_id: userId,
     };
-    console.log(`[SearchScreen] ==================== RPC PARAMETERS ====================`);
-    console.log(`[SearchScreen] Sending to RPC:`, JSON.stringify(rpcParams, null, 2));
-    console.log(`[SearchScreen] p_group_id: "${groupId}" (type: ${typeof groupId}, length: ${groupId.length})`);
-    console.log(`[SearchScreen] p_user_id: "${userId}" (type: ${typeof userId}, length: ${userId.length})`);
-    console.log(`[SearchScreen] Direct test - these exact values found 1 record in SQL`);
 
     try {
-      console.log(`[SearchScreen] Calling FORCE DELETE function...`);
       const forceParams = {
         p_group_id: groupId,
         p_user_id: userId,
       };
       const { data, error } = await supabase.rpc("force_delete_invitation", forceParams);
 
-      console.log(`[SearchScreen] ==================== RPC Response ====================`);
-      console.log(`[SearchScreen] Raw data:`, JSON.stringify(data, null, 2));
-      console.log(`[SearchScreen] Raw error:`, JSON.stringify(error, null, 2));
       
       if (error) {
         console.error(`[SearchScreen] Error occurred:`, {
@@ -337,14 +296,8 @@ export default function SearchScreen() {
 
       // Handle force delete response
       if (data) {
-        console.log(`[SearchScreen] ==================== FORCE DELETE Response ====================`);
-        console.log(`[SearchScreen] - success: ${data.success}`);
-        console.log(`[SearchScreen] - deleted_count: ${data.deleted_count}`);
-        console.log(`[SearchScreen] - sql_executed: ${data.sql_executed}`);
 
         if (data.success) {
-          console.log(`[SearchScreen] 🔥 FORCE DELETE successful: ${userName} (${data.deleted_count} records deleted)`);
-          console.log(`[SearchScreen] Executed SQL: ${data.sql_executed}`);
           // Update the user's invitation status back to null (no invitation)
           setSearchResults(prevResults => 
             prevResults.map(user => 
@@ -360,11 +313,9 @@ export default function SearchScreen() {
           Alert.alert("Error", `Even force delete failed for ${userName}. This shouldn't happen!`);
         }
       } else {
-        console.log(`[SearchScreen] RPC returned null/undefined data`);
         Alert.alert("Error", "No response data from force delete");
       }
       
-      console.log(`[SearchScreen] ==================== CANCEL INVITATION END ====================`);
     } catch (error) {
       console.error(`[SearchScreen] Exception occurred:`, error);
       console.error(`[SearchScreen] Complete exception object:`, JSON.stringify(error, null, 2));
@@ -399,7 +350,6 @@ export default function SearchScreen() {
             // Image load failed, but fallback will be handled automatically
           }}
           onLoad={() => {
-            console.log(
               `User ${item.id} image load successful:`,
               getSafeImageUrl(item.id, item.avatar_url)
             );
