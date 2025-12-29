@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Keyboard, Image } from "react-native";
+import { FlatList, TextInput, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import styled from "@emotion/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { ChatRoomProfile } from "@/components/chat/ChatRoomProfile";
+import { ChatMessageItem } from "@/components/chat/ChatMessageItem";
 import { EventBus } from "@/services/EventBus";
 
 interface ChatMessage {
@@ -457,67 +458,14 @@ export default function ChatRoomScreen() {
                     ref={flatListRef}
                     data={messages}
                     keyExtractor={(item, index) => `${item.message_id}-${index}`}
-                    renderItem={({ item, index }) => {
-                      const prevMessage = index > 0 ? messages[index - 1] : null;
-                      const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
-                      
-                      // Check if this message should show profile/name (first in group)
-                      const isFirstInGroup = !prevMessage || 
-                        prevMessage.sender_id !== item.sender_id || 
-                        new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) !== 
-                        new Date(prevMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      
-                      // Check if this message should show timestamp (last in group)
-                      const isLastInGroup = !nextMessage || 
-                        nextMessage.sender_id !== item.sender_id || 
-                        new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) !== 
-                        new Date(nextMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                      return (
-                        <MessageContainer isOwn={item.is_own} isGrouped={!isFirstInGroup}>
-                          {!item.is_own && isFirstInGroup && (
-                            <MessageHeader>
-                              <SenderName>{item.sender_name}</SenderName>
-                            </MessageHeader>
-                          )}
-                          <MessageRow isOwn={item.is_own} isGrouped={!isFirstInGroup}>
-                            {!item.is_own && isFirstInGroup && (
-                              <TouchableOpacity onPress={() => handleUserPress(item.sender_id)}>
-                                <UserAvatar>
-                                  {item.sender_avatar_url ? (
-                                    <Image 
-                                      source={{ uri: item.sender_avatar_url }} 
-                                      style={{ 
-                                        width: 41, 
-                                        height: 41, 
-                                        borderRadius: 20.5 
-                                      }}
-                                    />
-                                  ) : (
-                                    <AvatarText>{item.sender_name?.charAt(0) || 'U'}</AvatarText>
-                                  )}
-                                </UserAvatar>
-                              </TouchableOpacity>
-                            )}
-                            {item.is_own && isLastInGroup && (
-                              <MessageTime isOwn={item.is_own}>
-                                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </MessageTime>
-                            )}
-                            <MessageBubble isOwn={item.is_own}>
-                              <MessageContent>
-                                <MessageText isOwn={item.is_own}>{item.content}</MessageText>
-                              </MessageContent>
-                            </MessageBubble>
-                            {!item.is_own && isLastInGroup && (
-                              <MessageTime isOwn={item.is_own}>
-                                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </MessageTime>
-                            )}
-                          </MessageRow>
-                        </MessageContainer>
-                      );
-                    }}
+                    renderItem={({ item, index }) => (
+                      <ChatMessageItem
+                        message={item}
+                        prevMessage={index > 0 ? messages[index - 1] : null}
+                        nextMessage={index < messages.length - 1 ? messages[index + 1] : null}
+                        onUserPress={handleUserPress}
+                      />
+                    )}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ 
                       paddingBottom: 20, 
@@ -691,92 +639,6 @@ const LoadingText = styled.Text`
 const MessagesContainer = styled.View`
   flex: 1;
   padding-horizontal: 8px;
-`;
-
-const MessageContainer = styled.View<{ isOwn: boolean; isGrouped?: boolean }>`
-  align-items: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
-  margin-vertical: ${props => props.isGrouped ? '1px' : '4px'};
-  margin-horizontal: 4px;
-  max-width: 65%;
-  align-self: ${props => props.isOwn ? 'flex-end' : 'flex-start'};
-`;
-
-const MessageHeader = styled.View`
-  margin-bottom: 2px;
-  margin-left: 53px;
-`;
-
-const UserAvatar = styled.View`
-  width: 45px;
-  height: 45px;
-  border-radius: 22.5px;
-  background-color: #cee3ff;
-  align-items: center;
-  justify-content: center;
-  margin-right: 8px;
-`;
-
-const AvatarText = styled.Text`
-  font-size: 18px;
-  font-weight: 600;
-  color: #000;
-  font-family: Quicksand-SemiBold;
-`;
-
-const SenderName = styled.Text`
-  font-size: 17px;
-  color: #000;
-  font-family: Quicksand-Regular;
-`;
-
-const MessageRow = styled.View<{ isOwn: boolean; isGrouped?: boolean }>`
-  flex-direction: row;
-  align-items: flex-end;
-  margin-left: ${props => props.isOwn ? '0px' : (props.isGrouped ? '53px' : '0px')};
-`;
-
-const MessageBubble = styled.View<{ isOwn: boolean }>`
-  background-color: ${props => props.isOwn ? '#fff1c5' : '#cee3ff'};
-  border-top-left-radius: 30px;
-  border-top-right-radius: 30px;
-  border-bottom-left-radius: ${props => props.isOwn ? '30px' : '0px'};
-  border-bottom-right-radius: ${props => props.isOwn ? '0px' : '30px'};
-  padding-horizontal: ${props => props.isOwn ? '15px' : '10px'};
-  padding-vertical: ${props => props.isOwn ? '6px' : '11px'};
-  min-height: 39px;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  shadow-color: #000;
-  shadow-offset: 0px 1px;
-  shadow-opacity: 0.1;
-  shadow-radius: 2px;
-  elevation: 2;
-`;
-
-const MessageContent = styled.View`
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-`;
-
-const MessageText = styled.Text<{ isOwn: boolean }>`
-  font-size: 16px;
-  font-weight: 500;
-  font-family: Quicksand-Medium;
-  color: #000000;
-  text-align: left;
-  line-height: 20px;
-`;
-
-const MessageTime = styled.Text<{ isOwn: boolean }>`
-  font-size: 11px;
-  color: #666;
-  margin-left: ${props => props.isOwn ? '0px' : '8px'};
-  margin-right: ${props => props.isOwn ? '8px' : '0px'};
-  margin-bottom: 2px;
-  font-family: Quicksand-Medium;
-  align-self: flex-end;
 `;
 
 const InputContainer = styled.View`
