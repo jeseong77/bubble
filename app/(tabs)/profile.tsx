@@ -6,31 +6,25 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
-  Platform,
-  Alert,
-  Image,
-  ActivityIndicator,
-  TextInput,
-  Modal,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import CustomView from "@/components/CustomView";
-import { Ionicons } from "@expo/vector-icons";
 import { ProfileFormData, ProfileImage } from "@/types/profile";
 import ProfileHero from "@/components/ProfileHero";
 import ProfileTab, { TabInfo } from "@/components/ProfileTab";
+import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import * as ImagePicker from "expo-image-picker";
-import BubbleTabItem from "@/components/bubble/BubbleTabItem";
 import CreateBubbleModal from "@/components/ui/CreateBubbleModal";
-import * as Camera from "expo-camera";
-import { Skeleton } from "@/components/feedback/SkeletonLoader";
 import { ProfileBubbles } from "@/components/profile/ProfileBubbles";
 import { EditProfileTab } from "@/components/profile/EditProfileTab";
 import { ImageOptionsModal } from "@/components/profile/ImageOptionsModal";
 import { SaveConfirmationModal } from "@/components/profile/SaveConfirmationModal";
+import {
+  SkeletonImageGrid,
+  SkeletonProfileDetails,
+  SkeletonBubbleItem,
+} from "@/components/profile/ProfileSkeletons";
 
 // --- Imports for data integration ---
 import { useAuth } from "@/providers/AuthProvider";
@@ -41,11 +35,8 @@ import { useProfileSave } from "@/hooks/useProfileSave";
 import { useBubbleActions } from "@/hooks/useBubbleActions";
 import { useImageHandling } from "@/hooks/useImageHandling";
 
-// BubbleTabItem에서 사용하는 타입을 import
-import { BubbleTabItemData } from "@/components/bubble/BubbleTabItem";
-
-// Information for bubbles displayed on screen (same structure as BubbleTabItemData)
-type Bubble = BubbleTabItemData;
+// BubbleTabItem type for bubble data structure
+import { BubbleTabItemData as Bubble } from "@/components/bubble/BubbleTabItem";
 
 const TABS_DATA: TabInfo[] = [
   { id: "bubblePro", title: "Bubble pro" },
@@ -53,59 +44,7 @@ const TABS_DATA: TabInfo[] = [
   { id: "myInfo", title: "Edit Profile" },
 ];
 
-// ImageUploadStep에서 가져온 상수들
-const NUM_COLUMNS = 3;
-const MAX_IMAGES_DEFAULT = 6;
-
-
-// Skeleton Image Grid Component
-const SkeletonImageGrid = () => {
-  const screenWidth = Dimensions.get("window").width;
-  const contentPaddingHorizontal = 20;
-  const itemGap = 10;
-  const totalGapSpace = itemGap * (NUM_COLUMNS - 1);
-  const itemSize =
-    (screenWidth - contentPaddingHorizontal * 2 - totalGapSpace) / NUM_COLUMNS;
-
-  return (
-    <View style={styles.skeletonImageGrid}>
-      {Array.from({ length: MAX_IMAGES_DEFAULT }).map((_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.skeletonImageSlot,
-            { width: itemSize, height: itemSize },
-          ]}
-        >
-          <Skeleton.Box
-            width="100%"
-            height="100%"
-            style={{ borderRadius: 12 }}
-          />
-        </View>
-      ))}
-    </View>
-  );
-};
-
-// Skeleton Profile Details Component
-const SkeletonProfileDetails = () => {
-  return (
-    <View style={styles.skeletonProfileDetails}>
-      {Array.from({ length: 7 }).map((_, index) => (
-        <View key={index} style={styles.skeletonDetailItem}>
-          <Skeleton.Box width={80} height={14} style={{ marginBottom: 8 }} />
-          <Skeleton.Box width="100%" height={20} />
-        </View>
-      ))}
-      <Skeleton.Box
-        width="100%"
-        height={50}
-        style={{ marginTop: 30, borderRadius: 25 }}
-      />
-    </View>
-  );
-};
+// --- Skeleton components moved to ProfileSkeletons.tsx ---
 
 function ProfileScreen() {
   const router = useRouter();
@@ -509,46 +448,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-  },
-  skeletonBubbleItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    backgroundColor: "#f0f0f0",
-    marginVertical: 5,
-    borderRadius: 10,
-  },
-  skeletonBubbleContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  skeletonBubbleAvatars: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  skeletonBubbleText: {
-    marginLeft: 15,
-  },
-  skeletonImageGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    paddingTop: 20,
-    paddingHorizontal: 10,
-  },
-  skeletonImageSlot: {
-    marginBottom: 10,
-    position: "relative",
-  },
-  skeletonProfileDetails: {
-    paddingTop: 30,
-  },
-  skeletonDetailItem: {
-    marginBottom: 20,
-    paddingBottom: 10,
   },
 });
 
