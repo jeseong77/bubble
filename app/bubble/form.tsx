@@ -3,19 +3,20 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
   Keyboard,
   TouchableWithoutFeedback,
-  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase"; // supabase client added
 import { useAuth } from "@/providers/AuthProvider";
 import { Skeleton } from "@/components/feedback/SkeletonLoader";
+import { useBubbleData } from "@/hooks/useBubbleData";
+import { useBubbleActions } from "@/hooks/useBubbleActions";
+import { BubbleMemberLayout } from "@/components/bubble/BubbleMemberLayout";
+import { BubbleMemberSlot } from "@/components/bubble/BubbleMemberSlot";
 
 // Member type definition (simple version)
 interface BubbleMember {
@@ -28,7 +29,7 @@ interface BubbleMember {
 
 export default function BubbleFormScreen() {
   const router = useRouter();
-  const { session } = useAuth(); // Needed for handlePopBubble
+  const { session } = useAuth(); // Needed for bubble actions
 
   // Get parameters passed from previous screen
   const {
@@ -39,131 +40,32 @@ export default function BubbleFormScreen() {
     isExistingBubble?: string;
   }>();
 
-  // Bubble name is managed in this screen
-  const [bubbleName, setBubbleName] = useState("");
-  const [creatorSignedUrl, setCreatorSignedUrl] = useState<string | null>(null); // Image URL state added
-  const [bubbleMembers, setBubbleMembers] = useState<BubbleMember[]>([]); // Bubble member info
-  const [memberSignedUrls, setMemberSignedUrls] = useState<{
-    [key: string]: string;
-  }>({}); // Signed URL per member
-  const [bubbleInfo, setBubbleInfo] = useState<any>(null); // Complete bubble info
-  const [isLoading, setIsLoading] = useState(false); // Loading state
-  const [isMembersLoading, setIsMembersLoading] = useState(false); // Members loading state
+  // Use bubble data hook for all bubble-related data fetching and state
+  const {
+    bubbleName,
+    setBubbleName,
+    creatorSignedUrl,
+    bubbleMembers,
+    memberSignedUrls,
+    bubbleInfo,
+    isLoading,
+    isMembersLoading,
+    bubbleMemberCount,
+  } = useBubbleData({ groupId });
 
-  // Fetch bubble info using get_bubble RPC
-  useEffect(() => {
-    const fetchBubbleInfo = async () => {
-      if (groupId) { // Fetch for both new and existing bubbles
-        setIsLoading(true);
-        try {
-          console.log("=== 🔍 FORM.TSX DEBUG ===");
-          console.log("groupId:", groupId);
-          console.log("isExistingBubble:", isExistingBubble);
-          
-          const { data, error } = await supabase.rpc("get_bubble", {
-            p_group_id: groupId,
-          });
-
-          console.log("=== 📡 GET_BUBBLE RPC RESULT ===");
-          console.log("Data:", data);
-          console.log("Error:", error);
-          console.log("Data type:", typeof data);
-          console.log("Data length:", data?.length || 0);
-
-          if (error) {
-            console.error("Error fetching bubble info:", error);
-            console.error("Error details:", {
-              message: error.message,
-              details: error.details,
-              hint: error.hint,
-              code: error.code
-            });
-          } else if (data && data.length > 0) {
-            const bubbleInfo = data[0];
-            console.log("=== ✅ BUBBLE INFO ===");
-            console.log("Bubble Info:", bubbleInfo);
-            console.log("Bubble ID:", bubbleInfo.id);
-            console.log("Bubble Name:", bubbleInfo.name);
-            console.log("Bubble Max Size:", bubbleInfo.max_size);
-            console.log("Members field:", bubbleInfo.members);
-            console.log("Members field type:", typeof bubbleInfo.members);
-
-            // Set bubble name
-            setBubbleName(bubbleInfo.name || "");
-
-            // Store complete bubble info
-            setBubbleInfo(bubbleInfo);
-
-            // Set member info (JSON parsing)
-            if (bubbleInfo.members) {
-              try {
-                const members = Array.isArray(bubbleInfo.members)
-                  ? bubbleInfo.members
-                  : JSON.parse(bubbleInfo.members);
-                setBubbleMembers(members || []);
-                console.log("=== ✅ PARSED MEMBERS ===");
-                console.log("Parsed members:", members);
-                console.log("Members count:", members.length);
-              } catch (parseError) {
-                console.error("Failed to parse member info:", parseError);
-                console.log("Raw members data:", bubbleInfo.members);
-                setBubbleMembers([]);
-              }
-            } else {
-              console.log("❌ No members field in bubble info");
-              setBubbleMembers([]);
-            }
-          } else {
-            console.log("❌ No bubble data or empty array");
-          }
-        } catch (error) {
-          console.error("Error in fetchBubbleInfo:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchBubbleInfo();
-  }, [isExistingBubble, groupId]);
-
-  // Set member profile image URLs (according to new structure)
-  useEffect(() => {
-    if (bubbleMembers.length === 0) return;
-
-    setIsMembersLoading(true);
-    const urls: { [key: string]: string } = {};
-
-    for (const member of bubbleMembers) {
-      // Simple structure: use member.avatar_url directly
-      if (member.avatar_url) {
-        urls[member.id] = member.avatar_url;
-      }
-    }
-
-    setMemberSignedUrls(urls);
-    setIsMembersLoading(false);
-  }, [bubbleMembers]);
+  // Use bubble actions hook for popping bubble
+  const { handleLeaveGroup } = useBubbleActions({
+    session,
+    onLeaveSuccess: () => {
+      // Navigate back to profile after successful bubble pop
+      router.replace("/(tabs)/profile");
+    },
+  });
 
   // Check if this is a new bubble to show simplified interface
   const isNewBubble = isExistingBubble === "false";
-  
-  // Calculate bubble size (use max_size for existing bubbles, default 2 for new bubbles)
-  const bubbleMemberCount = bubbleInfo?.max_size || 2;
-  
-  console.log("=== 🎯 BUBBLE SIZE DEBUG ===");
-  console.log("bubbleInfo:", bubbleInfo);
-  console.log("bubbleInfo?.max_size:", bubbleInfo?.max_size);
-  console.log("bubbleMemberCount:", bubbleMemberCount);
-  console.log("isNewBubble:", isNewBubble);
 
-  // Set creator image URL (according to simple structure)
-  useEffect(() => {
-    if (bubbleMembers.length > 0 && bubbleMembers[0]?.avatar_url) {
-      // Set creator image URL
-      setCreatorSignedUrl(bubbleMembers[0].avatar_url);
-    }
-  }, [bubbleMembers]);
+  console.log("isNewBubble:", isNewBubble);
 
   // Member info for existing bubbles already passed as parameters, no need for separate RPC call
 
@@ -178,65 +80,6 @@ export default function BubbleFormScreen() {
 
   const handleCancel = () => {
     router.back();
-  };
-
-  const handlePopBubble = () => {
-    Alert.alert(
-      "Do you want to pop this bubble?",
-      "Popped bubbles can't be restored.",
-      [
-        {
-          text: "No",
-          style: "cancel",
-        },
-        {
-          text: "Pop",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // Use the leave_group RPC function to properly handle foreign key constraints
-              const { data, error } = await supabase.rpc("leave_group", {
-                p_user_id: session?.user?.id,
-                p_group_id: groupId,
-              });
-
-              if (error) {
-                console.error("Error popping bubble:", error);
-                Alert.alert("Error", "Failed to pop bubble. Please try again.");
-                return;
-              }
-
-              if (!data || !data.success) {
-                console.error("Failed to pop bubble:", data?.message || "Unknown error");
-                Alert.alert("Error", data?.message || "Failed to pop bubble. Please try again.");
-                return;
-              }
-
-              // Log the bubble destruction details
-              console.log(`[PopBubble] "${data.group_name}" was popped by ${data.popper_name}`);
-              if (data.affected_users && data.affected_users.length > 0) {
-                console.log(`[PopBubble] ${data.affected_users.length} other users were in the bubble`);
-                // TODO: Send push notifications to affected users
-                // Format: "{popper_name} popped the bubble"
-              }
-
-              // Show success message
-              Alert.alert(
-                "Bubble Popped! 💥", 
-                `"${data.group_name}" has been destroyed.`,
-                [{ text: "OK" }]
-              );
-
-              // Navigate back to profile and trigger refresh
-              router.replace("/(tabs)/profile");
-            } catch (error) {
-              console.error("Error in handlePopBubble:", error);
-              Alert.alert("Error", "Failed to pop bubble. Please try again.");
-            }
-          },
-        },
-      ]
-    );
   };
   
   if (isNewBubble) {
@@ -258,241 +101,13 @@ export default function BubbleFormScreen() {
           </Text>
           
           {/* Member circles - dynamic layout based on bubble size */}
-          {bubbleMemberCount === 2 ? (
-            /* Size 2: Keep existing overlapping layout unchanged */
-            <View style={styles.membersContainer}>
-              {/* Current user full name - positioned above profile image */}
-              <View style={styles.memberWithName}>
-                <Text style={styles.creatorName}>
-                  {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
-                    ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
-                    : bubbleMembers[0]?.first_name || "Me"
-                  }
-                </Text>
-                
-                {/* Creator circle */}
-                <View style={styles.memberCircle}>
-                  {creatorSignedUrl ? (
-                    <Image
-                      source={{ uri: creatorSignedUrl }}
-                      style={styles.memberImage}
-                    />
-                  ) : (
-                    <View style={[styles.memberImage, styles.placeholderImage]}>
-                      <Feather name="user" size={40} color="#999" />
-                    </View>
-                  )}
-                </View>
-              </View>
-              
-              {/* Add member circle - overlapping */}
-              <TouchableOpacity
-                style={[styles.addMemberCircle, styles.overlappingCircle]}
-                onPress={() => {
-                  router.push({
-                    pathname: "/search",
-                    params: { groupId },
-                  });
-                }}
-              >
-                <Feather name="plus" size={40} color="#5A99E5" />
-              </TouchableOpacity>
-            </View>
-          ) : bubbleMemberCount === 3 ? (
-            /* Size 3: Triangle layout - 1 on top, 2 on bottom */
-            <View style={styles.triangleContainer}>
-              {/* Top member (creator) */}
-              <View style={styles.triangleTop}>
-                <Text style={styles.creatorName}>
-                  {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
-                    ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
-                    : bubbleMembers[0]?.first_name || "Me"
-                  }
-                </Text>
-                <View style={styles.memberCircle}>
-                  {creatorSignedUrl ? (
-                    <Image
-                      source={{ uri: creatorSignedUrl }}
-                      style={styles.triangleMemberImage}
-                    />
-                  ) : (
-                    <View style={[styles.triangleMemberImage, styles.placeholderImage]}>
-                      <Feather name="user" size={35} color="#999" />
-                    </View>
-                  )}
-                </View>
-              </View>
-              
-              {/* Bottom row - 2 members */}
-              <View style={styles.triangleBottom}>
-                {/* Second member slot */}
-                {bubbleMembers[1] ? (
-                  <View style={styles.triangleMemberSlot}>
-                    <Text style={styles.triangleMemberName}>
-                      {bubbleMembers[1].first_name || "Member"}
-                    </Text>
-                    <Image
-                      source={{ uri: memberSignedUrls[bubbleMembers[1].id] || bubbleMembers[1].avatar_url }}
-                      style={styles.triangleMemberImage}
-                    />
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.triangleMemberSlot}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/search",
-                        params: { groupId },
-                      });
-                    }}
-                  >
-                    <View style={[styles.triangleMemberImage, { backgroundColor: "#D9D9D9" }]}>
-                      <Feather name="plus" size={35} color="#5A99E5" />
-                    </View>
-                  </TouchableOpacity>
-                )}
-                
-                {/* Third member slot */}
-                {bubbleMembers[2] ? (
-                  <View style={styles.triangleMemberSlot}>
-                    <Text style={styles.triangleMemberName}>
-                      {bubbleMembers[2].first_name || "Member"}
-                    </Text>
-                    <Image
-                      source={{ uri: memberSignedUrls[bubbleMembers[2].id] || bubbleMembers[2].avatar_url }}
-                      style={styles.triangleMemberImage}
-                    />
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.triangleMemberSlot}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/search",
-                        params: { groupId },
-                      });
-                    }}
-                  >
-                    <View style={[styles.triangleMemberImage, { backgroundColor: "#D9D9D9" }]}>
-                      <Feather name="plus" size={35} color="#5A99E5" />
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ) : (
-            /* Size 4: Diamond/Square layout - 2x2 arrangement */
-            <View style={styles.diamondContainer}>
-              {/* Top row */}
-              <View style={styles.diamondRow}>
-                {/* Creator (top-left) */}
-                <View style={styles.diamondMemberSlot}>
-                  <Text style={styles.diamondMemberName}>
-                    {bubbleMembers[0]?.first_name && bubbleMembers[0]?.last_name 
-                      ? `${bubbleMembers[0].first_name} ${bubbleMembers[0].last_name}` 
-                      : bubbleMembers[0]?.first_name || "Me"
-                    }
-                  </Text>
-                  <View style={styles.memberCircle}>
-                    {creatorSignedUrl ? (
-                      <Image
-                        source={{ uri: creatorSignedUrl }}
-                        style={styles.diamondMemberImage}
-                      />
-                    ) : (
-                      <View style={[styles.diamondMemberImage, styles.placeholderImage]}>
-                        <Feather name="user" size={30} color="#999" />
-                      </View>
-                    )}
-                  </View>
-                </View>
-                
-                {/* Second member (top-right) */}
-                {bubbleMembers[1] ? (
-                  <View style={styles.diamondMemberSlot}>
-                    <Text style={styles.diamondMemberName}>
-                      {bubbleMembers[1].first_name || "Member"}
-                    </Text>
-                    <Image
-                      source={{ uri: memberSignedUrls[bubbleMembers[1].id] || bubbleMembers[1].avatar_url }}
-                      style={styles.diamondMemberImage}
-                    />
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.diamondMemberSlot}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/search",
-                        params: { groupId },
-                      });
-                    }}
-                  >
-                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
-                      <Feather name="plus" size={30} color="#5A99E5" />
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-              
-              {/* Bottom row */}
-              <View style={styles.diamondRow}>
-                {/* Third member (bottom-left) */}
-                {bubbleMembers[2] ? (
-                  <View style={styles.diamondMemberSlot}>
-                    <Text style={styles.diamondMemberName}>
-                      {bubbleMembers[2].first_name || "Member"}
-                    </Text>
-                    <Image
-                      source={{ uri: memberSignedUrls[bubbleMembers[2].id] || bubbleMembers[2].avatar_url }}
-                      style={styles.diamondMemberImage}
-                    />
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.diamondMemberSlot}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/search",
-                        params: { groupId },
-                      });
-                    }}
-                  >
-                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
-                      <Feather name="plus" size={30} color="#5A99E5" />
-                    </View>
-                  </TouchableOpacity>
-                )}
-                
-                {/* Fourth member (bottom-right) */}
-                {bubbleMembers[3] ? (
-                  <View style={styles.diamondMemberSlot}>
-                    <Text style={styles.diamondMemberName}>
-                      {bubbleMembers[3].first_name || "Member"}
-                    </Text>
-                    <Image
-                      source={{ uri: memberSignedUrls[bubbleMembers[3].id] || bubbleMembers[3].avatar_url }}
-                      style={styles.diamondMemberImage}
-                    />
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.diamondMemberSlot}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/search",
-                        params: { groupId },
-                      });
-                    }}
-                  >
-                    <View style={[styles.diamondMemberImage, { backgroundColor: "#D9D9D9" }]}>
-                      <Feather name="plus" size={30} color="#5A99E5" />
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
+          <BubbleMemberLayout
+            bubbleMemberCount={bubbleMemberCount}
+            bubbleMembers={bubbleMembers}
+            creatorSignedUrl={creatorSignedUrl}
+            memberSignedUrls={memberSignedUrls}
+            groupId={groupId!}
+          />
           
           {/* Waiting text */}
           <Text style={styles.waitingText}>waiting for invitation ...</Text>
@@ -500,7 +115,7 @@ export default function BubbleFormScreen() {
           {/* Bottom button - only right side */}
           <TouchableOpacity
             style={styles.bottomRightButton}
-            onPress={handlePopBubble}
+            onPress={() => handleLeaveGroup(groupId!)}
           >
             <Feather name="x" size={24} color="#fff" />
           </TouchableOpacity>
@@ -536,262 +151,26 @@ export default function BubbleFormScreen() {
             {/* Display all bubble slots side by side */}
             {Array.from({ length: bubbleMemberCount }).map((_, index) => {
               const isExisting = isExistingBubble === "true";
-
-              // For existing bubbles: find member at corresponding index in member array or empty slot
-              // For new bubbles: first is creator, rest are invitation slots
-              let member = null;
-              let isCreator = false;
-
-              if (isExisting) {
-                // Existing bubble: all slots displayed side by side
-                member = bubbleMembers[index];
-              } else {
-                // New bubble: first is creator
-                if (index === 0) {
-                  isCreator = true;
-                }
-              }
+              const member = isExisting ? bubbleMembers[index] : null;
+              const isCreator = !isExisting && index === 0;
 
               return (
-                <View
+                <BubbleMemberSlot
                   key={index}
-                  style={[
-                    styles.bubbleContainer,
-                    {
-                      position: "absolute",
-                      left: index * overlapOffset,
-                      top: 0,
-                      zIndex: bubbleMemberCount - index, // Different zIndex to overlap
-                      alignItems: "center",
-                    },
-                  ]}
-                >
-                  {isCreator ? (
-                    // Display creator (first slot of new bubble)
-                    <View style={styles.bubbleContent}>
-                      {isLoading || isMembersLoading ? (
-                        <>
-                          <Skeleton.Box
-                            width={60}
-                            height={20}
-                            style={{ marginBottom: 12 }}
-                          />
-                          <Skeleton.Circle
-                            size={bubbleSize}
-                            style={styles.bubbleImage}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <Text style={[styles.nameText, { marginBottom: 12 }]}>
-                            {bubbleMembers[0]?.first_name || "Me"}
-                          </Text>
-                          {creatorSignedUrl ? (
-                            <Image
-                              source={{ uri: creatorSignedUrl }}
-                              style={[
-                                styles.bubbleImage,
-                                {
-                                  width: bubbleSize,
-                                  height: bubbleSize,
-                                  borderRadius: bubbleSize / 2,
-                                  marginBottom: 0,
-                                },
-                              ]}
-                            />
-                          ) : (
-                            <View
-                              style={[
-                                styles.bubbleImage,
-                                {
-                                  width: bubbleSize,
-                                  height: bubbleSize,
-                                  borderRadius: bubbleSize / 2,
-                                  marginBottom: 0,
-                                  backgroundColor: "#e0e0e0",
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                },
-                              ]}
-                            >
-                              <Feather
-                                name="user"
-                                size={bubbleSize * 0.4}
-                                color="#999"
-                              />
-                            </View>
-                          )}
-                        </>
-                      )}
-                    </View>
-                  ) : isExisting && member ? (
-                    // Display existing member
-                    <View style={styles.bubbleContent}>
-                      {isMembersLoading ? (
-                        <>
-                          <Skeleton.Box
-                            width={60}
-                            height={20}
-                            style={{ marginBottom: 12 }}
-                          />
-                          <Skeleton.Circle
-                            size={bubbleSize}
-                            style={styles.bubbleImage}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <Text
-                            style={[
-                              styles.nameText,
-                              {
-                                marginBottom: 12,
-                                color:
-                                  member.status === "invited"
-                                    ? "#D9D9D9"
-                                    : "#222", // disabledButton color if invited
-                              },
-                            ]}
-                          >
-                            {member.first_name || "Member"}
-                          </Text>
-                          <View style={{ position: "relative" }}>
-                            <Image
-                              source={{
-                                uri:
-                                  memberSignedUrls[member.id] ||
-                                  member.avatar_url ||
-                                  undefined,
-                              }}
-                              style={[
-                                styles.bubbleImage,
-                                {
-                                  width: bubbleSize,
-                                  height: bubbleSize,
-                                  borderRadius: bubbleSize / 2,
-                                  marginBottom: 0,
-                                  opacity:
-                                    member.status === "invited" ? 0.6 : 1, // 0.6 opacity if invited
-                                },
-                              ]}
-                            />
-                            {member.status === "invited" && (
-                              <View
-                                style={{
-                                  position: "absolute",
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                }}
-                              >
-                                <Feather
-                                  name="more-horizontal"
-                                  size={32}
-                                  color="#999"
-                                />
-                              </View>
-                            )}
-                          </View>
-                        </>
-                      )}
-                    </View>
-                  ) : isExisting ? (
-                    // Empty slot for existing bubble (when no member)
-                    <View style={styles.bubbleContent}>
-                      {isLoading ? (
-                        <>
-                          <Skeleton.Box
-                            width={80}
-                            height={20}
-                            style={{ marginBottom: 12 }}
-                          />
-                          <Skeleton.Circle
-                            size={bubbleSize}
-                            style={styles.emptyBubble}
-                          />
-                        </>
-                      ) : (
-                        <TouchableOpacity
-                          onPress={() => {
-                            router.push({
-                              pathname: "/search",
-                              params: {
-                                groupId,
-                              },
-                            });
-                          }}
-                          activeOpacity={0.7}
-                          style={styles.bubbleContent}
-                        >
-                          <Text
-                            style={[
-                              styles.nameText,
-                              { marginBottom: 12, color: "#80B7FF" },
-                            ]}
-                          >
-                            Add Member
-                          </Text>
-                          <View
-                            style={[
-                              styles.emptyBubble,
-                              {
-                                width: bubbleSize,
-                                height: bubbleSize,
-                                borderRadius: bubbleSize / 2,
-                                justifyContent: "center",
-                                alignItems: "center",
-                                backgroundColor: "#D9D9D9", // mediumGray
-                              },
-                            ]}
-                          >
-                            <Feather name="plus" size={32} color="#80B7FF" />
-                          </View>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ) : (
-                    // Invitation slot for new bubble
-                    <TouchableOpacity
-                      onPress={() => {
-                        router.push({
-                          pathname: "/search",
-                          params: {
-                            groupId,
-                          },
-                        });
-                      }}
-                      activeOpacity={0.7}
-                      style={styles.bubbleContent}
-                    >
-                      <Text
-                        style={[
-                          styles.nameText,
-                          { marginBottom: 12, color: "#80B7FF" },
-                        ]}
-                      >
-                        Invite Friend
-                      </Text>
-                      <View
-                        style={[
-                          styles.emptyBubble,
-                          {
-                            width: bubbleSize,
-                            height: bubbleSize,
-                            borderRadius: bubbleSize / 2,
-                            justifyContent: "center",
-                            alignItems: "center",
-                            backgroundColor: "#D9D9D9", // mediumGray
-                          },
-                        ]}
-                      >
-                        <Feather name="plus" size={32} color="#80B7FF" />
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                  index={index}
+                  bubbleMemberCount={bubbleMemberCount}
+                  isExisting={isExisting}
+                  member={member}
+                  isCreator={isCreator}
+                  bubbleMembers={bubbleMembers}
+                  creatorSignedUrl={creatorSignedUrl}
+                  memberSignedUrls={memberSignedUrls}
+                  bubbleSize={bubbleSize}
+                  overlapOffset={overlapOffset}
+                  groupId={groupId!}
+                  isLoading={isLoading}
+                  isMembersLoading={isMembersLoading}
+                />
               );
             })}
           </View>
@@ -969,52 +348,6 @@ const styles = StyleSheet.create({
     marginBottom: 80,
     textAlign: "center",
   },
-  creatorName: {
-    fontSize: 20,
-    fontFamily: "Quicksand-Bold",
-    color: "#000",
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  membersContainer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: 60,
-    justifyContent: "center",
-  },
-  memberWithName: {
-    alignItems: "center",
-    zIndex: 2,
-  },
-  memberCircle: {
-    zIndex: 2,
-  },
-  memberImage: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 3,
-    borderColor: "#eee",
-  },
-  placeholderImage: {
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  addMemberCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "#D9D9D9",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 3,
-    borderColor: "#eee",
-  },
-  overlappingCircle: {
-    marginLeft: -40,
-    zIndex: 1,
-  },
   waitingText: {
     fontSize: 16,
     fontFamily: "Quicksand-Regular",
@@ -1045,72 +378,5 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-  
-  // Triangle layout styles (Size 3)
-  triangleContainer: {
-    alignItems: "center",
-    marginBottom: 60,
-  },
-  triangleTop: {
-    alignItems: "center",
-    marginBottom: 30,
-    zIndex: 2,
-  },
-  triangleBottom: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: 260,
-    zIndex: 1,
-  },
-  triangleMemberSlot: {
-    alignItems: "center",
-  },
-  triangleMemberName: {
-    fontSize: 16,
-    fontFamily: "Quicksand-Bold",
-    color: "#000",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  triangleMemberImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: "#eee",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  
-  // Diamond layout styles (Size 4)
-  diamondContainer: {
-    alignItems: "center",
-    marginBottom: 60,
-  },
-  diamondRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: 220,
-    marginBottom: 20,
-  },
-  diamondMemberSlot: {
-    alignItems: "center",
-  },
-  diamondMemberName: {
-    fontSize: 14,
-    fontFamily: "Quicksand-Bold",
-    color: "#000",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  diamondMemberImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
-    borderColor: "#eee",
-    justifyContent: "center",
-    alignItems: "center",
   },
 });
