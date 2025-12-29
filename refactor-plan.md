@@ -2555,13 +2555,26 @@ const { data, fetchNextPage } = useInfiniteQuery({
 **Actual Time: ~10 hours**
 **Impact: Error boundaries, logger, strict types, -180 lines duplication, NO UI changes**
 
-### Phase 2: Code Quality ⬜
-- [ ] 2.1 Split Large Files (16-24h)
-- [ ] 2.2 Split Database (8-12h)
+### Phase 2: Code Quality 🔄 **IN PROGRESS**
+**Started:** December 29, 2025
+
+- [ ] 2.1 Split Large Files (16-24h) 🔄 **PARTIAL**
+  - [x] Created `components/profile/ProfileBubbles.tsx` (extracted from profile.tsx)
+  - [x] profile.tsx: 1,646 → 1,577 lines (-69 lines, -4%)
+  - [ ] **Remaining:** Extract Edit Profile tab, image upload logic, data hooks
+  - [ ] **Remaining:** Split form.tsx, index.tsx, match.tsx
+- [ ] 2.2 Split Database (8-12h) 🔄 **PARTIAL**
+  - [x] Created organized directory structure (`database/functions/`)
+  - [x] Extracted example function (`groups/create_group.sql`)
+  - [x] Created deployment script (`deploy_functions.sql`)
+  - [x] Created documentation (`functions/README.md`)
+  - [ ] **Remaining:** Extract 32 remaining functions from `rpc_functions.sql`
 - [ ] 2.3 API Client Layer (8-12h)
 - [ ] 2.4 Loading States (8-12h)
 - [ ] 2.5 Offline Support (16-24h)
-**Total: 64-96 hours**
+
+**Progress: 2 of 5 tasks started (40%), ~15% complete**
+**Estimated Remaining: 55-85 hours**
 
 ### Phase 3: Architecture ⬜
 - [ ] 3.1 State Management (16-24h)

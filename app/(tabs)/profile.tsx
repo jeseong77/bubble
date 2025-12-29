@@ -27,6 +27,7 @@ import BubbleTabItem from "@/components/bubble/BubbleTabItem";
 import CreateBubbleModal from "@/components/ui/CreateBubbleModal";
 import * as Camera from "expo-camera";
 import { Skeleton } from "@/components/feedback/SkeletonLoader";
+import { ProfileBubbles } from "@/components/profile/ProfileBubbles";
 
 // --- Imports for data integration ---
 import { useAuth } from "@/providers/AuthProvider";
@@ -49,24 +50,6 @@ const TABS_DATA: TabInfo[] = [
 const NUM_COLUMNS = 3;
 const MAX_IMAGES_DEFAULT = 6;
 
-// Skeleton Bubble Item Component
-const SkeletonBubbleItem = () => {
-  return (
-    <View style={styles.skeletonBubbleItem}>
-      <View style={styles.skeletonBubbleContent}>
-        <View style={styles.skeletonBubbleAvatars}>
-          <Skeleton.Circle size={40} />
-          <Skeleton.Circle size={40} style={{ marginLeft: -15 }} />
-        </View>
-        <View style={styles.skeletonBubbleText}>
-          <Skeleton.Box width={100} height={16} style={{ marginBottom: 4 }} />
-          <Skeleton.Box width={60} height={12} />
-        </View>
-      </View>
-      <Skeleton.Box width={24} height={24} />
-    </View>
-  );
-};
 
 // Skeleton Image Grid Component
 const SkeletonImageGrid = () => {
@@ -1017,66 +1000,14 @@ function ProfileScreen() {
       );
     } else if (activeTab === "myBubble") {
       return (
-        <View style={styles.myBubbleContainer}>
-          {/* Show skeleton UI while loading bubbles */}
-          {bubblesLoading ? (
-            <>
-              {Array.from({ length: 3 }).map((_, index) => (
-                <SkeletonBubbleItem key={index} />
-              ))}
-            </>
-          ) : (
-            <>
-              {/* 2. When there are bubbles in the list */}
-              {myBubbles.length > 0 ? (
-                myBubbles.map((bubble) => (
-                  <BubbleTabItem
-                    key={bubble.id}
-                    bubble={bubble}
-                    isActive={activeBubbleId === bubble.id}
-                    onPress={() => {
-                      // Navigate to different interfaces based on bubble status
-                      // forming: waiting screen, full: update screen
-                      router.push({
-                        pathname: "/bubble/form",
-                        params: {
-                          groupId: bubble.id,
-                          isExistingBubble: bubble.status === 'full' ? "true" : "false",
-                        },
-                      });
-                    }}
-                    onSetActive={() => handleSetActiveBubble(bubble.id)}
-                    onLeaveGroup={() => handleLeaveGroup(bubble.id)}
-                  />
-                ))
-              ) : (
-                // 3. When there are no bubbles - Show "Make new bubble" UI
-                <View style={styles.makeNewBubbleContainer}>
-                  <Text style={[styles.makeNewBubbleText, { color: colors.black }]}>
-                    Make a new bubble !
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.makeNewBubbleButton, { backgroundColor: colors.primary }]}
-                    onPress={() => setShowCreateBubbleModal(true)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name="add"
-                      size={40}
-                      color="white"
-                    />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </>
-          )}
-
-          <CreateBubbleModal
-            visible={showCreateBubbleModal}
-            onClose={() => setShowCreateBubbleModal(false)}
-            onRefresh={fetchMyBubbles}
-          />
-        </View>
+        <ProfileBubbles
+          bubbles={myBubbles}
+          isLoading={bubblesLoading}
+          activeBubbleId={activeBubbleId}
+          onSetActiveBubble={handleSetActiveBubble}
+          onLeaveGroup={handleLeaveGroup}
+          onRefresh={fetchMyBubbles}
+        />
       );
     } else if (activeTab === "myInfo") {
       return (
