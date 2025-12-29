@@ -3,16 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
-  TouchableOpacity,
   Dimensions,
   Platform,
   ViewStyle,
   Alert,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -26,7 +22,7 @@ import Animated, {
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useLikesYou, GroupMember } from "@/hooks/useLikesYou";
-import { MatchCard } from "@/components/matchmaking/MatchCard";
+import { LikesYouContent } from "@/components/matchmaking/LikesYouContent";
 import {
   LoadingState,
   ErrorState,
@@ -384,56 +380,17 @@ export default function LikesYouScreen() {
         />
       );
     }
-    // Main content when we have data - MatchCard and controls only
+
+    // Main content when we have data
     return (
-      <>
-        {/* MatchCard for the current group */}
-        <Animated.View
-          style={[
-            styles.centerBubbleWrap,
-            {
-              top: screenHeight * 0.17 + insets.top,
-              left: (screenWidth - centerBubbleDiameter) / 2,
-              width: centerBubbleDiameter,
-              height: centerBubbleDiameter,
-            },
-            animatedBubbleStyle,
-          ]}
-        >
-          <MatchCard group={currentGroup} onUserPress={handleUserClick} />
-        </Animated.View>
-
-        {/* Swipe Controls */}
-        <View style={styles.swipeControls}>
-          <TouchableOpacity
-            style={styles.xButton}
-            onPress={() => handleSwipe("left")}
-            disabled={isAnimating}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-            activeOpacity={0.7}
-          >
-            <Feather name="x" size={32} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.checkButton}
-            onPress={() => handleSwipe("right")}
-            disabled={isAnimating}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-            activeOpacity={0.7}
-          >
-            <Feather name="heart" size={32} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Loading More Indicator */}
-        {isLoadingMore && (
-          <View style={styles.loadingMoreContainer}>
-            <View style={styles.loadingMoreIndicator}>
-              <Text style={styles.loadingMoreText}>Loading more...</Text>
-            </View>
-          </View>
-        )}
-      </>
+      <LikesYouContent
+        currentGroup={currentGroup}
+        animatedBubbleStyle={animatedBubbleStyle}
+        isAnimating={isAnimating}
+        isLoadingMore={isLoadingMore}
+        handleSwipe={handleSwipe}
+        handleUserClick={handleUserClick}
+      />
     );
   };
 
@@ -518,13 +475,6 @@ const styles = StyleSheet.create({
     zIndex: 50,
     elevation: 50,
   },
-  centerBubbleWrap: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    zIndex: 1,
-  },
   centerBubbleBlur: {
     width: centerBubbleDiameter,
     height: centerBubbleDiameter,
@@ -568,67 +518,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 8,
     textAlign: "center",
-  },
-  xButton: {
-    backgroundColor: "#8ec3ff",
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 101,
-  },
-  checkButton: {
-    backgroundColor: "#8ec3ff",
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 101,
-  },
-  loadingMoreContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(255,255,255,0.8)",
-    paddingVertical: 10,
-    alignItems: "center",
-    zIndex: 10,
-  },
-  loadingMoreIndicator: {
-    backgroundColor: "#8ec3ff",
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  loadingMoreText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-
-  swipeControls: {
-    position: "absolute",
-    bottom: 48,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 32,
-    zIndex: 100,
-    pointerEvents: "box-none",
   },
 
   // Header styles
