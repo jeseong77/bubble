@@ -4,9 +4,10 @@ import { Session } from '@supabase/supabase-js';
 
 interface UseBubbleActionsParams {
   session: Session | null;
-  activeBubbleId: string | null;
-  setActiveBubbleId: (id: string | null) => void;
-  fetchMyBubbles: () => Promise<void>;
+  activeBubbleId?: string | null;
+  setActiveBubbleId?: (id: string | null) => void;
+  fetchMyBubbles?: () => Promise<void>;
+  onLeaveSuccess?: (data: any) => void;
 }
 
 interface UseBubbleActionsReturn {
@@ -39,7 +40,9 @@ export function useBubbleActions({
       }
 
       if (data) {
-        setActiveBubbleId(bubbleId);
+        if (setActiveBubbleId) {
+          setActiveBubbleId(bubbleId);
+        }
         console.log('[useBubbleActions] Active bubble setup successful:', bubbleId);
         Alert.alert('Success!', 'Active bubble has been set');
       }
@@ -90,12 +93,18 @@ export function useBubbleActions({
             );
 
             // If active bubble was the deleted bubble, remove active status
-            if (activeBubbleId === bubbleId) {
+            if (activeBubbleId === bubbleId && setActiveBubbleId) {
               setActiveBubbleId(null);
             }
 
-            // Refresh bubble list
-            fetchMyBubbles();
+            // Refresh bubble list or call custom success callback
+            if (fetchMyBubbles) {
+              fetchMyBubbles();
+            }
+
+            if (onLeaveSuccess) {
+              onLeaveSuccess(data);
+            }
 
             Alert.alert('Bubble Popped! 💥', `"${data.group_name}" has been destroyed.`);
           } catch (error) {
