@@ -12,6 +12,7 @@
 \i functions/groups/get_bubble.sql
 \i functions/groups/get_user_active_bubble.sql
 \i functions/groups/set_user_active_bubble.sql
+\i functions/groups/get_group_member_statuses.sql
 
 -- Matching (depends on groups)
 \i functions/matching/find_matching_group.sql
