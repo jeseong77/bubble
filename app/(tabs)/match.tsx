@@ -30,7 +30,7 @@ import {
   NoGroupState,
 } from "@/components/matchmaking/MatchmakingStates";
 import { useAuth } from "@/providers/AuthProvider";
-import { supabase } from "@/lib/supabase";
+import { useUserBubble, UserBubble } from "@/hooks/useUserBubble";
 import { EventBus } from "@/services/EventBus";
 
 const screenWidth = Dimensions.get("window").width;
@@ -42,19 +42,6 @@ const userBubbleDiameter = Math.max(screenWidth * 0.32, 120);
 const userBubbleImageSize = userBubbleDiameter * 0.54;
 const overlapRatio = 0.32;
 const centerBubbleImageSize = centerBubbleDiameter * 0.44;
-
-// User group information type (same as main screen)
-interface UserBubble {
-  id: string;
-  name: string;
-  members: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url: string;
-    signedUrl?: string;
-  }[];
-}
 
 export default function LikesYouScreen() {
   const insets = useSafeAreaInsets();
@@ -78,8 +65,9 @@ export default function LikesYouScreen() {
 
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
-  const [userBubbleLoading, setUserBubbleLoading] = useState(true);
+
+  // Use custom hook for user bubble management
+  const { userBubble, userBubbleLoading } = useUserBubble(session);
 
   // Get current group from real data (incoming likes instead of matching groups)
   const currentGroup = incomingLikes[currentGroupIndex];
@@ -94,102 +82,6 @@ export default function LikesYouScreen() {
       unsubscribeRefreshLikes();
     };
   }, [refetch]);
-
-  // Fetch data only on initial loading (useFocusEffect removed)
-  useEffect(() => {
-    // Fetch user group information (same as main screen)
-    const fetchUserBubble = async () => {
-      if (!session?.user) return;
-
-      setUserBubbleLoading(true);
-      try {
-        // First check Active bubble
-        const { data: activeBubbleData, error: activeBubbleError } =
-          await supabase.rpc("get_user_active_bubble", {
-            p_user_id: session.user.id,
-          });
-
-        let targetBubble: any = null;
-
-        if (
-          !activeBubbleError &&
-          activeBubbleData &&
-          activeBubbleData.length > 0
-        ) {
-          // Use Active bubble if available
-          targetBubble = activeBubbleData[0];
-        } else {
-          // If no Active bubble, use first joined group from get_my_bubbles
-          const { data, error } = await supabase.rpc("get_my_bubbles", {
-            p_user_id: session.user.id,
-          });
-
-          if (error) {
-            console.error("[LikesYouScreen] Failed to fetch user bubble information:", error);
-            throw error;
-          }
-
-          // Use the first bubble with 'joined' status
-          targetBubble = data?.find(
-            (bubble: any) => bubble.user_status === "joined"
-          );
-        }
-
-        if (targetBubble) {
-          // Parse member information (according to new structure)
-          let members: {
-            id: string;
-            first_name: string;
-            last_name: string;
-            images: { image_url: string; position: number }[];
-          }[] = [];
-          if (targetBubble.members) {
-            try {
-              members = Array.isArray(targetBubble.members)
-                ? targetBubble.members
-                : JSON.parse(targetBubble.members);
-            } catch {
-              members = [];
-            }
-          }
-
-          // Transform member data according to new structure
-          const membersWithUrls = members.map((member) => {
-            // Use first image as avatar
-            const avatarUrl =
-              member.images && member.images.length > 0
-                ? member.images[0].image_url
-                : null;
-
-            return {
-              id: member.id,
-              first_name: member.first_name,
-              last_name: member.last_name,
-              avatar_url: avatarUrl,
-              signedUrl: avatarUrl, // Use as is since it's already a public URL
-            };
-          });
-
-          const userBubbleData: UserBubble = {
-            id: targetBubble.id,
-            name: targetBubble.name,
-            members: membersWithUrls,
-          };
-
-          setUserBubble(userBubbleData);
-        } else {
-          setUserBubble(null);
-        }
-      } catch (error) {
-        console.error("[LikesYouScreen] Failed to fetch user group information:", error);
-        setUserBubble(null);
-      } finally {
-        setUserBubbleLoading(false);
-      }
-    };
-
-    fetchUserBubble();
-  }, [session?.user]);
 
   // Unified animation values
   const translateX = useSharedValue(0);
