@@ -4,23 +4,13 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  Platform,
-  ViewStyle,
-  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  runOnJS,
-} from "react-native-reanimated";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
 import { useLikesYou, GroupMember } from "@/hooks/useLikesYou";
 import { LikesYouContent } from "@/components/matchmaking/LikesYouContent";
 import {
@@ -31,6 +21,7 @@ import {
 } from "@/components/matchmaking/MatchmakingStates";
 import { useAuth } from "@/providers/AuthProvider";
 import { useUserBubble, UserBubble } from "@/hooks/useUserBubble";
+import { useLikesYouAnimation } from "@/hooks/useLikesYouAnimation";
 import { EventBus } from "@/services/EventBus";
 
 const screenWidth = Dimensions.get("window").width;
@@ -72,6 +63,20 @@ export default function LikesYouScreen() {
   // Get current group from real data (incoming likes instead of matching groups)
   const currentGroup = incomingLikes[currentGroupIndex];
 
+  // Use swipe animation hook
+  const { animatedBubbleStyle, handleSwipe } = useLikesYouAnimation({
+    isAnimating,
+    setIsAnimating,
+    currentGroupIndex,
+    setCurrentGroupIndex,
+    incomingLikesLength: incomingLikes.length,
+    currentGroupId: currentGroup?.group_id,
+    currentGroupName: currentGroup?.group_name,
+    likeBack,
+    pass,
+    onNavigateToChats: () => router.push('/(tabs)/chats'),
+  });
+
   // Set up EventBus listeners for real-time updates
   useEffect(() => {
     const unsubscribeRefreshLikes = EventBus.onEvent('REFRESH_LIKES_COUNT', () => {
@@ -82,12 +87,6 @@ export default function LikesYouScreen() {
       unsubscribeRefreshLikes();
     };
   }, [refetch]);
-
-  // Unified animation values
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
 
   // Handle user image click
   const handleUserClick = useCallback(
@@ -101,103 +100,6 @@ export default function LikesYouScreen() {
     },
     [router]
   );
-
-  // Animate and switch bubble data
-  const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
-    // Handle real data cycling (using incomingLikes instead of matchingGroups)
-    const nextIndex = (currentGroupIndex + 1) % incomingLikes.length;
-    setCurrentGroupIndex(nextIndex);
-
-    // Handle empty state when no more groups
-    if (incomingLikes.length === 0) {
-      return;
-    }
-
-    // Array bounds check
-    if (nextIndex >= incomingLikes.length) {
-      setCurrentGroupIndex(0);
-      return;
-    }
-
-    // Optimized animation timing for real data
-    const animationDuration = 350; // Slightly faster for better UX
-    const entryX =
-      direction === "left" ? screenWidth * 0.5 : -screenWidth * 0.5;
-    translateX.value = entryX;
-    translateY.value = -screenHeight * 0.3;
-    scale.value = 0.6;
-
-    // Animate IN to the center with optimized timing
-    translateX.value = withTiming(0, { duration: animationDuration });
-    translateY.value = withTiming(0, { duration: animationDuration });
-    scale.value = withTiming(1, { duration: animationDuration });
-    opacity.value = withTiming(
-      1,
-      { duration: animationDuration },
-      (finished) => {
-        if (finished) {
-          runOnJS(setIsAnimating)(false);
-        }
-      }
-    );
-  };
-
-  // Handler for X and Heart (using likeBack and pass instead of likeGroup and passGroup)
-  const handleSwipe = async (direction: "left" | "right") => {
-    if (isAnimating || !currentGroup) return;
-
-    // Add haptic feedback
-    if (Platform.OS === "ios") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-
-    setIsAnimating(true);
-
-    if (direction === "right") {
-      // Like back action (instead of regular like)
-      const response = await likeBack(currentGroup.group_id);
-
-      if (response?.status === "matched") {
-        // Enhanced match notification with haptic feedback
-        if (Platform.OS === "ios") {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-
-        Alert.alert(
-          "It's a Match! 🎉",
-          `You and ${currentGroup.group_name} liked each other!`,
-          [
-            {
-              text: "Continue Swiping",
-              style: "default",
-            },
-            {
-              text: "View Matches",
-              style: "default",
-              onPress: () => {
-                router.push("/(tabs)/chats");
-              },
-            },
-          ]
-        );
-      }
-    } else {
-      // Pass action
-      await pass(currentGroup.group_id);
-    }
-
-    // Animate OUT
-    const targetX =
-      direction === "left" ? -screenWidth * 0.5 : screenWidth * 0.5;
-    translateX.value = withTiming(targetX, { duration: 400 });
-    translateY.value = withTiming(screenHeight * 0.3, { duration: 400 });
-    scale.value = withTiming(0.6, { duration: 400 });
-    opacity.value = withTiming(0, { duration: 300 }, (finished) => {
-      if (finished) {
-        runOnJS(changeBubbleAndAnimateIn)(direction);
-      }
-    });
-  };
 
   // Pre-fetching logic (using incomingLikes instead of matchingGroups)
   useEffect(() => {
@@ -218,18 +120,6 @@ export default function LikesYouScreen() {
       loadMore();
     }
   }, [currentGroupIndex, incomingLikes.length, hasMore, isLoading, loadMore]);
-
-  // Unified animated style for the center bubble
-  const animatedBubbleStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-      transform: [
-        { translateX: translateX.value },
-        { translateY: translateY.value },
-        { scale: scale.value },
-      ],
-    } as ViewStyle;
-  });
 
   // Handle different states (same as main screen but for incoming likes)
   const renderMainContent = () => {
