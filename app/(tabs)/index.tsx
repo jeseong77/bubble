@@ -224,28 +224,6 @@ export default function MatchScreen() {
           <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
-        {/* Swipe Counter and Limit Info - Hidden from UI */}
-        {/* 
-        {swipeLimitInfo && (
-          <View style={styles.swipeCounterContainer}>
-            <BlurView
-              style={styles.swipeCounterBlur}
-              intensity={Platform.OS === "ios" ? 60 : 80}
-              tint="light"
-            >
-              <Text style={styles.swipeCounterText}>
-                {swipeLimitInfo.remaining_swipes}/{swipeLimitInfo.daily_limit} swipes remaining
-              </Text>
-              {swipeLimitInfo.remaining_swipes === 0 && (
-                <Text style={styles.resetTimeText}>
-                  {formatResetTime(swipeLimitInfo.reset_time)}
-                </Text>
-              )}
-            </BlurView>
-          </View>
-        )}
-        */}
-
         {/* Swipe Controls */}
         <View style={styles.swipeControls}>
           <TouchableOpacity
