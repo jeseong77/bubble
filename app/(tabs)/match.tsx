@@ -90,41 +90,28 @@ export default function LikesYouScreen() {
 
   // Set up EventBus listeners for real-time updates
   useEffect(() => {
-    console.log('[LikesYouScreen] Setting up EventBus listeners');
-    
-    // Listen for new likes/incoming likes events
     const unsubscribeRefreshLikes = EventBus.onEvent('REFRESH_LIKES_COUNT', () => {
-      console.log('[LikesYouScreen] Refresh likes event received, refetching data');
       refetch();
     });
 
     return () => {
-      console.log('[LikesYouScreen] Cleaning up EventBus listeners');
       unsubscribeRefreshLikes();
     };
   }, [refetch]);
 
   // Fetch data only on initial loading (useFocusEffect removed)
   useEffect(() => {
-    console.log("[LikesYouScreen] 🎯 Initial data loading...");
-
     // Fetch user group information (same as main screen)
     const fetchUserBubble = async () => {
       if (!session?.user) return;
 
       setUserBubbleLoading(true);
       try {
-        console.log("[LikesYouScreen] Starting to fetch user group information");
-
         // First check Active bubble
-        console.log("[LikesYouScreen] Checking Active bubble...");
         const { data: activeBubbleData, error: activeBubbleError } =
           await supabase.rpc("get_user_active_bubble", {
             p_user_id: session.user.id,
           });
-
-        console.log("[LikesYouScreen] Active bubble query result:", activeBubbleData);
-        console.log("[LikesYouScreen] Active bubble error:", activeBubbleError);
 
         let targetBubble: any = null;
 
@@ -135,10 +122,8 @@ export default function LikesYouScreen() {
         ) {
           // Use Active bubble if available
           targetBubble = activeBubbleData[0];
-        console.log("[LikesYouScreen] Using Active bubble:", targetBubble);
         } else {
           // If no Active bubble, use first joined group from get_my_bubbles
-          console.log("[LikesYouScreen] No Active bubble, using get_my_bubbles");
           const { data, error } = await supabase.rpc("get_my_bubbles", {
             p_user_id: session.user.id,
           });
@@ -148,8 +133,6 @@ export default function LikesYouScreen() {
             throw error;
           }
 
-          console.log("[LikesYouScreen] get_my_bubbles 응답:", data);
-
           // Use the first bubble with 'joined' status
           targetBubble = data?.find(
             (bubble: any) => bubble.user_status === "joined"
@@ -157,8 +140,6 @@ export default function LikesYouScreen() {
         }
 
         if (targetBubble) {
-          console.log("[LikesYouScreen] User group found:", targetBubble);
-
           // Parse member information (according to new structure)
           let members: {
             id: string;
@@ -199,10 +180,8 @@ export default function LikesYouScreen() {
             members: membersWithUrls,
           };
 
-          console.log("[LikesYouScreen] Setting user group data:", userBubbleData);
           setUserBubble(userBubbleData);
         } else {
-          console.log("[LikesYouScreen] User is not in any group");
           setUserBubble(null);
         }
       } catch (error) {
@@ -214,60 +193,7 @@ export default function LikesYouScreen() {
     };
 
     fetchUserBubble();
-  }, [session?.user]); // session?.user가 변경될 때만 실행
-
-  // 🔍 DEBUG: Matching group data logging
-  useEffect(() => {
-    console.log("=== 🔍 INCOMING LIKES IN LIKES YOU ===");
-    console.log("Total incoming likes:", incomingLikes.length);
-    console.log("Current group index:", currentGroupIndex);
-    console.log("Current group:", currentGroup);
-
-    if (currentGroup) {
-      console.log("=== 📋 CURRENT GROUP DETAILS ===");
-      console.log("Group ID:", currentGroup.group_id);
-      console.log("Group Name:", currentGroup.group_name);
-      console.log("Group Gender:", currentGroup.group_gender);
-      console.log("Preferred Gender:", currentGroup.preferred_gender);
-      console.log("Match Score:", currentGroup.match_score);
-      console.log("Members Count:", currentGroup.members?.length || 0);
-
-      if (currentGroup.members && currentGroup.members.length > 0) {
-        console.log("=== 👥 MEMBERS DETAILS ===");
-        currentGroup.members.forEach((member, index) => {
-          console.log(`Member ${index + 1}:`);
-          console.log("  - Name:", member.first_name, member.last_name);
-          console.log("  - Age:", member.age);
-          console.log("  - MBTI:", member.mbti);
-          console.log("  - Avatar:", member.avatar_url);
-        });
-      } else {
-        console.log("❌ No members data in current group!");
-      }
-    } else {
-      console.log("❌ No current group available");
-    }
-  }, [currentGroup, currentGroupIndex, incomingLikes.length]);
-
-  // 🔍 DEBUG: Matching context state logging
-  useEffect(() => {
-    console.log("=== 🔍 LIKES YOU CONTEXT STATE ===");
-    console.log("isLoading:", isLoading);
-    console.log("error:", error);
-    console.log("currentUserGroup:", currentUserGroup);
-    console.log("incomingLikes length:", incomingLikes.length);
-    console.log("currentGroupIndex:", currentGroupIndex);
-    console.log("hasMore:", hasMore);
-    console.log("isLoadingMore:", isLoadingMore);
-  }, [
-    isLoading,
-    error,
-    currentUserGroup,
-    incomingLikes.length,
-    currentGroupIndex,
-    hasMore,
-    isLoadingMore,
-  ]);
+  }, [session?.user]);
 
   // Unified animation values
   const translateX = useSharedValue(0);
@@ -278,11 +204,6 @@ export default function LikesYouScreen() {
   // Handle user image click
   const handleUserClick = useCallback(
     (user: GroupMember) => {
-      console.log("=== 🖼️ USER CLICK HANDLER (LIKES YOU) ===");
-      console.log("User clicked:", user);
-      console.log("User ID:", user.id);
-      console.log("User name:", user.first_name);
-
       router.push({
         pathname: "/bubble/user/[userId]",
         params: {
@@ -304,16 +225,8 @@ export default function LikesYouScreen() {
       return;
     }
 
-    // 🔍 DEBUG: Array bounds check
-    console.log("=== 🔄 CHANGE BUBBLE DEBUG (LIKES YOU) ===");
-    console.log("Current Index:", currentGroupIndex);
-    console.log("Next Index:", nextIndex);
-    console.log("Groups Length:", incomingLikes.length);
-    console.log("Next Group:", incomingLikes[nextIndex]);
-
-    // 배열 범위 체크 추가
+    // Array bounds check
     if (nextIndex >= incomingLikes.length) {
-      console.log("❌ Index out of bounds, resetting to 0");
       setCurrentGroupIndex(0);
       return;
     }
@@ -354,8 +267,6 @@ export default function LikesYouScreen() {
 
     if (direction === "right") {
       // Like back action (instead of regular like)
-      console.log(`[LikesYouScreen] Liking back group: ${currentGroup.group_name}`);
-
       const response = await likeBack(currentGroup.group_id);
 
       if (response?.status === "matched") {
@@ -377,23 +288,13 @@ export default function LikesYouScreen() {
               style: "default",
               onPress: () => {
                 router.push("/(tabs)/chats");
-                console.log(
-                  "Navigate to matches/chats screen. Chat Room ID:",
-                  response.chat_room_id
-                );
               },
             },
           ]
         );
-      } else {
-        // 'liked' status (no match yet)
-        console.log(
-          `[LikesYouScreen] Liked back ${currentGroup.group_name} (no match yet)`
-        );
       }
     } else {
       // Pass action
-      console.log(`[LikesYouScreen] Passing group: ${currentGroup.group_name}`);
       await pass(currentGroup.group_id);
     }
 
@@ -426,9 +327,6 @@ export default function LikesYouScreen() {
       !isLoading;
 
     if (shouldLoadMore) {
-      console.log(
-        `[LikesYouScreen] Pre-fetching more groups. Current: ${currentGroupIndex}/${incomingLikes.length}`
-      );
       loadMore();
     }
   }, [currentGroupIndex, incomingLikes.length, hasMore, isLoading, loadMore]);
@@ -447,24 +345,13 @@ export default function LikesYouScreen() {
 
   // Handle different states (same as main screen but for incoming likes)
   const renderMainContent = () => {
-    console.log("=== 🎨 LIKES YOU RENDER CONTENT DEBUG ===");
-    console.log("userBubble:", userBubble);
-    console.log("userBubbleLoading:", userBubbleLoading);
-    console.log("isLoading:", isLoading);
-    console.log("error:", error);
-    console.log("incomingLikes.length:", incomingLikes.length);
-    console.log("currentGroup:", currentGroup);
-
     // User bubble loading
     if (userBubbleLoading) {
-      console.log("⏳ User bubble loading - showing LoadingState");
       return <LoadingState message="Loading your bubble..." />;
     }
 
     // User has no group OR group is still forming
     if (!userBubble || currentUserGroupStatus === 'forming') {
-      console.log("❌ No user bubble or forming group - showing NoGroupState");
-      console.log("userBubble:", !!userBubble, "currentUserGroupStatus:", currentUserGroupStatus);
       return (
         <NoGroupState onCreateGroup={() => router.push("/(tabs)/profile")} />
       );
@@ -472,18 +359,15 @@ export default function LikesYouScreen() {
 
     // Matching groups loading
     if (isLoading) {
-      console.log("⏳ Incoming likes loading - showing LoadingState");
       return <LoadingState message="Loading your admirers..." />;
     }
 
     // Matching error
     if (error) {
-      console.log("❌ Error - showing ErrorState");
       return (
         <ErrorState
           error={error}
           onRetry={() => {
-            console.log("[LikesYouScreen] Retrying after error...");
             refetch();
           }}
         />
@@ -492,18 +376,14 @@ export default function LikesYouScreen() {
 
     // No matching groups
     if (incomingLikes.length === 0 && !isLoading) {
-      console.log("📭 No incoming likes - showing EmptyState");
       return (
         <EmptyState
           onRefresh={() => {
-            console.log("[LikesYouScreen] Refreshing empty state...");
             refetch();
           }}
         />
       );
     }
-
-    console.log("✅ Showing main content with MatchCard");
     // Main content when we have data - MatchCard and controls only
     return (
       <>
@@ -520,15 +400,6 @@ export default function LikesYouScreen() {
             animatedBubbleStyle,
           ]}
         >
-          {/* 🔍 DEBUG: MatchCard에 전달되는 데이터 로깅 */}
-          {(() => {
-            console.log("=== 🎯 PASSING TO MATCHCARD (LIKES YOU) ===");
-            console.log("Current Group:", currentGroup);
-            console.log("Has Members:", !!currentGroup?.members);
-            console.log("Members Length:", currentGroup?.members?.length || 0);
-            return null;
-          })()}
-
           <MatchCard group={currentGroup} onUserPress={handleUserClick} />
         </Animated.View>
 
@@ -536,11 +407,7 @@ export default function LikesYouScreen() {
         <View style={styles.swipeControls}>
           <TouchableOpacity
             style={styles.xButton}
-            onPress={() => {
-              console.log("❌ [LikesYou] X button pressed! isAnimating:", isAnimating);
-              handleSwipe("left");
-            }}
-            onPressIn={() => console.log("❌ [LikesYou] X button press started")}
+            onPress={() => handleSwipe("left")}
             disabled={isAnimating}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             activeOpacity={0.7}
@@ -549,11 +416,7 @@ export default function LikesYouScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.checkButton}
-            onPress={() => {
-              console.log("💖 [LikesYou] Heart button pressed! isAnimating:", isAnimating);
-              handleSwipe("right");
-            }}
-            onPressIn={() => console.log("💖 [LikesYou] Heart button press started")}
+            onPress={() => handleSwipe("right")}
             disabled={isAnimating}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             activeOpacity={0.7}
