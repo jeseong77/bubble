@@ -29,6 +29,8 @@ import * as Camera from "expo-camera";
 import { Skeleton } from "@/components/feedback/SkeletonLoader";
 import { ProfileBubbles } from "@/components/profile/ProfileBubbles";
 import { EditProfileTab } from "@/components/profile/EditProfileTab";
+import { ImageOptionsModal } from "@/components/profile/ImageOptionsModal";
+import { SaveConfirmationModal } from "@/components/profile/SaveConfirmationModal";
 
 // --- Imports for data integration ---
 import { useAuth } from "@/providers/AuthProvider";
@@ -37,6 +39,7 @@ import { useImageUpload } from "@/hooks/useImageUpload";
 import { useProfileData } from "@/hooks/useProfileData";
 import { useProfileSave } from "@/hooks/useProfileSave";
 import { useBubbleActions } from "@/hooks/useBubbleActions";
+import { useImageHandling } from "@/hooks/useImageHandling";
 
 // BubbleTabItem에서 사용하는 타입을 import
 import { BubbleTabItemData } from "@/components/bubble/BubbleTabItem";
@@ -149,15 +152,25 @@ function ProfileScreen() {
     fetchMyBubbles,
   });
 
+  // Use image handling hook
+  const {
+    selectedImageIndex,
+    showImageOptionsModal,
+    handleImageOptions,
+    handleTakePhoto,
+    handlePickImage,
+    handleRemoveImage,
+    closeImageOptionsModal,
+  } = useImageHandling({
+    session,
+    currentImages,
+    setCurrentImages,
+    pickAndUploadImage,
+  });
+
   const [activeTab, setActiveTab] = useState<string>(params.activeTab as string || "myBubble");
   const [showCreateBubbleModal, setShowCreateBubbleModal] = useState(false);
-
-  // --- New states ---
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [showImageOptionsModal, setShowImageOptionsModal] = useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
-    null
-  );
 
   // --- Data fetching moved to useProfileData hook ---
 
@@ -177,109 +190,7 @@ function ProfileScreen() {
     }, [])
   );
 
-  // --- Image-related functions ---
-  const handleImageOptions = (index: number) => {
-    setSelectedImageIndex(index);
-    setShowImageOptionsModal(true);
-  };
-
-  // --- Image handling functions ---
-
-  const handleTakePhoto = async () => {
-    console.log("[ProfileScreen] handleTakePhoto started");
-    setShowImageOptionsModal(false);
-
-    if (!session?.user || selectedImageIndex === null) {
-      Alert.alert("Error", "You must be logged in to upload images.");
-      return;
-    }
-
-    // Set loading state
-    const loadingImages = [...currentImages];
-    loadingImages[selectedImageIndex] = { isLoading: true };
-    setCurrentImages(loadingImages);
-
-    try {
-      // Use unified upload hook for camera
-      const result = await pickAndUploadImage(session.user.id, 'camera');
-
-      if (result) {
-        // Update with public URL
-        const finalImages = [...currentImages];
-        finalImages[selectedImageIndex] = { url: result.publicUrl };
-        setCurrentImages(finalImages);
-        console.log(`[ProfileScreen] Camera image uploaded successfully at position ${selectedImageIndex}: ${result.publicUrl}`);
-      } else {
-        // Revert loading state if upload failed
-        const revertedImages = [...currentImages];
-        revertedImages[selectedImageIndex] = null;
-        setCurrentImages(revertedImages);
-      }
-    } catch (error) {
-      console.error("Camera image upload failed:", error);
-      Alert.alert("Error", "Failed to upload image. Please try again.");
-
-      // Revert loading state
-      const revertedImages = [...currentImages];
-      revertedImages[selectedImageIndex] = null;
-      setCurrentImages(revertedImages);
-    }
-
-    setSelectedImageIndex(null);
-  };
-
-  const handlePickImage = async () => {
-    console.log("[ProfileScreen] handlePickImage started");
-    setShowImageOptionsModal(false);
-
-    if (!session?.user || selectedImageIndex === null) {
-      Alert.alert("Error", "You must be logged in to upload images.");
-      return;
-    }
-
-    // Set loading state
-    const loadingImages = [...currentImages];
-    loadingImages[selectedImageIndex] = { isLoading: true };
-    setCurrentImages(loadingImages);
-
-    try {
-      // Use unified upload hook for library
-      const result = await pickAndUploadImage(session.user.id, 'library');
-
-      if (result) {
-        // Update with public URL
-        const finalImages = [...currentImages];
-        finalImages[selectedImageIndex] = { url: result.publicUrl };
-        setCurrentImages(finalImages);
-        console.log(`[ProfileScreen] Library image uploaded successfully at position ${selectedImageIndex}: ${result.publicUrl}`);
-      } else {
-        // Revert loading state if upload failed
-        const revertedImages = [...currentImages];
-        revertedImages[selectedImageIndex] = null;
-        setCurrentImages(revertedImages);
-      }
-    } catch (error) {
-      console.error("Library image upload failed:", error);
-      Alert.alert("Error", "Failed to upload image. Please try again.");
-
-      // Revert loading state
-      const revertedImages = [...currentImages];
-      revertedImages[selectedImageIndex] = null;
-      setCurrentImages(revertedImages);
-    }
-
-    setSelectedImageIndex(null);
-  };
-
-  const handleRemoveImage = () => {
-    if (selectedImageIndex !== null) {
-      const updatedImages = [...currentImages];
-      updatedImages[selectedImageIndex] = null;
-      setCurrentImages(updatedImages);
-    }
-    setShowImageOptionsModal(false);
-    setSelectedImageIndex(null);
-  };
+  // --- Image handling moved to useImageHandling hook ---
 
   // --- Save function moved to useProfileSave hook ---
 
@@ -472,106 +383,21 @@ function ProfileScreen() {
         {renderTabContent()}
       </ScrollView>
 
-      {/* Save confirmation modal */}
-      <Modal
+      <SaveConfirmationModal
         visible={showSaveModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSaveModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalContent, { backgroundColor: colors.white }]}
-          >
-            <Text style={[styles.modalTitle, { color: colors.black }]}>
-              Do you want to save the changes?
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { borderColor: colors.darkGray }]}
-                onPress={() => setShowSaveModal(false)}
-              >
-                <Text
-                  style={[styles.modalButtonText, { color: colors.darkGray }]}
-                >
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  { backgroundColor: colors.primary },
-                ]}
-                onPress={saveProfileToServer}
-              >
-                <Text style={[styles.modalButtonText, { color: colors.white }]}>
-                  Confirm
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onCancel={() => setShowSaveModal(false)}
+        onConfirm={saveProfileToServer}
+      />
 
-      {/* Image options modal */}
-      <Modal
+      <ImageOptionsModal
         visible={showImageOptionsModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowImageOptionsModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.imageOptionsModal,
-              { backgroundColor: colors.white },
-            ]}
-          >
-            <Text style={[styles.modalTitle, { color: colors.black }]}>
-              Image Options
-            </Text>
-            <TouchableOpacity
-              style={styles.imageOptionButton}
-              onPress={handleTakePhoto}
-            >
-              <Ionicons name="camera" size={24} color={colors.primary} />
-              <Text style={[styles.imageOptionText, { color: colors.black }]}>
-                Take Photo
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.imageOptionButton}
-              onPress={handlePickImage}
-            >
-              <Ionicons name="images" size={24} color={colors.primary} />
-              <Text style={[styles.imageOptionText, { color: colors.black }]}>
-                Select from Gallery
-              </Text>
-            </TouchableOpacity>
-            {currentImages[selectedImageIndex || 0] && (
-              <TouchableOpacity
-                style={styles.imageOptionButton}
-                onPress={handleRemoveImage}
-              >
-                <Ionicons name="trash" size={24} color={colors.error} />
-                <Text style={[styles.imageOptionText, { color: colors.error }]}>
-                  Delete
-                </Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[styles.imageOptionButton, { marginTop: 20 }]}
-              onPress={() => setShowImageOptionsModal(false)}
-            >
-              <Text
-                style={[styles.imageOptionText, { color: colors.darkGray }]}
-              >
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={closeImageOptionsModal}
+        onTakePhoto={handleTakePhoto}
+        onPickImage={handlePickImage}
+        onRemoveImage={handleRemoveImage}
+        selectedImageIndex={selectedImageIndex}
+        currentImages={currentImages}
+      />
     </CustomView>
   );
 }
@@ -591,78 +417,6 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     fontSize: 16,
     fontFamily: "Quicksand-Bold",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    margin: 20,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontFamily: "Quicksand-Bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    borderWidth: 1,
-    marginHorizontal: 10,
-    alignItems: "center",
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontFamily: "Quicksand-Bold",
-  },
-  imageOptionsModal: {
-    margin: 20,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  imageOptionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    width: "100%",
-    borderRadius: 10,
-    marginVertical: 5,
-  },
-  imageOptionText: {
-    fontSize: 16,
-    fontFamily: "Quicksand-Regular",
-    marginLeft: 15,
   },
   imageBackgroundContainer: { flex: 1 },
   contentOverlay: { flex: 1 },
