@@ -36,9 +36,7 @@ export default function ChatRoomScreen() {
   const { chatRoomId } = params;
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
-  
-  console.log('💬 [ChatRoomScreen] Chat room entered with ID:', chatRoomId);
-  
+
   const [chatRoomData, setChatRoomData] = useState<ChatRoomData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'chat' | 'profile'>('chat');
@@ -55,10 +53,8 @@ export default function ChatRoomScreen() {
   useEffect(() => {
     const fetchChatRoomData = async () => {
       if (!chatRoomId) return;
-      
+
       try {
-        console.log('📡 [ChatRoomScreen] Fetching chat room data...');
-        
         // Get chat room data from enhanced get_my_matches RPC
         const { data: matchData, error: matchError } = await supabase.rpc('get_my_matches_enhanced');
         
@@ -66,9 +62,8 @@ export default function ChatRoomScreen() {
         
         // Find the specific chat room
         const roomData = matchData?.find((match: any) => match.chat_room_id === chatRoomId);
-        
+
         if (roomData) {
-          console.log('✅ [ChatRoomScreen] Chat room data found:', roomData);
           setChatRoomData({
             chat_room_id: roomData.chat_room_id,
             other_group_name: roomData.other_group_name,
@@ -81,12 +76,10 @@ export default function ChatRoomScreen() {
           
           // Mark messages as read
           await markMessagesAsRead();
-        } else {
-          console.log('❌ [ChatRoomScreen] Chat room not found in matches');
         }
       } catch (err) {
         console.error('❌ [ChatRoomScreen] Failed to fetch chat room data:', err);
-      } finally {
+      } finally{
         setIsLoading(false);
       }
     };
@@ -98,14 +91,10 @@ export default function ChatRoomScreen() {
   useEffect(() => {
     if (!chatRoomId || !chatRoomData) return;
 
-    console.log('🔴 [ChatRoomScreen] Setting up realtime listeners for room:', chatRoomId);
-
     // Subscribe to chat room broadcast channel directly
     const broadcastChannel = supabase.channel(`chat_room:${chatRoomId}`);
 
     broadcastChannel.on('broadcast', { event: 'new_message' }, async (payload) => {
-      console.log('🔥 [ChatRoomScreen] DIRECT BROADCAST RECEIVED:', payload);
-
       if (payload.payload && payload.payload.room_id === chatRoomId) {
         const message = payload.payload;
 
@@ -132,10 +121,8 @@ export default function ChatRoomScreen() {
              Math.abs(new Date(msg.created_at).getTime() - new Date(message.created_at).getTime()) < 5000)
           );
           if (isDuplicate) {
-            console.log('🔥 [ChatRoomScreen] Duplicate broadcast message, skipping');
             return prevMessages;
           }
-          console.log('🔥 [ChatRoomScreen] Adding message from broadcast');
           return [...prevMessages, formattedMessage];
         });
 
@@ -146,15 +133,12 @@ export default function ChatRoomScreen() {
       }
     });
 
-    broadcastChannel.subscribe((status) => {
-      console.log('📡 [ChatRoomScreen] Broadcast channel status:', status);
-    });
+    broadcastChannel.subscribe();
 
     // EventBus listener removed to prevent duplicates - using broadcast channel only
 
     // Cleanup broadcast channel on unmount
     return () => {
-      console.log('🔴 [ChatRoomScreen] Cleaning up realtime listeners');
       supabase.removeChannel(broadcastChannel);
     };
   }, [chatRoomId, chatRoomData]);
@@ -171,15 +155,12 @@ export default function ChatRoomScreen() {
       });
       
       if (error) throw error;
-      
-      console.log('✅ [ChatRoomScreen] Messages loaded:', data?.length || 0);
-      
+
       // Remove duplicates and reverse the array
       if (data) {
-        const uniqueMessages = data.filter((message, index, self) => 
+        const uniqueMessages = data.filter((message, index, self) =>
           index === self.findIndex(m => m.message_id === message.message_id)
         );
-        console.log('🔍 [ChatRoomScreen] Unique messages after deduplication:', uniqueMessages.length);
         setMessages([...uniqueMessages].reverse());
       } else {
         setMessages([]);
@@ -205,7 +186,6 @@ export default function ChatRoomScreen() {
 
       // Trigger event to refresh chat list unread counts
       EventBus.emitEvent('REFRESH_MESSAGES_COUNT', {});
-      console.log('✅ [ChatRoomScreen] Messages marked as read, triggered refresh event');
     } catch (err) {
       console.error('❌ [ChatRoomScreen] Failed to mark messages as read:', err);
     }
@@ -225,15 +205,12 @@ export default function ChatRoomScreen() {
     
     setProfileLoading(true);
     try {
-      console.log('📊 [ChatRoomScreen] Fetching profile data for room:', chatRoomId);
-      
       const { data, error } = await supabase.rpc('get_chat_room_members', {
         p_chat_room_id: chatRoomId
       });
-      
+
       if (error) throw error;
-      
-      console.log('✅ [ChatRoomScreen] Profile data loaded:', data);
+
       setProfileData(data);
     } catch (err) {
       console.error('❌ [ChatRoomScreen] Failed to fetch profile data:', err);
@@ -245,7 +222,6 @@ export default function ChatRoomScreen() {
   // Send typing indicator - we'll implement this later with EventBus if needed
   const sendTypingIndicator = (isTyping: boolean) => {
     // TODO: Implement typing indicators through EventBus if needed
-    console.log('[ChatRoomScreen] Typing indicator:', isTyping);
   };
 
   // Handle input text changes with typing indicators
@@ -328,9 +304,7 @@ export default function ChatRoomScreen() {
       });
       
       if (error) throw error;
-      
-      console.log('✅ [ChatRoomScreen] Message sent successfully:', data);
-      
+
       // Update optimistic message with real message ID if available
       if (data && data.message_id) {
         setMessages(prevMessages => 
@@ -344,7 +318,6 @@ export default function ChatRoomScreen() {
       
       // Broadcast message to chat room channel for real-time updates
       try {
-        console.log('📡 [ChatRoomScreen] Broadcasting message to chat room channel...');
         const broadcastChannel = supabase.channel(`chat_room:${chatRoomId}`);
         await broadcastChannel.send({
           type: 'broadcast',
@@ -360,8 +333,6 @@ export default function ChatRoomScreen() {
             created_at: new Date().toISOString()
           }
         });
-        console.log('✅ [ChatRoomScreen] Message broadcast sent to chat room');
-
       } catch (broadcastError) {
         console.warn('⚠️ [ChatRoomScreen] Broadcast failed:', broadcastError);
       }
