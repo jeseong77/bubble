@@ -6,18 +6,10 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
-  ViewStyle,
-  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  runOnJS,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "@react-navigation/native";
 import { useMatchmakingContext } from "@/providers/MatchmakingProvider";
 import { MatchCard } from "@/components/matchmaking/MatchCard";
@@ -30,8 +22,8 @@ import {
 } from "@/components/matchmaking/MatchmakingStates";
 import { GroupMember } from "@/hooks/useMatchmaking";
 import { useAuth } from "@/providers/AuthProvider";
-import { supabase } from "@/lib/supabase";
 import { useUserBubble } from "@/hooks/useUserBubble";
+import { useSwipeAnimation } from "@/hooks/useSwipeAnimation";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -77,12 +69,12 @@ export default function MatchScreen() {
     const resetTime = new Date(resetTimeISO);
     const now = new Date();
     const diff = resetTime.getTime() - now.getTime();
-    
+
     if (diff <= 0) return "Resetting soon";
-    
+
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (hours > 0) {
       return `Resets in ${hours}h ${minutes}m`;
     } else {
@@ -90,7 +82,29 @@ export default function MatchScreen() {
     }
   };
 
+  // Get current group from real data
+  const currentGroup = matchingGroups[currentGroupIndex];
 
+  // Use swipe animation hook
+  const {
+    animatedBubbleStyle,
+    handleSwipe,
+    changeBubbleAndAnimateIn,
+  } = useSwipeAnimation({
+    isAnimating,
+    setIsAnimating,
+    currentGroupIndex,
+    setCurrentGroupIndex,
+    matchingGroupsLength: matchingGroups.length,
+    currentGroupId: currentGroup?.group_id,
+    currentGroupName: currentGroup?.group_name,
+    swipeLimitInfo,
+    likeGroup,
+    passGroup,
+    setRecentMatches,
+    onNavigateToChats: () => router.push('/(tabs)/chats'),
+    formatResetTime,
+  });
 
   // Safety check: Reset index if it goes out of bounds after group removal
   useEffect(() => {
@@ -98,9 +112,6 @@ export default function MatchScreen() {
       setCurrentGroupIndex(0);
     }
   }, [matchingGroups.length, currentGroupIndex]);
-
-  // Get current group from real data
-  const currentGroup = matchingGroups[currentGroupIndex];
 
   // Focus effect for automatic refresh when returning to first tab
   useFocusEffect(
@@ -112,12 +123,6 @@ export default function MatchScreen() {
       refreshUserBubble();
     }, [refreshAll, refreshUserBubble])
   );
-
-  // Unified animation values
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
 
   // Handle different states - moved to after all hooks are called
   const renderContent = () => {
@@ -294,159 +299,6 @@ export default function MatchScreen() {
     [router]
   );
 
-  // Animate and switch bubble data
-  const changeBubbleAndAnimateIn = (direction: "left" | "right") => {
-    // Handle empty state when no more groups
-    if (matchingGroups.length === 0) {
-      return;
-    }
-
-    // Reset to 0 if current index is out of bounds (after group removal)
-    let nextIndex = currentGroupIndex;
-    if (currentGroupIndex >= matchingGroups.length) {
-      nextIndex = 0;
-    }
-
-    setCurrentGroupIndex(nextIndex);
-
-    // Optimized animation timing for real data
-    const animationDuration = 350; // Slightly faster for better UX
-    const entryX =
-      direction === "left" ? screenWidth * 0.5 : -screenWidth * 0.5;
-    translateX.value = entryX;
-    translateY.value = -screenHeight * 0.3;
-    scale.value = 0.6;
-
-    // Animate IN to the center with optimized timing
-    translateX.value = withTiming(0, { duration: animationDuration });
-    translateY.value = withTiming(0, { duration: animationDuration });
-    scale.value = withTiming(1, { duration: animationDuration });
-    opacity.value = withTiming(
-      1,
-      { duration: animationDuration },
-      (finished) => {
-        if (finished) {
-          runOnJS(setIsAnimating)(false);
-        }
-      }
-    );
-  };
-
-  // Handler for X and Heart
-  const handleSwipe = async (direction: "left" | "right") => {
-    if (isAnimating || !currentGroup) return;
-
-    // Check if swipes are available before attempting to swipe
-    if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
-      Alert.alert(
-        "Daily Limit Reached 🚫",
-        `You've used all ${swipeLimitInfo.daily_limit} swipes today. ${formatResetTime(swipeLimitInfo.reset_time)}.`,
-        [{ text: "OK", style: "default" }]
-      );
-      return;
-    }
-
-    // Add haptic feedback
-    if (Platform.OS === "ios") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-
-    setIsAnimating(true);
-
-    try {
-      if (direction === "right") {
-        // Visual feedback for like action
-        console.log(`[MatchScreen] Liking group: ${currentGroup.group_name}`);
-
-        const response = await likeGroup(currentGroup.group_id);
-
-        // Handle different response statuses
-        if (response?.status === "limit_exceeded") {
-          Alert.alert(
-            "Daily Limit Reached 🚫",
-            `You've used all your swipes today. ${response.swipe_info?.reset_time ? formatResetTime(response.swipe_info.reset_time) : 'Resets at midnight EST'}.`,
-            [{ text: "OK", style: "default" }]
-          );
-          setIsAnimating(false);
-          return;
-        } else if (response?.status === "matched") {
-          // Enhanced match notification with haptic feedback
-          if (Platform.OS === "ios") {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-
-          setRecentMatches((prev) => [...prev, currentGroup.group_id]);
-          Alert.alert(
-            "It's a Match! 🎉",
-            `You and ${currentGroup.group_name} liked each other!`,
-            [
-              {
-                text: "Continue Swiping",
-                style: "default",
-              },
-              {
-                text: "View Matches",
-                style: "default",
-                onPress: () => {
-                  // Navigate to chats screen
-                  console.log(
-                    "Navigate to matches/chats screen. Chat Room ID:",
-                    response.chat_room_id
-                  );
-                  router.push('/(tabs)/chats');
-                },
-              },
-            ]
-          );
-        } else if (response?.status === "error") {
-          Alert.alert("Error", response.message || "Failed to like group");
-          setIsAnimating(false);
-          return;
-        } else {
-          // 'liked' status - normal like without match
-          console.log(`[MatchScreen] Liked ${currentGroup.group_name} (no match yet)`);
-        }
-      } else {
-        // Visual feedback for pass action
-        console.log(`[MatchScreen] Passing group: ${currentGroup.group_name}`);
-        
-        const response = await passGroup(currentGroup.group_id);
-        
-        // Handle different response statuses for pass
-        if (response?.status === "limit_exceeded") {
-          Alert.alert(
-            "Daily Limit Reached 🚫",
-            `You've used all your swipes today. ${response.swipe_info?.reset_time ? formatResetTime(response.swipe_info.reset_time) : 'Resets at midnight EST'}.`,
-            [{ text: "OK", style: "default" }]
-          );
-          setIsAnimating(false);
-          return;
-        } else if (response?.status === "error") {
-          Alert.alert("Error", response.message || "Failed to pass group");
-          setIsAnimating(false);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error("Error in handleSwipe:", error);
-      Alert.alert("Error", "Something went wrong. Please try again.");
-      setIsAnimating(false);
-      return;
-    }
-
-    // Animate OUT (only if swipe was successful)
-    const targetX =
-      direction === "left" ? -screenWidth * 0.5 : screenWidth * 0.5;
-    translateX.value = withTiming(targetX, { duration: 400 });
-    translateY.value = withTiming(screenHeight * 0.3, { duration: 400 });
-    scale.value = withTiming(0.6, { duration: 400 });
-    opacity.value = withTiming(0, { duration: 300 }, (finished) => {
-      if (finished) {
-        runOnJS(changeBubbleAndAnimateIn)(direction);
-      }
-    });
-  };
-
   // Pre-fetching logic
   useEffect(() => {
     if (currentGroupIndex >= matchingGroups.length * 0.7 && hasMore) {
@@ -469,18 +321,6 @@ export default function MatchScreen() {
       loadMore();
     }
   }, [currentGroupIndex, matchingGroups.length, hasMore, isLoading, loadMore]);
-
-  // Unified animated style for the center bubble
-  const animatedBubbleStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-      transform: [
-        { translateX: translateX.value },
-        { translateY: translateY.value },
-        { scale: scale.value },
-      ],
-    } as ViewStyle;
-  });
 
   // Main return - call renderContent to handle all conditional rendering
   return renderContent();
