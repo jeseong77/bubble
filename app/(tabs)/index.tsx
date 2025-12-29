@@ -31,6 +31,7 @@ import {
 import { GroupMember } from "@/hooks/useMatchmaking";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { useUserBubble } from "@/hooks/useUserBubble";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -39,19 +40,6 @@ const screenHeight = Dimensions.get("window").height;
 const centerBubbleDiameter = Math.min(screenWidth * 1.12, screenHeight * 0.62);
 const centerBubbleImageSize = centerBubbleDiameter * 0.44;
 const centerBubbleOverlap = centerBubbleImageSize * 0.18;
-
-// User group information type
-interface UserBubble {
-  id: string;
-  name: string;
-  members: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url: string;
-    signedUrl?: string;
-  }[];
-}
 
 export default function MatchScreen() {
   const router = useRouter();
@@ -80,8 +68,9 @@ export default function MatchScreen() {
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [recentMatches, setRecentMatches] = useState<string[]>([]);
-  const [userBubble, setUserBubble] = useState<UserBubble | null>(null);
-  const [userBubbleLoading, setUserBubbleLoading] = useState(true);
+
+  // Use custom hook for user bubble management
+  const { userBubble, userBubbleLoading, refreshUserBubble } = useUserBubble(session);
 
   // Helper function to format reset time for small display
   const formatResetTime = (resetTimeISO: string) => {
