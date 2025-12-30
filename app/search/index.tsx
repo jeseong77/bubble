@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getAvatarUrl } from "@/utils/avatarUtils";
 import InviteModal from "@/components/InviteModal";
 import { useUserSearch } from "@/hooks/useUserSearch";
+import { useInvitationActions } from "@/hooks/useInvitationActions";
 
 interface SearchUser {
   id: string;
@@ -57,6 +58,14 @@ export default function SearchScreen() {
     groupId,
   });
 
+  // Use invitation actions hook
+  const { sendInvitation, cancelInvitation } = useInvitationActions({
+    userId: session?.user?.id,
+    groupId,
+    checkGenderCompatibility,
+    setSearchResults,
+  });
+
   // URL validity check function
   const isValidUrl = (url: string): boolean => {
     try {
@@ -77,149 +86,6 @@ export default function SearchScreen() {
     }
 
     return fallbackUrl;
-  };
-
-  const sendInvitation = async (userId: string, userName: string, userGender: string) => {
-    if (!session?.user?.id || !groupId) return;
-
-    if (!checkGenderCompatibility(userGender)) {
-      Alert.alert("Sorry, You can only invite friends of the same gender :(");
-      return;
-    }
-
-
-    try {
-      const { data, error } = await supabase.rpc("send_invitation", {
-        p_group_id: groupId,
-        p_invited_user_id: userId,
-        p_invited_by_user_id: session.user.id,
-      });
-
-
-      if (error) {
-        console.error(`[SearchScreen] Invitation sending error:`, error);
-        throw error;
-      }
-
-      if (data) {
-
-        // More permissive UI update logic - update UI if invitation was successful OR already exists
-        if (data.success || data.already_exists) {
-          
-          // Update UI to show invitation sent
-          setSearchResults(prevResults =>
-            prevResults.map(user =>
-              user.id === userId
-                ? { ...user, invitationStatus: "invited" as const }
-                : user
-            )
-          );
-
-          // Show success popup
-          Alert.alert(
-            "Invitation Sent!",
-            `Invitation sent to ${userName}!`,
-            [{ text: "OK", style: "default" }]
-          );
-        } else {
-          console.error(`[SearchScreen] ❌ Invitation sending failed: ${userName}`, {
-            success: data.success,
-            already_exists: data.already_exists,
-            verification_status: data.verification_status,
-            inserted_count: data.inserted_count,
-            error: data.error
-          });
-          Alert.alert("Error", `Failed to send invitation: ${data.error || "Unknown error"}`);
-        }
-      } else {
-          `[SearchScreen] Invitation sending failed: ${userName} - Already invited or group is full`
-        );
-        Alert.alert(
-          "Error",
-          "Failed to send invitation. User might already be invited or group is full."
-        );
-      }
-    } catch (error) {
-      console.error(`[SearchScreen] Exception during invitation sending:`, error);
-      Alert.alert("Error", "Failed to send invitation");
-    }
-  };
-
-  const cancelInvitation = async (userId: string, userName: string) => {
-    if (!session?.user?.id || !groupId) {
-      console.error(`[SearchScreen] Missing session or groupId:`, { 
-        hasSession: !!session?.user?.id, 
-        groupId 
-      });
-      return;
-    }
-
-    
-    // UUID format validation
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isGroupIdValid = uuidRegex.test(groupId);
-    const isUserIdValid = uuidRegex.test(userId);
-    
-    
-    if (!isGroupIdValid || !isUserIdValid) {
-      console.error(`[SearchScreen] Invalid UUID format`, { groupId, userId });
-      Alert.alert("Error", "Invalid ID format");
-      return;
-    }
-
-    // Log the exact parameters being sent (matching RPC function parameter names)
-    const rpcParams = {
-      p_group_id: groupId,
-      p_user_id: userId,
-    };
-
-    try {
-      const forceParams = {
-        p_group_id: groupId,
-        p_user_id: userId,
-      };
-      const { data, error } = await supabase.rpc("force_delete_invitation", forceParams);
-
-      
-      if (error) {
-        console.error(`[SearchScreen] Error occurred:`, {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        
-        Alert.alert("Error", `Failed to cancel invitation: ${error.message}`);
-        return;
-      }
-
-      // Handle force delete response
-      if (data) {
-
-        if (data.success) {
-          // Update the user's invitation status back to null (no invitation)
-          setSearchResults(prevResults => 
-            prevResults.map(user => 
-              user.id === userId 
-                ? { ...user, invitationStatus: null }
-                : user
-            )
-          );
-          Alert.alert("Success!", `Invitation cancelled for ${userName}`);
-        } else {
-          console.error(`[SearchScreen] ❌ Even FORCE DELETE failed: ${userName}`);
-          console.error(`[SearchScreen] Executed SQL: ${data.sql_executed}`);
-          Alert.alert("Error", `Even force delete failed for ${userName}. This shouldn't happen!`);
-        }
-      } else {
-        Alert.alert("Error", "No response data from force delete");
-      }
-      
-    } catch (error) {
-      console.error(`[SearchScreen] Exception occurred:`, error);
-      console.error(`[SearchScreen] Complete exception object:`, JSON.stringify(error, null, 2));
-      Alert.alert("Error", `Exception during cancel: ${error}`);
-    }
   };
 
   const renderUserRow = ({ item }: { item: SearchUser }) => {
