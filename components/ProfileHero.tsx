@@ -237,9 +237,8 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     paddingBottom: 30,
-    position: "relative", // 공들을 위한 기준점
+    position: "relative",
     width: "100%",
-    // backgroundColor: '#f0f0f0', // 배경색 확인용
   },
   profileImageContainer: {
     width: 142, // 이미지 컨테이너 크기
