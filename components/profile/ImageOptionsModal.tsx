@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppTheme } from '@/contexts/ThemeProvider';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { ProfileImage } from '@/types/profile';
 
 interface ImageOptionsModalProps {
