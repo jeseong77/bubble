@@ -66,23 +66,6 @@ export default function ChatRoomScreen() {
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-        // Auto scroll to bottom
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
-    });
-
-    broadcastChannel.subscribe();
-
-    // EventBus listener removed to prevent duplicates - using broadcast channel only
-
-    // Cleanup broadcast channel on unmount
-    return () => {
-      supabase.removeChannel(broadcastChannel);
-    };
-  }, [chatRoomId, chatRoomData]);
-
 
   const handleBack = () => {
     router.back();
