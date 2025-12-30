@@ -19,7 +19,8 @@
       "Bash(head:*)",
       "Bash(npx expo lint:*)",
       "Bash(npx expo-cli export)",
-      "Bash(npx expo export --help:*)"
+      "Bash(npx expo export --help:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []
