@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -7,279 +7,29 @@ import {
   ActivityIndicator,
   SafeAreaView,
   TouchableOpacity,
-  Image,
-  Alert,
   StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/providers/AuthProvider";
-import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { InvitationItem } from "@/components/invitation/InvitationItem";
-
-interface InvitationBubble {
-  id: string;
-  name: string;
-  status: string;
-  members: any[];
-  user_status: string;
-  invited_at: string;
-  group_size?: string;
-  creator?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-  };
-}
+import { useInvitations } from "@/hooks/useInvitations";
 
 export default function InvitationPage() {
   const router = useRouter();
   const { session } = useAuth();
 
-  const [invitedBubbles, setInvitedBubbles] = useState<InvitationBubble[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchInvitedBubbles = async () => {
-      if (!session?.user) return;
-
-      setLoading(true);
-      try {
-        const { data, error } = await supabase.rpc("get_my_bubbles", {
-          p_user_id: session.user.id,
-        });
-
-        if (error) throw error;
-
-        
-        // Filter only invited status bubbles and extract creator info
-        const invited = (data || [])
-          .filter((bubble: any) => {
-            
-            const isInvited = bubble.user_status === "invited";
-            return isInvited;
-          })
-          .map((bubble: any, index: number) => {
-            
-            const members = Array.isArray(bubble.members) 
-              ? bubble.members 
-              : (bubble.members ? JSON.parse(bubble.members) : []);
-            
-            
-            // Use creator info directly from RPC response instead of guessing from members
-            const creator = bubble.creator;
-            
-            // Determine group size based on member count or group status
-            const maxSize = members.length <= 2 ? "2:2" : "3:3";
-            
-            const result = {
-              id: bubble.id,
-              name: bubble.name,
-              status: bubble.status,
-              members: members,
-              user_status: bubble.user_status,
-              invited_at: bubble.invited_at,
-              group_size: maxSize,
-              creator: creator ? {
-                id: creator.id,
-                first_name: creator.first_name,
-                last_name: creator.last_name,
-                avatar_url: creator.avatar_url
-              } : null
-            };
-            
-            return result;
-          });
-
-        setInvitedBubbles(invited);
-      } catch (error) {
-        setInvitedBubbles([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInvitedBubbles();
-  }, [session]);
-
-  const handleAcceptInvitation = async (bubbleId: string) => {
-
-    if (!session?.user) {
-      Alert.alert("Error", "You must be logged in to accept invitations.");
-      return;
-    }
-
-    try {
-        p_group_id: bubbleId,
-        p_user_id: session.user.id,
-      });
-
-      const { data, error } = await supabase.rpc("accept_invitation", {
-        p_group_id: bubbleId,
-        p_user_id: session.user.id,
-      });
-
-
-      if (error) {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        
-        Alert.alert("Error", error.message || "Failed to accept invitation. Please try again.");
-        return;
-      }
-
-      // Handle the new JSON response format
-      if (!data || !data.success) {
-        
-        // Handle specific error cases
-        let errorMessage = "Failed to accept invitation.";
-        let errorTitle = "Error";
-        
-        if (data?.error === 'GROUP_FULL') {
-          errorTitle = "Bubble Full";
-          errorMessage = `This bubble is already full (${data.current_size}/${data.max_size} members).`;
-        } else if (data?.error === 'GROUP_NOT_FORMING') {
-          errorTitle = "Bubble Not Available";
-          errorMessage = "This bubble is no longer accepting new members.";
-        } else if (data?.error === 'NO_PENDING_INVITATION') {
-          errorTitle = "Invalid Invitation";
-          errorMessage = "You don't have a pending invitation to this bubble.";
-        } else if (data?.error === 'GROUP_NOT_FOUND') {
-          errorTitle = "Bubble Not Found";
-          errorMessage = "This bubble no longer exists.";
-        } else if (data?.message) {
-          errorMessage = data.message;
-        }
-        
-        Alert.alert(errorTitle, errorMessage);
-        
-        // If the invitation is no longer valid, remove it from the UI
-        if (data?.error === 'GROUP_FULL' || 
-            data?.error === 'GROUP_NOT_FORMING' || 
-            data?.error === 'NO_PENDING_INVITATION' || 
-            data?.error === 'GROUP_NOT_FOUND') {
-          setInvitedBubbles((prev) => prev.filter((bubble) => bubble.id !== bubbleId));
-        }
-        
-        return;
-      }
-
-        name: data.group_name,
-        isFull: data.group_full,
-        finalSize: data.final_size || data.current_size,
-        maxSize: data.max_size,
-        cleanedUpInvitations: data.cleaned_up_invitations
-      });
-
-      // Remove this invitation from local state
-      setInvitedBubbles((prev) => {
-        const updated = prev.filter((bubble) => bubble.id !== bubbleId);
-        return updated;
-      });
-
-      // Show success message with additional context
-      let successMessage = `You've successfully joined "${data.group_name}"! 🎉`;
-      
-      if (data.group_full && data.cleaned_up_invitations > 0) {
-        successMessage += `\n\nThe bubble is now full (${data.final_size}/${data.max_size}), and ${data.cleaned_up_invitations} other pending invitation(s) have been automatically removed.`;
-      } else if (data.group_full) {
-        successMessage += `\n\nThe bubble is now full (${data.final_size}/${data.max_size})!`;
-      } else {
-        successMessage += `\n\nBubble size: ${data.current_size}/${data.max_size}`;
-      }
-
-      Alert.alert("Joined Bubble!", successMessage, [
-        {
-          text: "OK",
-          onPress: () => {
-          },
-        },
-      ]);
-      
-    } catch (error) {
-        "[InvitationPage] Error message:",
-        error instanceof Error ? error.message : String(error)
-      );
-
-      Alert.alert("Error", "An unexpected error occurred. Please try again.", [
-        {
-          text: "OK",
-          onPress: () => {
-          },
-        },
-      ]);
-    }
-  };
-
-  const handleDeclineInvitation = async (bubbleId: string) => {
-
-    if (!session?.user) {
-      Alert.alert("Error", "You must be logged in to decline invitations.");
-      return;
-    }
-
-    try {
-        p_group_id: bubbleId,
-        p_user_id: session.user.id,
-      });
-
-      const { data, error } = await supabase.rpc("decline_invitation", {
-        p_group_id: bubbleId,
-        p_user_id: session.user.id,
-      });
-
-
-      if (error) {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        throw error;
-      }
-
-
-      // Optimistic UI update - Remove from local state immediately
-        "[InvitationPage] Invitation list count before update:",
-        invitedBubbles.length
-      );
-
-      setInvitedBubbles((prev) => {
-        const updated = prev.filter((bubble) => bubble.id !== bubbleId);
-          "[InvitationPage] Invitation list count after update:",
-          updated.length
-        );
-        return updated;
-      });
-
-      Alert.alert("Success", "Invitation declined successfully.", [
-        {
-          text: "OK",
-          onPress: () => {
-          },
-        },
-      ]);
-    } catch (error) {
-        "[InvitationPage] ❌ handleDeclineInvitation complete error:",
-        error
-      );
-        "[InvitationPage] Error message:",
-        error instanceof Error ? error.message : String(error)
-      );
-
-      Alert.alert("Error", "Failed to decline invitation. Please try again.", [
-        {
-          text: "OK",
-          onPress: () => {
-          },
-        },
-      ]);
-    }
-  };
+  const {
+    invitedBubbles,
+    loading,
+    handleAcceptInvitation,
+    handleDeclineInvitation,
+  } = useInvitations({
+    userId: session?.user?.id,
+    onAcceptSuccess: () => {
+      // Optionally navigate or refresh
+    },
+  });
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
