@@ -144,81 +144,6 @@ export default function ProfileSetupScreen() {
     []
   );
 
-  const handleFirstNameChange = useCallback(
-    (value: string) => {
-      updateProfileField("firstName", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleLastNameChange = useCallback(
-    (value: string) => {
-      updateProfileField("lastName", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleUsernameChange = useCallback(
-    (value: string) => {
-      updateProfileField("username", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleBirthDayChange = useCallback(
-    (value: string) => {
-      updateProfileField("birthDay", value);
-    },
-    [updateProfileField]
-  );
-  const handleBirthMonthChange = useCallback(
-    (value: string) => {
-      updateProfileField("birthMonth", value);
-    },
-    [updateProfileField]
-  );
-  const handleBirthYearChange = useCallback(
-    (value: string) => {
-      updateProfileField("birthYear", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleHeightChange = useCallback(
-    (newHeight: number) => {
-      updateProfileField("height", newHeight);
-    },
-    [updateProfileField]
-  );
-
-  const handleMbtiChange = useCallback(
-    (value: string | null) => {
-      updateProfileField("mbti", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleGenderChange = useCallback(
-    (genderValue: string) => {
-      updateProfileField("gender", genderValue);
-    },
-    [updateProfileField]
-  );
-
-  const handleGenderVisibilityChange = useCallback(
-    (isVisible: boolean) => {
-      updateProfileField("genderVisibleOnProfile", isVisible);
-    },
-    [updateProfileField]
-  );
-
-  const handleLocationChange = useCallback(
-    (value: string) => {
-      updateProfileField("location", value);
-    },
-    [updateProfileField]
-  );
-
   const handleLocationSkip = useCallback(() => {
     updateProfileField("location", null);
     if (currentStep < TOTAL_STEPS - 1) {
@@ -233,33 +158,12 @@ export default function ProfileSetupScreen() {
     }
   }, [updateProfileField, currentStep]);
 
-  const handlePreferredGenderChange = useCallback(
-    (value: string) => {
-      updateProfileField("preferredGender", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleAboutMeChange = useCallback(
-    (text: string) => {
-      updateProfileField("aboutMe", text);
-    },
-    [updateProfileField]
-  );
-
   const handleAboutMeSkip = useCallback(() => {
     updateProfileField("aboutMe", "");
     if (currentStep < TOTAL_STEPS - 1) {
       setCurrentStep((prev) => prev + 1);
     }
   }, [updateProfileField, currentStep]);
-
-  const handleImagesChange = useCallback(
-    (newImages: (ProfileImage | null)[]) => {
-      updateProfileField("images", newImages);
-    },
-    [updateProfileField]
-  );
 
   // Fetch existing user profile when component renders
   useEffect(() => {
@@ -313,15 +217,15 @@ export default function ProfileSetupScreen() {
           <NameInputStep
             firstName={profileData.firstName}
             lastName={profileData.lastName}
-            onFirstNameChange={handleFirstNameChange}
-            onLastNameChange={handleLastNameChange}
+            onFirstNameChange={(value) => updateProfileField("firstName", value)}
+            onLastNameChange={(value) => updateProfileField("lastName", value)}
           />
         );
       case 1:
         return (
           <UserIdInputStep
             username={profileData.username}
-            onUsernameChange={handleUsernameChange}
+            onUsernameChange={(value) => updateProfileField("username", value)}
           />
         );
       case 2:
@@ -330,16 +234,16 @@ export default function ProfileSetupScreen() {
             day={profileData.birthDay}
             month={profileData.birthMonth}
             year={profileData.birthYear}
-            onDayChange={handleBirthDayChange}
-            onMonthChange={handleBirthMonthChange}
-            onYearChange={handleBirthYearChange}
+            onDayChange={(value) => updateProfileField("birthDay", value)}
+            onMonthChange={(value) => updateProfileField("birthMonth", value)}
+            onYearChange={(value) => updateProfileField("birthYear", value)}
           />
         );
       case 3:
         return (
           <HeightInputStep
             initialHeightCm={profileData.height ?? undefined}
-            onHeightChange={handleHeightChange}
+            onHeightChange={(value) => updateProfileField("height", value)}
             onSkip={handleHeightSkip}
           />
         );
@@ -347,7 +251,7 @@ export default function ProfileSetupScreen() {
         return (
           <LocationInputStep
             location={profileData.location}
-            onLocationChange={handleLocationChange}
+            onLocationChange={(value) => updateProfileField("location", value)}
             onSkip={handleLocationSkip}
           />
         );
@@ -355,7 +259,7 @@ export default function ProfileSetupScreen() {
         return (
           <MbtiInputStep
             currentMbti={profileData.mbti}
-            onMbtiChange={handleMbtiChange}
+            onMbtiChange={(value) => updateProfileField("mbti", value)}
           />
         );
       case 6:
@@ -363,22 +267,22 @@ export default function ProfileSetupScreen() {
           <GenderInputStep
             currentGender={profileData.gender}
             currentVisibility={profileData.genderVisibleOnProfile}
-            onGenderChange={handleGenderChange}
-            onVisibilityChange={handleGenderVisibilityChange}
+            onGenderChange={(value) => updateProfileField("gender", value)}
+            onVisibilityChange={(value) => updateProfileField("genderVisibleOnProfile", value)}
           />
         );
       case 7:
         return (
           <PreferredGenderInputStep
             preferredGender={profileData.preferredGender}
-            onPreferredGenderChange={handlePreferredGenderChange}
+            onPreferredGenderChange={(value) => updateProfileField("preferredGender", value)}
           />
         );
       case 8:
         return (
           <AboutMeInputStep
             currentAboutMe={profileData.aboutMe}
-            onAboutMeChange={handleAboutMeChange}
+            onAboutMeChange={(value) => updateProfileField("aboutMe", value)}
             onSkip={handleAboutMeSkip}
           />
         );
@@ -386,7 +290,7 @@ export default function ProfileSetupScreen() {
         return (
           <ImageUploadStep
             currentImages={profileData.images}
-            onImagesChange={handleImagesChange}
+            onImagesChange={(value) => updateProfileField("images", value)}
             userId={session?.user?.id || ""}
             maxImages={MAX_IMAGES}
           />
