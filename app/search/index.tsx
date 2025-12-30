@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getAvatarUrl } from "@/utils/avatarUtils";
 import InviteModal from "@/components/InviteModal";
+import { useUserSearch } from "@/hooks/useUserSearch";
 
 interface SearchUser {
   id: string;
@@ -40,12 +41,21 @@ export default function SearchScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const insets = useSafeAreaInsets();
 
-  const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+
+  // Use search hook for all search-related logic
+  const {
+    searchResults,
+    setSearchResults,
+    isSearching,
+    searchTerm,
+    setSearchTerm,
+    currentUserGender,
+    checkGenderCompatibility,
+  } = useUserSearch({
+    userId: session?.user?.id,
+    groupId,
+  });
 
   // URL validity check function
   const isValidUrl = (url: string): boolean => {
@@ -67,117 +77,6 @@ export default function SearchScreen() {
     }
 
     return fallbackUrl;
-  };
-
-  // Fetch current user's gender
-  useEffect(() => {
-    const fetchCurrentUserGender = async () => {
-      if (!session?.user?.id) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("gender")
-          .eq("id", session.user.id)
-          .single();
-          
-        if (error) throw error;
-        setCurrentUserGender(data.gender);
-      } catch (error) {
-        console.error("[SearchScreen] Failed to fetch current user gender:", error);
-      }
-    };
-    
-    fetchCurrentUserGender();
-  }, [session?.user?.id]);
-
-  // Debouncing effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  // Execute search
-  useEffect(() => {
-    if (debouncedSearchTerm.trim().length >= 2) {
-      searchUsers(debouncedSearchTerm);
-    } else {
-      setSearchResults([]);
-    }
-  }, [debouncedSearchTerm]);
-
-  const checkGenderCompatibility = (targetUserGender: string): boolean => {
-    if (!currentUserGender || !targetUserGender) return true;
-    if (currentUserGender === "everyone" || targetUserGender === "everyone") return true;
-    return currentUserGender === targetUserGender;
-  };
-
-
-  const searchUsers = async (searchTerm: string) => {
-    if (!searchTerm.trim() || !session?.user?.id || !groupId) {
-      setSearchResults([]);
-      return;
-    }
-
-
-    setIsSearching(true);
-    try {
-      // 1. First search all users (regardless of invitation status)
-      const { data: allUsers, error: searchError } = await supabase.rpc(
-        "search_users",
-        {
-          p_search_term: searchTerm.trim(),
-          p_exclude_user_id: session.user.id,
-          p_exclude_group_id: null, // Search without excluding groups
-        }
-      );
-
-
-      if (searchError) throw searchError;
-
-      // 2. Get current group member information (using simple RPC)
-      const { data: groupMembers, error: membersError } = await supabase.rpc(
-        "get_group_member_statuses",
-        {
-          p_group_id: groupId,
-        }
-      );
-
-        groupMembers,
-        membersError,
-      });
-
-      if (membersError) throw membersError;
-
-      // 3. Member status mapping
-      const memberStatusMap = new Map();
-      groupMembers?.forEach((member) => {
-        memberStatusMap.set(member.user_id, member.status);
-      });
-
-      // 4. Add invitation status to search results
-      const usersWithStatus =
-        allUsers?.map((user) => ({
-          ...user,
-          displayName: user.username,
-          invitationStatus: memberStatusMap.get(user.id) || null, // 'invited', 'joined', 'declined' or null
-        })) || [];
-
-      
-      // Log avatar URLs to debug format
-      usersWithStatus.forEach(user => {
-      });
-
-      setSearchResults(usersWithStatus);
-    } catch (error) {
-      console.error("[SearchScreen] Search error:", error);
-      Alert.alert("Error", "Failed to search users");
-    } finally {
-      setIsSearching(false);
-    }
   };
 
   const sendInvitation = async (userId: string, userName: string, userGender: string) => {
