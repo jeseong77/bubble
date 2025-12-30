@@ -175,10 +175,6 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
             imageUrl ? { uri: imageUrl } : require("../assets/images/guy.png")
           }
           style={styles.profileImage}
-          onLoad={() =>
-          }
-          onError={(error) =>
-          }
         />
       </View>
 
