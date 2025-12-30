@@ -259,13 +259,10 @@ export default function ProfileSetupScreen() {
     [updateProfileField]
   );
 
-  // 👇 [추가] 컴포넌트가 렌더링될 때 서버에서 기존 프로필 정보를 가져오는 로직
+  // Fetch existing user profile when component renders
   useEffect(() => {
     const fetchUserProfile = async () => {
-      // session.user.id가 없으면 실행하지 않음
       if (!session?.user?.id) return;
-
-      console.log("[ProfileSetup] 기존 사용자 프로필을 가져오는 중...");
 
       const { data, error } = await supabase
         .from("users")
@@ -273,22 +270,21 @@ export default function ProfileSetupScreen() {
         .eq("id", session.user.id)
         .single();
 
-      // 'PGRST116'는 행을 찾지 못했다는 의미로, 신규 사용자의 경우 정상적인 상황입니다.
+      // 'PGRST116' means row not found, which is normal for new users
       if (error && error.code !== "PGRST116") {
-        console.error("프로필 정보를 가져오는 데 실패했습니다.", error);
+        console.error("Failed to fetch profile information:", error);
         return;
       }
 
       if (data) {
-        console.log("[ProfileSetup] 기존 프로필 발견, 이름 필드를 채웁니다.");
-        // 서버에서 가져온 이름으로 상태를 업데이트합니다.
+        // Update state with existing name from server
         updateProfileField("firstName", data.first_name || "");
         updateProfileField("lastName", data.last_name || "");
       }
     };
 
     fetchUserProfile();
-  }, [session, updateProfileField]); // session 정보가 준비되면 이 로직이 실행됩니다.
+  }, [session, updateProfileField]);
 
 
   const handleNextStep = () => {
