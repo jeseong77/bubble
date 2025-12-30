@@ -356,21 +356,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Quicksand-Bold",
   },
-  imageBackgroundContainer: { flex: 1 },
-  contentOverlay: { flex: 1 },
-  exploreText: {
-    color: "#FFFFFF",
-    fontSize: 28,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  profileContent: { flex: 1, alignItems: "center", padding: 20 },
-  tabContentPlaceholder: {
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 200,
-  },
   emptyTabContainer: {
     flex: 1,
     minHeight: 300,
@@ -394,59 +379,25 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   createBubbleText: {
-    color: 'black', 
-    fontSize: 16, 
-    fontFamily: 'Quicksand', 
+    color: 'black',
+    fontSize: 16,
+    fontFamily: 'Quicksand',
     fontWeight: '700',
     marginLeft: 10,
   },
-  removeImageIconContainer: {
-    position: "absolute",
-    top: -10,
-    right: -10,
-    borderRadius: 15,
-    padding: 1,
-  },
-  emptyBubbleContainer: {
-    paddingVertical: 40,
+  saveButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyBubbleText: {
+  saveButtonText: {
     fontSize: 16,
-    fontFamily: "Quicksand-Regular",
-    lineHeight: 24,
-    textAlign: "center",
+    fontFamily: "Quicksand-Bold",
   },
-  makeNewBubbleContainer: {
+  editProfileTabContent: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 80,
-    paddingHorizontal: 40,
-  },
-  makeNewBubbleText: {
-    color: 'black', 
-    fontSize: 16, 
-    fontFamily: 'Quicksand', 
-    fontWeight: '700', 
-    textAlign: "center",
-    marginBottom: 30,
-  },
-  makeNewBubbleButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });
 
