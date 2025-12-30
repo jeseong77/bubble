@@ -22,6 +22,7 @@ import { getAvatarUrl } from "@/utils/avatarUtils";
 import InviteModal from "@/components/InviteModal";
 import { useUserSearch } from "@/hooks/useUserSearch";
 import { useInvitationActions } from "@/hooks/useInvitationActions";
+import { SearchResultItem } from "@/components/search/SearchResultItem";
 
 interface SearchUser {
   id: string;
@@ -88,97 +89,14 @@ export default function SearchScreen() {
     return fallbackUrl;
   };
 
-  const renderUserRow = ({ item }: { item: SearchUser }) => {
-    const isInvited = item.invitationStatus === "invited";
-    const isJoined = item.invitationStatus === "joined";
-    const isDeclined = item.invitationStatus === "declined";
-    const canInvite = !item.invitationStatus; // Can only invite when there's no invitation status
-
-    return (
-      <View
-        style={[
-          styles.userRow,
-        ]}
-      >
-        <Image
-          source={{ uri: getSafeImageUrl(item.id, item.avatar_url) }}
-          style={[
-            styles.userAvatar,
-          ]}
-          defaultSource={{ uri: "https://via.placeholder.com/50/CCCCCC/FFFFFF?text=User" }}
-          onError={(error) => {
-            console.error(
-              `User ${item.id} image load failed:`,
-              error.nativeEvent,
-              `Used URL: ${getSafeImageUrl(item.id, item.avatar_url)}`
-            );
-            // Image load failed, but fallback will be handled automatically
-          }}
-          onLoad={() => {
-              `User ${item.id} image load successful:`,
-              getSafeImageUrl(item.id, item.avatar_url)
-            );
-          }}
-        />
-        <View style={styles.userInfo}>
-          <Text
-            style={[
-              styles.userName,
-              {
-                color: colors.black,
-              },
-            ]}
-          >
-            {item.displayName}
-          </Text>
-          <Text
-            style={[
-              styles.userMbti,
-              {
-                color: colors.darkGray,
-              },
-            ]}
-          >
-            {item.mbti}
-          </Text>
-        </View>
-
-        {/* Invite button or status display */}
-        {canInvite ? (
-          <TouchableOpacity
-            style={styles.inviteButton}
-            onPress={() => sendInvitation(item.id, item.displayName, item.gender)}
-          >
-            <Ionicons
-              name="add"
-              size={24}
-              color={colors.darkGray}
-            />
-          </TouchableOpacity>
-        ) : isInvited ? (
-          <View style={styles.inviteButton}>
-            <Ionicons
-              name="checkmark-circle"
-              size={24}
-              color={colors.primary}
-            />
-          </View>
-        ) : isJoined ? (
-          <View style={styles.inviteButton}>
-            <Ionicons
-              name="checkmark-circle"
-              size={24}
-              color={colors.primary}
-            />
-          </View>
-        ) : isDeclined ? (
-          <View style={styles.inviteButton}>
-            <Ionicons name="close-circle" size={24} color={colors.error} />
-          </View>
-        ) : null}
-      </View>
-    );
-  };
+  const renderUserRow = ({ item }: { item: SearchUser }) => (
+    <SearchResultItem
+      user={item}
+      sendInvitation={sendInvitation}
+      getSafeImageUrl={getSafeImageUrl}
+      colors={colors}
+    />
+  );
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -301,44 +219,6 @@ const styles = StyleSheet.create({
   listContainerEmpty: {
     flex: 1,
     paddingHorizontal: 20,
-  },
-  userRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  userAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontFamily: "Quicksand-Bold",
-    marginBottom: 4,
-  },
-  userMbti: {
-    fontSize: 14,
-    fontFamily: "Quicksand-Regular",
-  },
-  inviteButton: {
-    padding: 8,
   },
   emptyState: {
     flex: 1,
