@@ -10,7 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppTheme } from '@/contexts/ThemeProvider';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { ProfileFormData, ProfileImage } from '@/types/profile';
 
 const NUM_COLUMNS = 3;
