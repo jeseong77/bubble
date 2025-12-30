@@ -228,9 +228,11 @@ export default function UserDetailScreen() {
           </SecondImageContainer>
         )}
 
-        <BioContainer>
-          <BioText>"{userData.bio || "No bio available"}"</BioText>
-        </BioContainer>
+        {userData.bio && (
+          <BioContainer>
+            <BioText>"{userData.bio}"</BioText>
+          </BioContainer>
+        )}
 
         {/* 세 번째 이미지부터 - 자기소개 아래에 배치 */}
         {userData.images && userData.images.length > 2 && (
