@@ -239,28 +239,23 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
 
     setIsLoadingInvitations(true);
     try {
-      console.log("[ProfileHero] 🔄 Fetching real-time invitation count...");
 
       const { data, error } = await supabase.rpc("get_my_bubbles", {
         p_user_id: session.user.id,
       });
 
       if (error) {
-        console.error("[ProfileHero] ❌ Error fetching invitations:", error);
         return;
       }
 
-      console.log("[ProfileHero] get_my_bubbles 응답:", data);
       
       // Filter only invited status bubbles
       const invitedCount = (data || []).filter(
         (bubble: any) => bubble.user_status === "invited"
       ).length;
 
-      console.log("[ProfileHero] 📊 Real-time invitation count:", invitedCount);
       setRealTimeInvitationCount(invitedCount);
     } catch (error) {
-      console.error("[ProfileHero] ❌ Exception fetching invitations:", error);
     } finally {
       setIsLoadingInvitations(false);
     }
@@ -274,7 +269,6 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
   // Refresh invitation count when screen is focused
   useFocusEffect(
     React.useCallback(() => {
-      console.log(
         "[ProfileHero] 🎯 Screen focused, refreshing invitation count..."
       );
       fetchRealTimeInvitationCount();
@@ -413,10 +407,8 @@ const ProfileHero: React.FC<ProfileHeroProps> = ({
           }
           style={styles.profileImage}
           onLoad={() =>
-            console.log("ProfileHero image loaded successfully:", imageUrl)
           }
           onError={(error) =>
-            console.error("ProfileHero image load error:", error.nativeEvent)
           }
         />
       </View>
