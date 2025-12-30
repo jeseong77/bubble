@@ -189,6 +189,7 @@ export const useMatchmaking = () => {
             );
 
             if (bubbleError) {
+              console.error(
                 "Error fetching bubble info for group:",
                 group.group_id,
                 bubbleError
