@@ -25,6 +25,7 @@ import AboutMeInputStep from "./profile-setup-steps/AboutMeInputStep";
 import ImageUploadStep from "./profile-setup-steps/ImageUploadStep";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { supabase } from "@/lib/supabase";
+import { useProfileSubmission } from "@/hooks/useProfileSubmission";
 
 const MAX_IMAGES = 6;
 const TOTAL_STEPS = 10;
@@ -129,8 +130,9 @@ export default function ProfileSetupScreen() {
     aboutMe: "",
     images: Array(MAX_IMAGES).fill(null) as (ProfileImage | null)[],
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { completeProfileSetup } = useAuth();
+
+  // Use profile submission hook
+  const { isSubmitting, submitProfile } = useProfileSubmission();
 
   const updateProfileField = useCallback(
     <K extends keyof ProfileFormData>(field: K, value: ProfileFormData[K]) => {
@@ -292,7 +294,7 @@ export default function ProfileSetupScreen() {
     if (currentStep < TOTAL_STEPS - 1) {
       setCurrentStep((prev) => prev + 1);
     } else {
-      handleSubmit();
+      submitProfile(profileData);
     }
   };
 
@@ -301,71 +303,6 @@ export default function ProfileSetupScreen() {
       setCurrentStep((prev) => prev - 1);
     } else {
       if (router.canGoBack()) router.back();
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (isSubmitting || !session?.user) return;
-    setIsSubmitting(true);
-
-    try {
-      // 1. 프로필 정보(텍스트)를 public.users에 저장
-      const { birthYear, birthMonth, birthDay } = profileData;
-      const birthDate = new Date(`${birthYear}-${birthMonth}-${birthDay}`);
-
-      const userProfile = {
-        id: session.user.id,
-        username: profileData.username,
-        first_name: profileData.firstName,
-        last_name: profileData.lastName,
-        birth_date: birthDate.toISOString(),
-        height_cm: profileData.height,
-        location: profileData.location,
-        mbti: profileData.mbti,
-        gender: profileData.gender,
-        preferred_gender: profileData.preferredGender,
-        bio: profileData.aboutMe,
-        profile_setup_completed: true, // 완료 상태를 true로 설정
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error: profileError } = await supabase
-        .from("users")
-        .upsert(userProfile);
-      if (profileError) throw profileError;
-
-      // 2. 업로드된 이미지 URL들을 public.user_images에 저장
-      const uploadedImageUrls = profileData.images
-        .map((img) => img?.url)
-        .filter((url): url is string => !!url);
-
-      if (uploadedImageUrls.length > 0) {
-        // 기존 이미지를 모두 삭제하고 새로 추가 (멱등성 보장)
-        await supabase
-          .from("user_images")
-          .delete()
-          .eq("user_id", session.user.id);
-
-        const imagesToInsert = uploadedImageUrls.map((url, index) => ({
-          user_id: session.user.id,
-          image_url: url,
-          position: index,
-        }));
-
-        const { error: imageError } = await supabase
-          .from("user_images")
-          .insert(imagesToInsert);
-        if (imageError) throw imageError;
-      }
-
-      // 3. 모든 과정 완료 처리
-      await completeProfileSetup();
-      router.replace("/(tabs)");
-    } catch (error) {
-      console.error("Profile submission failed:", error);
-      Alert.alert("Error", "Failed to save profile. Please try again.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
