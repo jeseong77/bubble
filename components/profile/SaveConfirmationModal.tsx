@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useAppTheme } from '@/contexts/ThemeProvider';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 interface SaveConfirmationModalProps {
   visible: boolean;
