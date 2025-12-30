@@ -25,6 +25,7 @@ import { GroupMember } from "@/hooks/useMatchmaking";
 import { useAuth } from "@/providers/AuthProvider";
 import { useUserBubble } from "@/hooks/useUserBubble";
 import { useSwipeAnimation } from "@/hooks/useSwipeAnimation";
+import { formatResetTime } from "@/utils/timeUtils";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -64,24 +65,6 @@ export default function MatchScreen() {
 
   // Use custom hook for user bubble management
   const { userBubble, userBubbleLoading, refreshUserBubble } = useUserBubble(session);
-
-  // Helper function to format reset time for small display
-  const formatResetTime = (resetTimeISO: string) => {
-    const resetTime = new Date(resetTimeISO);
-    const now = new Date();
-    const diff = resetTime.getTime() - now.getTime();
-
-    if (diff <= 0) return "Resetting soon";
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (hours > 0) {
-      return `Resets in ${hours}h ${minutes}m`;
-    } else {
-      return `Resets in ${minutes}m`;
-    }
-  };
 
   // Get current group from real data
   const currentGroup = matchingGroups[currentGroupIndex];
