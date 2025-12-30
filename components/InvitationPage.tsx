@@ -46,11 +46,9 @@ const InvitationItem: React.FC<{
     if (!bubble.creator?.avatar_url) return;
 
     try {
-      console.log("[InvitationItem] Using avatar URL directly:", bubble.creator.avatar_url);
       // Use the avatar URL directly as it's already a permanent public URL
       setCreatorImageUrl(bubble.creator.avatar_url);
     } catch (error) {
-      console.error("[InvitationItem] Exception during image URL setup:", error);
     }
   }, [bubble.creator?.avatar_url]);
 
@@ -130,39 +128,26 @@ export default function InvitationPage() {
 
         if (error) throw error;
 
-        console.log("[InvitationPage] Raw RPC data:", JSON.stringify(data, null, 2));
-        console.log("[InvitationPage] User ID:", session.user.id);
-        console.log("[InvitationPage] RPC returned", data?.length || 0, "bubbles");
         
         // Filter only invited status bubbles and extract creator info
         const invited = (data || [])
           .filter((bubble: any) => {
-            console.log(`[InvitationPage] Processing bubble ${bubble.id}:`);
-            console.log(`  - user_status: ${bubble.user_status}`);
-            console.log(`  - status: ${bubble.status}`);
-            console.log(`  - name: ${bubble.name}`);
-            console.log(`  - creator from RPC:`, JSON.stringify(bubble.creator, null, 2));
             
             const isInvited = bubble.user_status === "invited";
-            console.log(`  - Is invited: ${isInvited}`);
             return isInvited;
           })
           .map((bubble: any, index: number) => {
-            console.log(`[InvitationPage] Processing invited bubble ${index + 1}/${bubble.id}:`);
             
             const members = Array.isArray(bubble.members) 
               ? bubble.members 
               : (bubble.members ? JSON.parse(bubble.members) : []);
             
-            console.log(`  - Members array:`, JSON.stringify(members, null, 2));
             
             // Use creator info directly from RPC response instead of guessing from members
             const creator = bubble.creator;
-            console.log(`  - Creator from RPC:`, creator ? `${creator.first_name} (${creator.id})` : 'None');
             
             // Determine group size based on member count or group status
             const maxSize = members.length <= 2 ? "2:2" : "3:3";
-            console.log(`  - Group size determined: ${maxSize} (based on ${members.length} members)`);
             
             const result = {
               id: bubble.id,
@@ -180,15 +165,11 @@ export default function InvitationPage() {
               } : null
             };
             
-            console.log(`  - Final invitation object:`, JSON.stringify(result, null, 2));
             return result;
           });
 
-        console.log("[InvitationPage] Total filtered invited bubbles:", invited.length);
-        console.log("[InvitationPage] Invited bubbles:", JSON.stringify(invited, null, 2));
         setInvitedBubbles(invited);
       } catch (error) {
-        console.error("Error fetching invited bubbles:", error);
         setInvitedBubbles([]);
       } finally {
         setLoading(false);
@@ -199,19 +180,13 @@ export default function InvitationPage() {
   }, [session]);
 
   const handleAcceptInvitation = async (bubbleId: string) => {
-    console.log("[InvitationPage] 🟢 handleAcceptInvitation started");
-    console.log("[InvitationPage] Bubble ID:", bubbleId);
-    console.log("[InvitationPage] Current session user ID:", session?.user?.id);
 
     if (!session?.user) {
-      console.error("[InvitationPage] ❌ Stopping invitation acceptance due to no session.");
       Alert.alert("Error", "You must be logged in to accept invitations.");
       return;
     }
 
     try {
-      console.log("[InvitationPage] 📡 accept_invitation RPC call started");
-      console.log("[InvitationPage] RPC parameters:", {
         p_group_id: bubbleId,
         p_user_id: session.user.id,
       });
@@ -221,13 +196,8 @@ export default function InvitationPage() {
         p_user_id: session.user.id,
       });
 
-      console.log("[InvitationPage] 📡 RPC response received");
-      console.log("[InvitationPage] RPC response data:", JSON.stringify(data, null, 2));
-      console.log("[InvitationPage] RPC error:", error);
 
       if (error) {
-        console.error("[InvitationPage] ❌ RPC error occurred:", error);
-        console.error("[InvitationPage] Error details:", {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -240,7 +210,6 @@ export default function InvitationPage() {
 
       // Handle the new JSON response format
       if (!data || !data.success) {
-        console.error("[InvitationPage] ❌ RPC return failed:", data);
         
         // Handle specific error cases
         let errorMessage = "Failed to accept invitation.";
@@ -275,8 +244,6 @@ export default function InvitationPage() {
         return;
       }
 
-      console.log("[InvitationPage] ✅ RPC call successful");
-      console.log("[InvitationPage] Group information:", {
         name: data.group_name,
         isFull: data.group_full,
         finalSize: data.final_size || data.current_size,
@@ -287,8 +254,6 @@ export default function InvitationPage() {
       // Remove this invitation from local state
       setInvitedBubbles((prev) => {
         const updated = prev.filter((bubble) => bubble.id !== bubbleId);
-        console.log("[InvitationPage] Bubble ID removed from UI:", bubbleId);
-        console.log("[InvitationPage] Remaining invitation count:", updated.length);
         return updated;
       });
 
@@ -303,20 +268,15 @@ export default function InvitationPage() {
         successMessage += `\n\nBubble size: ${data.current_size}/${data.max_size}`;
       }
 
-      console.log("[InvitationPage] 🎉 Invitation acceptance complete!");
       Alert.alert("Joined Bubble!", successMessage, [
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] User confirmed success alert.");
           },
         },
       ]);
       
     } catch (error) {
-      console.error("[InvitationPage] ❌ handleAcceptInvitation exception occurred:", error);
-      console.error("[InvitationPage] Error type:", typeof error);
-      console.error(
         "[InvitationPage] Error message:",
         error instanceof Error ? error.message : String(error)
       );
@@ -325,7 +285,6 @@ export default function InvitationPage() {
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] User confirmed error alert.");
           },
         },
       ]);
@@ -333,19 +292,13 @@ export default function InvitationPage() {
   };
 
   const handleDeclineInvitation = async (bubbleId: string) => {
-    console.log("[InvitationPage] 🔴 handleDeclineInvitation started");
-    console.log("[InvitationPage] Bubble ID:", bubbleId);
-    console.log("[InvitationPage] Current session user ID:", session?.user?.id);
 
     if (!session?.user) {
-      console.error("[InvitationPage] ❌ Stopping invitation decline due to no session.");
       Alert.alert("Error", "You must be logged in to decline invitations.");
       return;
     }
 
     try {
-      console.log("[InvitationPage] 📡 decline_invitation RPC call started");
-      console.log("[InvitationPage] RPC parameters:", {
         p_group_id: bubbleId,
         p_user_id: session.user.id,
       });
@@ -355,13 +308,8 @@ export default function InvitationPage() {
         p_user_id: session.user.id,
       });
 
-      console.log("[InvitationPage] 📡 RPC response received");
-      console.log("[InvitationPage] RPC response data:", data);
-      console.log("[InvitationPage] RPC error:", error);
 
       if (error) {
-        console.error("[InvitationPage] ❌ RPC error occurred:", error);
-        console.error("[InvitationPage] Error details:", {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -370,42 +318,31 @@ export default function InvitationPage() {
         throw error;
       }
 
-      console.log("[InvitationPage] ✅ RPC call successful");
-      console.log("[InvitationPage] Returned data:", data);
 
       // Optimistic UI update - Remove from local state immediately
-      console.log("[InvitationPage] 🎨 Optimistic UI update started");
-      console.log(
         "[InvitationPage] Invitation list count before update:",
         invitedBubbles.length
       );
 
       setInvitedBubbles((prev) => {
         const updated = prev.filter((bubble) => bubble.id !== bubbleId);
-        console.log(
           "[InvitationPage] Invitation list count after update:",
           updated.length
         );
-        console.log("[InvitationPage] Removed bubble ID:", bubbleId);
         return updated;
       });
 
-      console.log("[InvitationPage] 🎉 Invitation decline complete!");
       Alert.alert("Success", "Invitation declined successfully.", [
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] User confirmed success alert.");
           },
         },
       ]);
     } catch (error) {
-      console.error(
         "[InvitationPage] ❌ handleDeclineInvitation complete error:",
         error
       );
-      console.error("[InvitationPage] Error type:", typeof error);
-      console.error(
         "[InvitationPage] Error message:",
         error instanceof Error ? error.message : String(error)
       );
@@ -414,7 +351,6 @@ export default function InvitationPage() {
         {
           text: "OK",
           onPress: () => {
-            console.log("[InvitationPage] User confirmed error alert.");
           },
         },
       ]);
