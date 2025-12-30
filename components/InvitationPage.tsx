@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
+import { InvitationItem } from "@/components/invitation/InvitationItem";
 
 interface InvitationBubble {
   id: string;
@@ -31,83 +32,6 @@ interface InvitationBubble {
     avatar_url?: string;
   };
 }
-
-// Custom Invitation Item Component
-const InvitationItem: React.FC<{
-  bubble: InvitationBubble;
-  onAccept: (bubbleId: string) => void;
-  onDecline: (bubbleId: string) => void;
-}> = ({ bubble, onAccept, onDecline }) => {
-  const [creatorImageUrl, setCreatorImageUrl] = useState<string | null>(null);
-  const [imageError, setImageError] = useState(false);
-
-  // Use avatar URL directly as it's already a public URL
-  const createSignedUrlForCreator = useCallback(async () => {
-    if (!bubble.creator?.avatar_url) return;
-
-    try {
-      // Use the avatar URL directly as it's already a permanent public URL
-      setCreatorImageUrl(bubble.creator.avatar_url);
-    } catch (error) {
-    }
-  }, [bubble.creator?.avatar_url]);
-
-  useEffect(() => {
-    createSignedUrlForCreator();
-  }, [createSignedUrlForCreator]);
-
-  const creatorName = bubble.creator ? `${bubble.creator.first_name}_${bubble.creator.last_name}` : "Someone";
-  const groupSize = bubble.group_size || "2:2";
-
-  return (
-    <View style={styles.invitationCard}>
-      {/* Creator Avatar */}
-      <View style={styles.avatarContainer}>
-        {!imageError && creatorImageUrl ? (
-          <Image
-            source={{ uri: creatorImageUrl }}
-            style={styles.creatorAvatar}
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <View style={[styles.creatorAvatar, styles.placeholderAvatar]}>
-            <Ionicons name="person" size={30} color="#999" />
-          </View>
-        )}
-        <Text style={styles.creatorName}>{creatorName}</Text>
-      </View>
-
-      {/* Invitation Text and Buttons */}
-      <View style={styles.invitationContent}>
-        <View style={styles.invitationTextContainer}>
-          <Text style={styles.invitationText}>
-            <Text style={styles.normalText}> wants to form a </Text>
-            <Text style={styles.bubbleSizeText}>{groupSize}</Text>
-            <Text style={styles.normalText}> bubble</Text>
-          </Text>
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.declineButton}
-            onPress={() => onDecline(bubble.id)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.declineButtonText}>Decline</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.acceptButton}
-            onPress={() => onAccept(bubble.id)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.acceptButtonText}>Accept</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-};
 
 export default function InvitationPage() {
   const router = useRouter();
@@ -454,100 +378,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 20,
-  },
-  // Invitation card styles
-  invitationCard: {
-    width: '100%',
-    height: 112,
-    backgroundColor: 'white',
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#CEE3FF',
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  avatarContainer: {
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  creatorAvatar: {
-    width: 75.07,
-    height: 75.07,
-    borderRadius: 37.5,
-    marginBottom: 8,
-  },
-  placeholderAvatar: {
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  creatorName: {
-    textAlign: 'center',
-    color: 'black',
-    fontSize: 14,
-    fontFamily: 'Quicksand',
-    fontWeight: '500',
-  },
-  invitationContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  invitationTextContainer: {
-    marginBottom: 16,
-  },
-  invitationText: {
-    textAlign: 'center',
-    fontSize: 16,
-    fontFamily: 'Quicksand',
-  },
-  normalText: {
-    color: 'black',
-    fontWeight: '500',
-  },
-  bubbleSizeText: {
-    color: '#80B7FF',
-    fontWeight: '700',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 5,
-  },
-  declineButton: {
-    width: 108,
-    height: 35,
-    backgroundColor: 'white',
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#80B7FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  declineButtonText: {
-    textAlign: 'center',
-    color: 'black',
-    fontSize: 16,
-    fontFamily: 'Quicksand',
-    fontWeight: '600',
-    lineHeight: 22,
-  },
-  acceptButton: {
-    width: 108,
-    height: 35,
-    backgroundColor: '#80B7FF',
-    borderRadius: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  acceptButtonText: {
-    textAlign: 'center',
-    color: 'white',
-    fontSize: 16,
-    fontFamily: 'Quicksand',
-    fontWeight: '600',
-    lineHeight: 22,
   },
   // Empty state styles
   emptyState: {
