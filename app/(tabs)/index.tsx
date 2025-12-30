@@ -20,6 +20,7 @@ import {
   NoGroupState,
   NoMoreGroupsState,
 } from "@/components/matchmaking/MatchmakingStates";
+import { SwipeLimitReached } from "@/components/matchmaking/SwipeLimitReached";
 import { GroupMember } from "@/hooks/useMatchmaking";
 import { useAuth } from "@/providers/AuthProvider";
 import { useUserBubble } from "@/hooks/useUserBubble";
@@ -162,33 +163,7 @@ export default function MatchScreen() {
 
     // Check if daily swipe limit is reached
     if (swipeLimitInfo && !swipeLimitInfo.can_swipe) {
-      return (
-        <View style={styles.safeArea}>
-          {/* Message Display */}
-          <View style={styles.limitReachedContainer}>
-            <Text style={styles.limitReachedMessage}>
-              You've used all your swipes for today.{'\n'}
-              Please wait for new Bubbles tomorrow!
-            </Text>
-          </View>
-
-          {/* Disabled Swipe Controls */}
-          <View style={styles.swipeControls}>
-            <TouchableOpacity
-              style={[styles.xButton, styles.disabledButton]}
-              disabled={true}
-            >
-              <Feather name="x" size={32} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.checkButton, styles.disabledButton]}
-              disabled={true}
-            >
-              <Feather name="heart" size={32} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      );
+      return <SwipeLimitReached />;
     }
 
     // No matching groups
