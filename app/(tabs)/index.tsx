@@ -154,7 +154,6 @@ export default function MatchScreen() {
         <ErrorState
           error={error}
           onRetry={() => {
-            console.log("[MatchScreen] Retrying after error...");
             refetch();
           }}
         />
@@ -204,7 +203,6 @@ export default function MatchScreen() {
         <EmptyState
           message="No new matches available. Check back later!"
           onRefresh={() => {
-            console.log("[MatchScreen] Refreshing empty state...");
             refetch();
           }}
         />
@@ -293,9 +291,6 @@ export default function MatchScreen() {
       !isLoading;
 
     if (shouldLoadMore) {
-      console.log(
-        `[MatchScreen] Pre-fetching more groups. Current: ${currentGroupIndex}/${matchingGroups.length}`
-      );
       loadMore();
     }
   }, [currentGroupIndex, matchingGroups.length, hasMore, isLoading, loadMore]);
