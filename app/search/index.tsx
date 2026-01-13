@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getAvatarUrl } from "@/utils/avatarUtils";
 import InviteModal from "@/components/InviteModal";
+import { useUserSearch } from "@/hooks/useUserSearch";
+import { useInvitationActions } from "@/hooks/useInvitationActions";
+import { SearchResultItem } from "@/components/search/SearchResultItem";
 
 interface SearchUser {
   id: string;
@@ -40,12 +43,29 @@ export default function SearchScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const insets = useSafeAreaInsets();
 
-  const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+
+  // Use search hook for all search-related logic
+  const {
+    searchResults,
+    setSearchResults,
+    isSearching,
+    searchTerm,
+    setSearchTerm,
+    currentUserGender,
+    checkGenderCompatibility,
+  } = useUserSearch({
+    userId: session?.user?.id,
+    groupId,
+  });
+
+  // Use invitation actions hook
+  const { sendInvitation, cancelInvitation } = useInvitationActions({
+    userId: session?.user?.id,
+    groupId,
+    checkGenderCompatibility,
+    setSearchResults,
+  });
 
   // URL validity check function
   const isValidUrl = (url: string): boolean => {
@@ -53,7 +73,6 @@ export default function SearchScreen() {
       const urlObj = new URL(url);
       return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
     } catch (error) {
-      console.warn(`Invalid URL detected: ${url}`);
       return false;
     }
   };
@@ -64,406 +83,20 @@ export default function SearchScreen() {
 
     // Use avatar URL directly if available and valid, otherwise fallback
     if (avatarUrl && isValidUrl(avatarUrl)) {
-      console.log(`[getSafeImageUrl] Using public avatar URL for user ${userId}`);
       return avatarUrl;
     }
 
-    console.log(`[getSafeImageUrl] Using fallback URL for user ${userId}`);
     return fallbackUrl;
   };
 
-  // Fetch current user's gender
-  useEffect(() => {
-    const fetchCurrentUserGender = async () => {
-      if (!session?.user?.id) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("gender")
-          .eq("id", session.user.id)
-          .single();
-          
-        if (error) throw error;
-        setCurrentUserGender(data.gender);
-      } catch (error) {
-        console.error("[SearchScreen] Failed to fetch current user gender:", error);
-      }
-    };
-    
-    fetchCurrentUserGender();
-  }, [session?.user?.id]);
-
-  // Debouncing effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  // Execute search
-  useEffect(() => {
-    if (debouncedSearchTerm.trim().length >= 2) {
-      searchUsers(debouncedSearchTerm);
-    } else {
-      setSearchResults([]);
-    }
-  }, [debouncedSearchTerm]);
-
-  const checkGenderCompatibility = (targetUserGender: string): boolean => {
-    if (!currentUserGender || !targetUserGender) return true;
-    if (currentUserGender === "everyone" || targetUserGender === "everyone") return true;
-    return currentUserGender === targetUserGender;
-  };
-
-
-  const searchUsers = async (searchTerm: string) => {
-    if (!searchTerm.trim() || !session?.user?.id || !groupId) {
-      setSearchResults([]);
-      return;
-    }
-
-    console.log(`[SearchScreen] Search started: "${searchTerm}"`);
-    console.log(`[SearchScreen] Excluding User ID: ${session.user.id}`);
-    console.log(`[SearchScreen] Excluding Group ID: ${groupId}`);
-
-    setIsSearching(true);
-    try {
-      // 1. First search all users (regardless of invitation status)
-      const { data: allUsers, error: searchError } = await supabase.rpc(
-        "search_users",
-        {
-          p_search_term: searchTerm.trim(),
-          p_exclude_user_id: session.user.id,
-          p_exclude_group_id: null, // Search without excluding groups
-        }
-      );
-
-      console.log(`[SearchScreen] Complete search results:`, { allUsers, searchError });
-
-      if (searchError) throw searchError;
-
-      // 2. Get current group member information (using simple RPC)
-      const { data: groupMembers, error: membersError } = await supabase.rpc(
-        "get_group_member_statuses",
-        {
-          p_group_id: groupId,
-        }
-      );
-
-      console.log(`[SearchScreen] Group member information:`, {
-        groupMembers,
-        membersError,
-      });
-
-      if (membersError) throw membersError;
-
-      // 3. Member status mapping
-      const memberStatusMap = new Map();
-      groupMembers?.forEach((member) => {
-        memberStatusMap.set(member.user_id, member.status);
-      });
-
-      // 4. Add invitation status to search results
-      const usersWithStatus =
-        allUsers?.map((user) => ({
-          ...user,
-          displayName: user.username,
-          invitationStatus: memberStatusMap.get(user.id) || null, // 'invited', 'joined', 'declined' or null
-        })) || [];
-
-      console.log(`[SearchScreen] Search results with status added:`, usersWithStatus);
-      
-      // Log avatar URLs to debug format
-      usersWithStatus.forEach(user => {
-        console.log(`[SearchScreen] User ${user.id} (${user.username}) avatar_url:`, user.avatar_url);
-      });
-
-      setSearchResults(usersWithStatus);
-    } catch (error) {
-      console.error("[SearchScreen] Search error:", error);
-      Alert.alert("Error", "Failed to search users");
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const sendInvitation = async (userId: string, userName: string, userGender: string) => {
-    if (!session?.user?.id || !groupId) return;
-
-    if (!checkGenderCompatibility(userGender)) {
-      Alert.alert("Sorry, You can only invite friends of the same gender :(");
-      return;
-    }
-
-    console.log(`[SearchScreen] Attempting to send invitation: ${userName} (ID: ${userId})`);
-    console.log(`[SearchScreen] Group ID: ${groupId}`);
-    console.log(`[SearchScreen] Inviter ID: ${session.user.id}`);
-
-    try {
-      const { data, error } = await supabase.rpc("send_invitation", {
-        p_group_id: groupId,
-        p_invited_user_id: userId,
-        p_invited_by_user_id: session.user.id,
-      });
-
-      console.log(`[SearchScreen] RPC response:`, { data, error });
-
-      if (error) {
-        console.error(`[SearchScreen] Invitation sending error:`, error);
-        throw error;
-      }
-
-      if (data) {
-        console.log(`[SearchScreen] ==================== Invitation Sending Response Analysis ====================`);
-        console.log(`[SearchScreen] Raw response:`, JSON.stringify(data, null, 2));
-        console.log(`[SearchScreen] - success: ${data.success}`);
-        console.log(`[SearchScreen] - already_exists: ${data.already_exists}`);
-        console.log(`[SearchScreen] - inserted_count: ${data.inserted_count}`);
-        console.log(`[SearchScreen] - verification_status: ${data.verification_status}`);
-        console.log(`[SearchScreen] - parameters:`, data.parameters);
-        console.log(`[SearchScreen] - error:`, data.error);
-
-        // More permissive UI update logic - update UI if invitation was successful OR already exists
-        if (data.success || data.already_exists) {
-          console.log(`[SearchScreen] ✅ Invitation successful or already exists: ${userName}`);
-          console.log(`[SearchScreen] - success: ${data.success}, already_exists: ${data.already_exists}`);
-          console.log(`[SearchScreen] - verification_status: ${data.verification_status}`);
-          
-          // Update UI to show invitation sent
-          setSearchResults(prevResults =>
-            prevResults.map(user =>
-              user.id === userId
-                ? { ...user, invitationStatus: "invited" as const }
-                : user
-            )
-          );
-
-          // Show success popup
-          Alert.alert(
-            "Invitation Sent!",
-            `Invitation sent to ${userName}!`,
-            [{ text: "OK", style: "default" }]
-          );
-        } else {
-          console.error(`[SearchScreen] ❌ Invitation sending failed: ${userName}`, {
-            success: data.success,
-            already_exists: data.already_exists,
-            verification_status: data.verification_status,
-            inserted_count: data.inserted_count,
-            error: data.error
-          });
-          Alert.alert("Error", `Failed to send invitation: ${data.error || "Unknown error"}`);
-        }
-      } else {
-        console.log(
-          `[SearchScreen] Invitation sending failed: ${userName} - Already invited or group is full`
-        );
-        Alert.alert(
-          "Error",
-          "Failed to send invitation. User might already be invited or group is full."
-        );
-      }
-    } catch (error) {
-      console.error(`[SearchScreen] Exception during invitation sending:`, error);
-      Alert.alert("Error", "Failed to send invitation");
-    }
-  };
-
-  const cancelInvitation = async (userId: string, userName: string) => {
-    if (!session?.user?.id || !groupId) {
-      console.error(`[SearchScreen] Missing session or groupId:`, { 
-        hasSession: !!session?.user?.id, 
-        groupId 
-      });
-      return;
-    }
-
-    console.log(`[SearchScreen] ==================== CANCEL BUTTON PRESSED ====================`);
-    console.log(`[SearchScreen] Cancel button pressed for: ${userName}`);
-    console.log(`[SearchScreen] userid: ${userId} for groupid: ${groupId}`);
-    console.log(`[SearchScreen] Attempting to cancel invitation...`);
-    console.log(`[SearchScreen] Parameter types - userId: ${typeof userId}, groupId: ${typeof groupId}`);
-    
-    // UUID format validation
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isGroupIdValid = uuidRegex.test(groupId);
-    const isUserIdValid = uuidRegex.test(userId);
-    
-    console.log(`[SearchScreen] UUID validation - groupId: ${isGroupIdValid}, userId: ${isUserIdValid}`);
-    
-    if (!isGroupIdValid || !isUserIdValid) {
-      console.error(`[SearchScreen] Invalid UUID format`, { groupId, userId });
-      Alert.alert("Error", "Invalid ID format");
-      return;
-    }
-
-    // Log the exact parameters being sent (matching RPC function parameter names)
-    const rpcParams = {
-      p_group_id: groupId,
-      p_user_id: userId,
-    };
-    console.log(`[SearchScreen] ==================== RPC PARAMETERS ====================`);
-    console.log(`[SearchScreen] Sending to RPC:`, JSON.stringify(rpcParams, null, 2));
-    console.log(`[SearchScreen] p_group_id: "${groupId}" (type: ${typeof groupId}, length: ${groupId.length})`);
-    console.log(`[SearchScreen] p_user_id: "${userId}" (type: ${typeof userId}, length: ${userId.length})`);
-    console.log(`[SearchScreen] Direct test - these exact values found 1 record in SQL`);
-
-    try {
-      console.log(`[SearchScreen] Calling FORCE DELETE function...`);
-      const forceParams = {
-        p_group_id: groupId,
-        p_user_id: userId,
-      };
-      const { data, error } = await supabase.rpc("force_delete_invitation", forceParams);
-
-      console.log(`[SearchScreen] ==================== RPC Response ====================`);
-      console.log(`[SearchScreen] Raw data:`, JSON.stringify(data, null, 2));
-      console.log(`[SearchScreen] Raw error:`, JSON.stringify(error, null, 2));
-      
-      if (error) {
-        console.error(`[SearchScreen] Error occurred:`, {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        
-        Alert.alert("Error", `Failed to cancel invitation: ${error.message}`);
-        return;
-      }
-
-      // Handle force delete response
-      if (data) {
-        console.log(`[SearchScreen] ==================== FORCE DELETE Response ====================`);
-        console.log(`[SearchScreen] - success: ${data.success}`);
-        console.log(`[SearchScreen] - deleted_count: ${data.deleted_count}`);
-        console.log(`[SearchScreen] - sql_executed: ${data.sql_executed}`);
-
-        if (data.success) {
-          console.log(`[SearchScreen] 🔥 FORCE DELETE successful: ${userName} (${data.deleted_count} records deleted)`);
-          console.log(`[SearchScreen] Executed SQL: ${data.sql_executed}`);
-          // Update the user's invitation status back to null (no invitation)
-          setSearchResults(prevResults => 
-            prevResults.map(user => 
-              user.id === userId 
-                ? { ...user, invitationStatus: null }
-                : user
-            )
-          );
-          Alert.alert("Success!", `Invitation cancelled for ${userName}`);
-        } else {
-          console.error(`[SearchScreen] ❌ Even FORCE DELETE failed: ${userName}`);
-          console.error(`[SearchScreen] Executed SQL: ${data.sql_executed}`);
-          Alert.alert("Error", `Even force delete failed for ${userName}. This shouldn't happen!`);
-        }
-      } else {
-        console.log(`[SearchScreen] RPC returned null/undefined data`);
-        Alert.alert("Error", "No response data from force delete");
-      }
-      
-      console.log(`[SearchScreen] ==================== CANCEL INVITATION END ====================`);
-    } catch (error) {
-      console.error(`[SearchScreen] Exception occurred:`, error);
-      console.error(`[SearchScreen] Complete exception object:`, JSON.stringify(error, null, 2));
-      Alert.alert("Error", `Exception during cancel: ${error}`);
-    }
-  };
-
-  const renderUserRow = ({ item }: { item: SearchUser }) => {
-    const isInvited = item.invitationStatus === "invited";
-    const isJoined = item.invitationStatus === "joined";
-    const isDeclined = item.invitationStatus === "declined";
-    const canInvite = !item.invitationStatus; // Can only invite when there's no invitation status
-
-    return (
-      <View
-        style={[
-          styles.userRow,
-        ]}
-      >
-        <Image
-          source={{ uri: getSafeImageUrl(item.id, item.avatar_url) }}
-          style={[
-            styles.userAvatar,
-          ]}
-          defaultSource={{ uri: "https://via.placeholder.com/50/CCCCCC/FFFFFF?text=User" }}
-          onError={(error) => {
-            console.error(
-              `User ${item.id} image load failed:`,
-              error.nativeEvent,
-              `Used URL: ${getSafeImageUrl(item.id, item.avatar_url)}`
-            );
-            // Image load failed, but fallback will be handled automatically
-          }}
-          onLoad={() => {
-            console.log(
-              `User ${item.id} image load successful:`,
-              getSafeImageUrl(item.id, item.avatar_url)
-            );
-          }}
-        />
-        <View style={styles.userInfo}>
-          <Text
-            style={[
-              styles.userName,
-              {
-                color: colors.black,
-              },
-            ]}
-          >
-            {item.displayName}
-          </Text>
-          <Text
-            style={[
-              styles.userMbti,
-              {
-                color: colors.darkGray,
-              },
-            ]}
-          >
-            {item.mbti}
-          </Text>
-        </View>
-
-        {/* Invite button or status display */}
-        {canInvite ? (
-          <TouchableOpacity
-            style={styles.inviteButton}
-            onPress={() => sendInvitation(item.id, item.displayName, item.gender)}
-          >
-            <Ionicons
-              name="add"
-              size={24}
-              color={colors.darkGray}
-            />
-          </TouchableOpacity>
-        ) : isInvited ? (
-          <View style={styles.inviteButton}>
-            <Ionicons
-              name="checkmark-circle"
-              size={24}
-              color={colors.primary}
-            />
-          </View>
-        ) : isJoined ? (
-          <View style={styles.inviteButton}>
-            <Ionicons
-              name="checkmark-circle"
-              size={24}
-              color={colors.primary}
-            />
-          </View>
-        ) : isDeclined ? (
-          <View style={styles.inviteButton}>
-            <Ionicons name="close-circle" size={24} color={colors.error} />
-          </View>
-        ) : null}
-      </View>
-    );
-  };
+  const renderUserRow = ({ item }: { item: SearchUser }) => (
+    <SearchResultItem
+      user={item}
+      sendInvitation={sendInvitation}
+      getSafeImageUrl={getSafeImageUrl}
+      colors={colors}
+    />
+  );
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -586,44 +219,6 @@ const styles = StyleSheet.create({
   listContainerEmpty: {
     flex: 1,
     paddingHorizontal: 20,
-  },
-  userRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  userAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontFamily: "Quicksand-Bold",
-    marginBottom: 4,
-  },
-  userMbti: {
-    fontSize: 14,
-    fontFamily: "Quicksand-Regular",
-  },
-  inviteButton: {
-    padding: 8,
   },
   emptyState: {
     flex: 1,

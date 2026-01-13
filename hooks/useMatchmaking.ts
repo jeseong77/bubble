@@ -81,7 +81,6 @@ export const useMatchmaking = () => {
       });
 
       if (error) {
-        console.error("Error checking swipe limit:", error);
         return null;
       }
 
@@ -89,7 +88,6 @@ export const useMatchmaking = () => {
       setSwipeLimitInfo(swipeInfo);
       return swipeInfo;
     } catch (err) {
-      console.error("Error in checkSwipeLimit:", err);
       return null;
     } finally {
       setIsLoadingSwipeLimit(false);
@@ -118,7 +116,6 @@ export const useMatchmaking = () => {
           return activeBubble.id;
         } else {
           // Group exists but is still forming - don't fetch matches
-          console.log("[useMatchmaking] User's active group is still forming, not fetching matches");
           return null;
         }
       }
@@ -141,7 +138,6 @@ export const useMatchmaking = () => {
           return joinedGroup.id;
         } else {
           // Group exists but is still forming - don't fetch matches
-          console.log("[useMatchmaking] User's joined group is still forming, not fetching matches");
           return null;
         }
       }
@@ -151,7 +147,6 @@ export const useMatchmaking = () => {
       setCurrentUserGroupStatus(null);
       return null;
     } catch (err) {
-      console.error("Error fetching current user group:", err);
       setError("Failed to fetch your group");
       setCurrentUserGroup(null);
       setCurrentUserGroupStatus(null);
@@ -218,7 +213,6 @@ export const useMatchmaking = () => {
 
         setCurrentOffset(offset + data.length);
       } catch (err) {
-        console.error("Error fetching matching groups:", err);
         setError("Failed to fetch matching groups");
       } finally {
         setIsLoading(false);
@@ -273,7 +267,6 @@ export const useMatchmaking = () => {
         // [Change 3] Convert RPC result to explicit type and return.
         return response;
       } catch (err) {
-        console.error("Error liking group:", err);
         return null;
       }
     },
@@ -292,7 +285,6 @@ export const useMatchmaking = () => {
         });
 
         if (error) {
-          console.error("Error recording pass:", error);
           return null;
         }
 
@@ -318,7 +310,6 @@ export const useMatchmaking = () => {
 
         return response;
       } catch (err) {
-        console.error("Error in passGroup:", err);
         return null;
       }
     },
@@ -342,7 +333,6 @@ export const useMatchmaking = () => {
 
   // Full refresh method that re-detects active group and refreshes everything
   const refreshAll = useCallback(async () => {
-    console.log("[useMatchmaking] 🔄 Full refresh - detecting active group changes...");
     
     // Reset state completely
     setCurrentOffset(0);
@@ -355,7 +345,6 @@ export const useMatchmaking = () => {
     try {
       // Re-fetch current user group (may have changed)
       const groupId = await fetchCurrentUserGroup();
-      console.log("[useMatchmaking] Active group after refresh:", groupId, "Previous:", currentUserGroup);
       
       // Fetch matching groups and swipe limits for the (possibly new) active group
       if (groupId) {
@@ -366,10 +355,8 @@ export const useMatchmaking = () => {
       } else {
         // No active group - clear everything
         setIsLoading(false);
-        console.log("[useMatchmaking] No active group found - clearing matchmaking data");
       }
     } catch (error) {
-      console.error("[useMatchmaking] Error in refreshAll:", error);
       setError("Failed to refresh matchmaking data");
       setIsLoading(false);
     }

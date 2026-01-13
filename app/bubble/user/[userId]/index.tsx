@@ -172,7 +172,7 @@ export default function UserDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#333" />
         </BackButton>
         <HeaderTitle>
-          {userData.first_name} {age || "N/A"}
+          {userData.first_name}{age ? ` ${age}` : ''}
         </HeaderTitle>
       </HeaderBar>
 
@@ -195,15 +195,21 @@ export default function UserDetailScreen() {
         )}
 
         <InfoRow>
-          <InfoBox>
-            <InfoText>{userData.height_cm ? `${userData.height_cm}cm` : "N/A"}</InfoText>
-          </InfoBox>
-          <InfoBox>
-            <InfoText>{userData.mbti || "N/A"}</InfoText>
-          </InfoBox>
-          <InfoBox>
-            <InfoText>{userData.location || "N/A"}</InfoText>
-          </InfoBox>
+          {userData.height_cm && (
+            <InfoBox>
+              <InfoText>{userData.height_cm}cm</InfoText>
+            </InfoBox>
+          )}
+          {userData.mbti && (
+            <InfoBox>
+              <InfoText>{userData.mbti}</InfoText>
+            </InfoBox>
+          )}
+          {userData.location && (
+            <InfoBox>
+              <InfoText>{userData.location}</InfoText>
+            </InfoBox>
+          )}
         </InfoRow>
 
         {/* 두 번째 이미지 - 자기소개 위에 배치 */}
@@ -222,9 +228,11 @@ export default function UserDetailScreen() {
           </SecondImageContainer>
         )}
 
-        <BioContainer>
-          <BioText>"{userData.bio || "No bio available"}"</BioText>
-        </BioContainer>
+        {userData.bio && (
+          <BioContainer>
+            <BioText>"{userData.bio}"</BioText>
+          </BioContainer>
+        )}
 
         {/* 세 번째 이미지부터 - 자기소개 아래에 배치 */}
         {userData.images && userData.images.length > 2 && (

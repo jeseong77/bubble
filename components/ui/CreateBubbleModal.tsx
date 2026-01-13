@@ -10,9 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "expo-router";
-import { useAuth } from "@/providers/AuthProvider";
+import { useCreateBubble } from "@/hooks/useCreateBubble";
 
 interface CreateBubbleModalProps {
   visible: boolean;
@@ -27,107 +25,13 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
   onCreate,
   onRefresh,
 }) => {
-  const router = useRouter();
-  const { session } = useAuth();
+  const { isCreating, createBubble } = useCreateBubble(onRefresh);
+
   const [selectedType, setSelectedType] = useState<
     "2-2" | "3-3" | "4-4" | null
   >(null);
   const [showNameModal, setShowNameModal] = useState(false);
   const [bubbleName, setBubbleName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-
-  // Move bubble creation logic from profile.tsx to here
-  const handleCreateBubble = async (bubbleSize: "2-2" | "3-3" | "4-4", bubbleName: string) => {
-    if (!session?.user) {
-      Alert.alert("Error", "Please login to create a bubble.");
-      return;
-    }
-
-    // Get user profile data first
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", session.user.id)
-      .single();
-
-    if (profileError || !profile) {
-      Alert.alert("Error", "Could not load your profile. Please try again.");
-      return;
-    }
-
-    if (!profile.gender) {
-      Alert.alert("Error", "Please complete your profile setup first.");
-      return;
-    }
-
-    // Check for preferred gender in both possible field names (camelCase and snake_case)
-    const userPreferredGender = profile.preferredGender || profile.preferred_gender;
-    
-    console.log("[CreateBubbleModal] 🔍 Profile debug:");
-    console.log("[CreateBubbleModal] Full profile keys:", Object.keys(profile));
-    console.log("[CreateBubbleModal] profile.preferredGender:", profile.preferredGender);
-    console.log("[CreateBubbleModal] profile.preferred_gender:", profile.preferred_gender);
-    console.log("[CreateBubbleModal] userPreferredGender:", userPreferredGender);
-
-    if (!userPreferredGender) {
-      Alert.alert("Error", "Please complete your dating preferences first.");
-      return;
-    }
-
-    console.log("[CreateBubbleModal] 🟢 Creating bubble...");
-    console.log("[CreateBubbleModal] Bubble size:", bubbleSize);
-    console.log("[CreateBubbleModal] Bubble name:", bubbleName);
-    console.log("[CreateBubbleModal] Creator gender:", profile.gender);
-    console.log("[CreateBubbleModal] Creator preference:", userPreferredGender);
-
-    setIsCreating(true);
-    try {
-      // Convert bubble size to max_size number
-      const maxSize = bubbleSize === "2-2" ? 2 : bubbleSize === "3-3" ? 3 : 4;
-      
-      const { data: newGroup, error } = await supabase.rpc("create_group", {
-        p_creator_id: session.user.id,
-        p_max_size: maxSize,
-        p_group_name: bubbleName,
-        p_preferred_gender: userPreferredGender // Should always be one of: man, woman, nonbinary, everyone
-      });
-
-      if (error) {
-        console.error("[CreateBubbleModal] RPC Error:", error);
-        Alert.alert("Error", "Failed to create bubble. Please try again.");
-        return;
-      }
-
-      if (!newGroup) {
-        Alert.alert("Error", "Failed to create bubble. Please try again.");
-        return;
-      }
-
-      console.log("[CreateBubbleModal] ✅ Bubble created with ID:", newGroup);
-
-      // Refresh the MyBubble list
-      if (onRefresh) {
-        onRefresh();
-      }
-
-      // Navigate to the form page to show the bubble
-      router.push({
-        pathname: "/bubble/form",
-        params: {
-          groupId: newGroup,
-          isExistingBubble: "false",
-        },
-      });
-      
-      // Reset modal state and close
-      handleCancel();
-    } catch (error) {
-      console.error("[CreateBubbleModal] Error:", error);
-      Alert.alert("Error", "Failed to create bubble. Please try again.");
-    } finally {
-      setIsCreating(false);
-    }
-  };
 
   const handleNext = () => {
     if (selectedType) {
@@ -144,15 +48,17 @@ const CreateBubbleModal: React.FC<CreateBubbleModalProps> = ({
       Alert.alert("Error", "Please select a bubble size.");
       return;
     }
-    
-    await handleCreateBubble(selectedType, bubbleName.trim());
+
+    await createBubble(selectedType, bubbleName.trim());
+
+    // Reset modal state and close
+    handleCancel();
   };
 
   const handleCancel = () => {
     setSelectedType(null);
     setShowNameModal(false);
     setBubbleName("");
-    setIsCreating(false);
     onClose();
   };
 

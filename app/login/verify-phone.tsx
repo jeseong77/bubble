@@ -7,6 +7,7 @@ import {
   Text,
   Alert,
   TouchableWithoutFeedback,
+  TouchableOpacity,
   Keyboard,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";

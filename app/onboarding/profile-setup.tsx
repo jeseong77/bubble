@@ -25,84 +25,11 @@ import AboutMeInputStep from "./profile-setup-steps/AboutMeInputStep";
 import ImageUploadStep from "./profile-setup-steps/ImageUploadStep";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { supabase } from "@/lib/supabase";
+import { useProfileSubmission } from "@/hooks/useProfileSubmission";
+import { isStepValid } from "@/utils/profileValidation";
 
 const MAX_IMAGES = 6;
 const TOTAL_STEPS = 10;
-
-const isStepValid = (step: number, data: ProfileFormData): boolean => {
-  switch (step) {
-    case 0:
-      return !!data.firstName;
-    case 1:
-      return !!data.username;
-    case 2:
-      const dayNum = parseInt(data.birthDay, 10);
-      const monthNum = parseInt(data.birthMonth, 10);
-      const yearNum = parseInt(data.birthYear, 10);
-      if (isNaN(dayNum) || isNaN(monthNum) || isNaN(yearNum)) return false;
-      if (
-        data.birthDay.length !== 2 ||
-        data.birthMonth.length !== 2 ||
-        data.birthYear.length !== 4
-      )
-        return false;
-      if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31)
-        return false;
-      const date = new Date(yearNum, monthNum - 1, dayNum);
-      const today = new Date();
-      
-      // Check if date is valid and not in the future
-      if (
-        date.getFullYear() !== yearNum ||
-        date.getMonth() !== monthNum - 1 ||
-        date.getDate() !== dayNum ||
-        date > today
-      ) {
-        return false;
-      }
-      
-      // Calculate age and check maximum (99 years old)
-      const age = calculateAge(date);
-      return age <= 99;
-    case 3:
-      return true; // Height is optional, always valid
-    case 4:
-      return true; // Location is optional, always valid
-    case 5:
-      return (
-        data.mbti === null ||
-        (typeof data.mbti === "string" && data.mbti.length === 4)
-      );
-    case 6:
-      return !!data.gender;
-    case 7:
-      return !!data.preferredGender;
-    case 8:
-      return true; // About me is optional, always valid
-    case 9:
-      return (
-        data.images &&
-        data.images.length >= 2 &&
-        data.images[0] !== null &&
-        data.images[1] !== null
-      );
-    default:
-      return false;
-  }
-};
-
-const calculateAge = (birthDate: Date): number => {
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && today.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-  return age;
-};
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
@@ -129,8 +56,9 @@ export default function ProfileSetupScreen() {
     aboutMe: "",
     images: Array(MAX_IMAGES).fill(null) as (ProfileImage | null)[],
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { completeProfileSetup } = useAuth();
+
+  // Use profile submission hook
+  const { isSubmitting, submitProfile } = useProfileSubmission();
 
   const updateProfileField = useCallback(
     <K extends keyof ProfileFormData>(field: K, value: ProfileFormData[K]) => {
@@ -140,81 +68,6 @@ export default function ProfileSetupScreen() {
       }));
     },
     []
-  );
-
-  const handleFirstNameChange = useCallback(
-    (value: string) => {
-      updateProfileField("firstName", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleLastNameChange = useCallback(
-    (value: string) => {
-      updateProfileField("lastName", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleUsernameChange = useCallback(
-    (value: string) => {
-      updateProfileField("username", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleBirthDayChange = useCallback(
-    (value: string) => {
-      updateProfileField("birthDay", value);
-    },
-    [updateProfileField]
-  );
-  const handleBirthMonthChange = useCallback(
-    (value: string) => {
-      updateProfileField("birthMonth", value);
-    },
-    [updateProfileField]
-  );
-  const handleBirthYearChange = useCallback(
-    (value: string) => {
-      updateProfileField("birthYear", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleHeightChange = useCallback(
-    (newHeight: number) => {
-      updateProfileField("height", newHeight);
-    },
-    [updateProfileField]
-  );
-
-  const handleMbtiChange = useCallback(
-    (value: string | null) => {
-      updateProfileField("mbti", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleGenderChange = useCallback(
-    (genderValue: string) => {
-      updateProfileField("gender", genderValue);
-    },
-    [updateProfileField]
-  );
-
-  const handleGenderVisibilityChange = useCallback(
-    (isVisible: boolean) => {
-      updateProfileField("genderVisibleOnProfile", isVisible);
-    },
-    [updateProfileField]
-  );
-
-  const handleLocationChange = useCallback(
-    (value: string) => {
-      updateProfileField("location", value);
-    },
-    [updateProfileField]
   );
 
   const handleLocationSkip = useCallback(() => {
@@ -231,20 +84,6 @@ export default function ProfileSetupScreen() {
     }
   }, [updateProfileField, currentStep]);
 
-  const handlePreferredGenderChange = useCallback(
-    (value: string) => {
-      updateProfileField("preferredGender", value);
-    },
-    [updateProfileField]
-  );
-
-  const handleAboutMeChange = useCallback(
-    (text: string) => {
-      updateProfileField("aboutMe", text);
-    },
-    [updateProfileField]
-  );
-
   const handleAboutMeSkip = useCallback(() => {
     updateProfileField("aboutMe", "");
     if (currentStep < TOTAL_STEPS - 1) {
@@ -252,20 +91,10 @@ export default function ProfileSetupScreen() {
     }
   }, [updateProfileField, currentStep]);
 
-  const handleImagesChange = useCallback(
-    (newImages: (ProfileImage | null)[]) => {
-      updateProfileField("images", newImages);
-    },
-    [updateProfileField]
-  );
-
-  // 👇 [추가] 컴포넌트가 렌더링될 때 서버에서 기존 프로필 정보를 가져오는 로직
+  // Fetch existing user profile when component renders
   useEffect(() => {
     const fetchUserProfile = async () => {
-      // session.user.id가 없으면 실행하지 않음
       if (!session?.user?.id) return;
-
-      console.log("[ProfileSetup] 기존 사용자 프로필을 가져오는 중...");
 
       const { data, error } = await supabase
         .from("users")
@@ -273,22 +102,21 @@ export default function ProfileSetupScreen() {
         .eq("id", session.user.id)
         .single();
 
-      // 'PGRST116'는 행을 찾지 못했다는 의미로, 신규 사용자의 경우 정상적인 상황입니다.
+      // 'PGRST116' means row not found, which is normal for new users
       if (error && error.code !== "PGRST116") {
-        console.error("프로필 정보를 가져오는 데 실패했습니다.", error);
+        console.error("Failed to fetch profile information:", error);
         return;
       }
 
       if (data) {
-        console.log("[ProfileSetup] 기존 프로필 발견, 이름 필드를 채웁니다.");
-        // 서버에서 가져온 이름으로 상태를 업데이트합니다.
+        // Update state with existing name from server
         updateProfileField("firstName", data.first_name || "");
         updateProfileField("lastName", data.last_name || "");
       }
     };
 
     fetchUserProfile();
-  }, [session, updateProfileField]); // session 정보가 준비되면 이 로직이 실행됩니다.
+  }, [session, updateProfileField]);
 
 
   const handleNextStep = () => {
@@ -296,7 +124,7 @@ export default function ProfileSetupScreen() {
     if (currentStep < TOTAL_STEPS - 1) {
       setCurrentStep((prev) => prev + 1);
     } else {
-      handleSubmit();
+      submitProfile(profileData);
     }
   };
 
@@ -308,71 +136,6 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  const handleSubmit = async () => {
-    if (isSubmitting || !session?.user) return;
-    setIsSubmitting(true);
-
-    try {
-      // 1. 프로필 정보(텍스트)를 public.users에 저장
-      const { birthYear, birthMonth, birthDay } = profileData;
-      const birthDate = new Date(`${birthYear}-${birthMonth}-${birthDay}`);
-
-      const userProfile = {
-        id: session.user.id,
-        username: profileData.username,
-        first_name: profileData.firstName,
-        last_name: profileData.lastName,
-        birth_date: birthDate.toISOString(),
-        height_cm: profileData.height,
-        location: profileData.location,
-        mbti: profileData.mbti,
-        gender: profileData.gender,
-        preferred_gender: profileData.preferredGender,
-        bio: profileData.aboutMe,
-        profile_setup_completed: true, // 완료 상태를 true로 설정
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error: profileError } = await supabase
-        .from("users")
-        .upsert(userProfile);
-      if (profileError) throw profileError;
-
-      // 2. 업로드된 이미지 URL들을 public.user_images에 저장
-      const uploadedImageUrls = profileData.images
-        .map((img) => img?.url)
-        .filter((url): url is string => !!url);
-
-      if (uploadedImageUrls.length > 0) {
-        // 기존 이미지를 모두 삭제하고 새로 추가 (멱등성 보장)
-        await supabase
-          .from("user_images")
-          .delete()
-          .eq("user_id", session.user.id);
-
-        const imagesToInsert = uploadedImageUrls.map((url, index) => ({
-          user_id: session.user.id,
-          image_url: url,
-          position: index,
-        }));
-
-        const { error: imageError } = await supabase
-          .from("user_images")
-          .insert(imagesToInsert);
-        if (imageError) throw imageError;
-      }
-
-      // 3. 모든 과정 완료 처리
-      await completeProfileSetup();
-      router.replace("/(tabs)");
-    } catch (error) {
-      console.error("Profile submission failed:", error);
-      Alert.alert("Error", "Failed to save profile. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const renderCurrentStepComponent = () => {
     switch (currentStep) {
       case 0:
@@ -380,15 +143,15 @@ export default function ProfileSetupScreen() {
           <NameInputStep
             firstName={profileData.firstName}
             lastName={profileData.lastName}
-            onFirstNameChange={handleFirstNameChange}
-            onLastNameChange={handleLastNameChange}
+            onFirstNameChange={(value) => updateProfileField("firstName", value)}
+            onLastNameChange={(value) => updateProfileField("lastName", value)}
           />
         );
       case 1:
         return (
           <UserIdInputStep
             username={profileData.username}
-            onUsernameChange={handleUsernameChange}
+            onUsernameChange={(value) => updateProfileField("username", value)}
           />
         );
       case 2:
@@ -397,16 +160,16 @@ export default function ProfileSetupScreen() {
             day={profileData.birthDay}
             month={profileData.birthMonth}
             year={profileData.birthYear}
-            onDayChange={handleBirthDayChange}
-            onMonthChange={handleBirthMonthChange}
-            onYearChange={handleBirthYearChange}
+            onDayChange={(value) => updateProfileField("birthDay", value)}
+            onMonthChange={(value) => updateProfileField("birthMonth", value)}
+            onYearChange={(value) => updateProfileField("birthYear", value)}
           />
         );
       case 3:
         return (
           <HeightInputStep
             initialHeightCm={profileData.height ?? undefined}
-            onHeightChange={handleHeightChange}
+            onHeightChange={(value) => updateProfileField("height", value)}
             onSkip={handleHeightSkip}
           />
         );
@@ -414,7 +177,7 @@ export default function ProfileSetupScreen() {
         return (
           <LocationInputStep
             location={profileData.location}
-            onLocationChange={handleLocationChange}
+            onLocationChange={(value) => updateProfileField("location", value)}
             onSkip={handleLocationSkip}
           />
         );
@@ -422,7 +185,7 @@ export default function ProfileSetupScreen() {
         return (
           <MbtiInputStep
             currentMbti={profileData.mbti}
-            onMbtiChange={handleMbtiChange}
+            onMbtiChange={(value) => updateProfileField("mbti", value)}
           />
         );
       case 6:
@@ -430,22 +193,22 @@ export default function ProfileSetupScreen() {
           <GenderInputStep
             currentGender={profileData.gender}
             currentVisibility={profileData.genderVisibleOnProfile}
-            onGenderChange={handleGenderChange}
-            onVisibilityChange={handleGenderVisibilityChange}
+            onGenderChange={(value) => updateProfileField("gender", value)}
+            onVisibilityChange={(value) => updateProfileField("genderVisibleOnProfile", value)}
           />
         );
       case 7:
         return (
           <PreferredGenderInputStep
             preferredGender={profileData.preferredGender}
-            onPreferredGenderChange={handlePreferredGenderChange}
+            onPreferredGenderChange={(value) => updateProfileField("preferredGender", value)}
           />
         );
       case 8:
         return (
           <AboutMeInputStep
             currentAboutMe={profileData.aboutMe}
-            onAboutMeChange={handleAboutMeChange}
+            onAboutMeChange={(value) => updateProfileField("aboutMe", value)}
             onSkip={handleAboutMeSkip}
           />
         );
@@ -453,7 +216,7 @@ export default function ProfileSetupScreen() {
         return (
           <ImageUploadStep
             currentImages={profileData.images}
-            onImagesChange={handleImagesChange}
+            onImagesChange={(value) => updateProfileField("images", value)}
             userId={session?.user?.id || ""}
             maxImages={MAX_IMAGES}
           />
